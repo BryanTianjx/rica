@@ -1,0 +1,18 @@
+[package]
+name = "ica-application"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Use cases and repository ports for the ICA backend."
+
+# Layer 2. Depends on the domain and on `async-trait` (a proc macro with no
+# runtime of its own). Deliberately no axum/sqlx/tokio/hyper: the port trait
+# is the only seam the infra layer implements.
+[dependencies]
+ica-domain.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+# Test fixtures build Position values, whose timestamps are chrono types.
+chrono.workspace = true

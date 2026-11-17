@@ -1,0 +1,5 @@
+[build]
+# D2: /mnt/o is a 20 GB Windows volume with ~7 GB free and 9p semantics;
+# a Rust debug target dir (4-8 GB) would fill it and cargo's incremental
+# compilation over 9p is unreliable. Keep every build artefact on ext4.
+target-dir = "/home/bryan/.cache/ica-rust-target"

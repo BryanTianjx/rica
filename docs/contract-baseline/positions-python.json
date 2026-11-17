@@ -1,0 +1,996 @@
+{
+  "base_url": "http://127.0.0.1:8010",
+  "cases": {
+    "health": {
+      "body": {
+        "ai_enabled": false,
+        "app": "ICA Personal",
+        "status": "ok"
+      },
+      "content_type": "application/json",
+      "path": "/health",
+      "status": 200
+    },
+    "position_detail": {
+      "body": {
+        "archived": false,
+        "candidate_count": 3,
+        "created_at": "2026-11-10T09:00:00Z",
+        "description": "Own the Rust backend rewrite.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "11111111-1111-1111-1111-111111111111",
+        "location": "Beijing",
+        "name": "Senior Rust Engineer",
+        "notes": "priority role",
+        "salary_max": 60000,
+        "salary_min": 40000,
+        "skill_requirements": "Rust, SQLx, Axum",
+        "status": "Open",
+        "updated_at": "2026-11-10T09:30:00Z"
+      },
+      "content_type": "application/json",
+      "path": "/api/positions/11111111-1111-1111-1111-111111111111",
+      "status": 200
+    },
+    "position_detail_archived": {
+      "body": {
+        "archived": true,
+        "candidate_count": 2,
+        "created_at": "2026-11-13T12:00:00.500000Z",
+        "description": "Filled months ago.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "44444444-4444-4444-4444-444444444444",
+        "location": "beijing",
+        "name": "Archived Recruiter",
+        "notes": null,
+        "salary_max": 45000,
+        "salary_min": 30000,
+        "skill_requirements": "Sourcing",
+        "status": "Closed",
+        "updated_at": "2026-11-13T12:00:00.500000Z"
+      },
+      "content_type": "application/json",
+      "path": "/api/positions/44444444-4444-4444-4444-444444444444",
+      "status": 200
+    },
+    "position_detail_missing": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Position 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "path": "/api/positions/does-not-exist",
+      "status": 404
+    },
+    "positions_default": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "path": "/api/positions",
+      "status": 200
+    },
+    "positions_include_archived": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": true,
+            "candidate_count": 2,
+            "created_at": "2026-11-13T12:00:00.500000Z",
+            "description": "Filled months ago.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "44444444-4444-4444-4444-444444444444",
+            "location": "beijing",
+            "name": "Archived Recruiter",
+            "notes": null,
+            "salary_max": 45000,
+            "salary_min": 30000,
+            "skill_requirements": "Sourcing",
+            "status": "Closed",
+            "updated_at": "2026-11-13T12:00:00.500000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 7
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?include_archived=true",
+      "status": 200
+    },
+    "positions_include_archived_bool1": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": true,
+            "candidate_count": 2,
+            "created_at": "2026-11-13T12:00:00.500000Z",
+            "description": "Filled months ago.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "44444444-4444-4444-4444-444444444444",
+            "location": "beijing",
+            "name": "Archived Recruiter",
+            "notes": null,
+            "salary_max": 45000,
+            "salary_min": 30000,
+            "skill_requirements": "Sourcing",
+            "status": "Closed",
+            "updated_at": "2026-11-13T12:00:00.500000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 7
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?include_archived=1",
+      "status": 200
+    },
+    "positions_limit2": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?limit=2",
+      "status": 200
+    },
+    "positions_limit_max": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 500,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?limit=500",
+      "status": 200
+    },
+    "positions_limit_over_max": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "le": 500
+                },
+                "input": "501",
+                "loc": [
+                  "query",
+                  "limit"
+                ],
+                "msg": "Input should be less than or equal to 500",
+                "type": "less_than_equal"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?limit=501",
+      "status": 422
+    },
+    "positions_limit_zero": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "gt": 0
+                },
+                "input": "0",
+                "loc": [
+                  "query",
+                  "limit"
+                ],
+                "msg": "Input should be greater than 0",
+                "type": "greater_than"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?limit=0",
+      "status": 422
+    },
+    "positions_offset_beyond_total": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 100,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?offset=100",
+      "status": 200
+    },
+    "positions_offset_negative": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "ge": 0
+                },
+                "input": "-1",
+                "loc": [
+                  "query",
+                  "offset"
+                ],
+                "msg": "Input should be greater than or equal to 0",
+                "type": "greater_than_equal"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?offset=-1",
+      "status": 422
+    },
+    "positions_page2": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 2,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?limit=2&offset=2",
+      "status": 200
+    },
+    "positions_search_case_insensitive": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?search=RUST",
+      "status": 200
+    },
+    "positions_search_hit": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?search=beijing",
+      "status": 200
+    },
+    "positions_search_hit_with_archived": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": true,
+            "candidate_count": 2,
+            "created_at": "2026-11-13T12:00:00.500000Z",
+            "description": "Filled months ago.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "44444444-4444-4444-4444-444444444444",
+            "location": "beijing",
+            "name": "Archived Recruiter",
+            "notes": null,
+            "salary_max": 45000,
+            "salary_min": 30000,
+            "skill_requirements": "Sourcing",
+            "status": "Closed",
+            "updated_at": "2026-11-13T12:00:00.500000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 3
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?search=beijing&include_archived=true",
+      "status": 200
+    },
+    "positions_search_miss": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 0,
+        "total": 0
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?search=zzz-nothing",
+      "status": 200
+    },
+    "positions_search_padded": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?search=%20beijing%20",
+      "status": 200
+    },
+    "positions_search_too_long": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "max_length": 200
+                },
+                "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "loc": [
+                  "query",
+                  "search"
+                ],
+                "msg": "String should have at most 200 characters",
+                "type": "string_too_long"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "path": "/api/positions?search=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 422
+    }
+  }
+}

@@ -1,0 +1,22 @@
+[package]
+name = "ica-infra"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "SQLite persistence adapters for the ICA backend (sqlx, runtime queries)."
+
+[dependencies]
+ica-domain.workspace = true
+ica-application.workspace = true
+# The port trait is `#[async_trait]`; implementing it needs the proc macro. It
+# generates no runtime of its own — the tokio features below are only for the
+# sqlx SQLite driver.
+async-trait.workspace = true
+sqlx.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

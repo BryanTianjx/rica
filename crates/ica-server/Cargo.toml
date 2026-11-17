@@ -1,0 +1,22 @@
+[package]
+name = "ica-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "ICA backend binary: configuration, tracing, startup self-check, graceful shutdown."
+
+[[bin]]
+name = "ica-server"
+path = "src/main.rs"
+
+# The binary is the composition root: it wires the adapters into the HTTP
+# layer and owns process concerns. It has no domain/application dependency of
+# its own — everything it needs arrives through ica-api and ica-infra.
+[dependencies]
+ica-infra.workspace = true
+ica-api.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

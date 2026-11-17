@@ -1,0 +1,12 @@
+[package]
+name = "ica-domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Pure domain model for the ICA backend: entities, enums, pagination and search rules."
+
+# Layer 1 (innermost). No web framework, no database driver, no async runtime:
+# the layering rule is enforced by this dependency list (see docs/rust-migration-contract.md).
+[dependencies]
+chrono.workspace = true
