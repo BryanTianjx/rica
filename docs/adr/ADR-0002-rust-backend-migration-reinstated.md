@@ -1,13 +1,16 @@
 # ADR-0002 — Rust backend migration reinstated (ICA Personal)
 
-- Status: Accepted (overrides three clauses of ADM-001 for this repository only)
+- Status: Accepted (overrides three clauses of ADM-001 for this repository only);
+  **Revision 1 (2026-11-18): the Tauri 2 desktop shell's Rust command layer moved
+  into scope — see §5**
 - Date: 2026-11-17
 - Supersedes: ADM-001 §1.7, §3.2 (item 6), §20.3 — for the backend HTTP/data plane only
 - Approval: work item `wi_31c11ba4f37644bc`, approval `apr_6f65829a96524475`
   (bryan, 2026-11-17T00:39:18Z), actions WORKSPACE_WRITE / CREATE_TICKET /
   ASSIGN_AGENT / DISPATCH_EXECUTION / GIT_LOCAL_COMMIT
 - Repository: `/mnt/o/ICA-RUST` (new, separate from the ICA main repo)
-- Related: `docs/rust-migration-contract.md` (endpoint map, waves, coexistence)
+- Related: `docs/rust-migration-contract.md` (endpoint map, waves, coexistence),
+  `docs/audits/tauri-architecture-audit-r0.1.md` (Revision 1 input)
 
 ## 1. Context
 
@@ -97,3 +100,46 @@ Re-open this ADR if any of the following becomes true:
    be re-approved.
 5. The Rust service cannot preserve the read-only guarantee on the baseline
    database (see `docs/rust-migration-contract.md` §7).
+
+## 5. Revision 1 (2026-11-18) — the desktop shell's Rust command layer moves into scope
+
+**Trigger.** Review condition 4 fired: the Tauri 2 desktop-client proposal
+moves the frontend from HTTP (same-origin `ica://` forwarding to the Python
+sidecar) to **Tauri IPC against a Rust Core**. The architecture-difference
+audit (`docs/audits/tauri-architecture-audit-r0.1.md`, snapshot `w1.6-done`)
+confirmed the proposal triggers this condition and measured the real cost:
+the use-case layer is already transport-neutral and reusable, but the
+request-side contract (1,763 lines of validation returning axum-coupled
+`ApiError`) and the response DTOs live in `ica-api` and cannot serve a second
+adapter.
+
+**Decision (approved by the user, 2026-11-18).** Adopt the IPC route:
+
+- The frontend will talk **Tauri IPC** to a Rust command layer instead of
+  HTTP to the Python sidecar.
+- The **Tauri 2 desktop shell's Rust command layer moves into scope** for this
+  repository: a new `ica-contracts` crate becomes the single source of the
+  wire contract (request validation + response DTOs, transport-neutral), and
+  a new `ica-desktop` crate implements the command layer over the same ports
+  `ica-api` already uses. `ica-api` degrades to routes + `IntoResponse`.
+- **What does not change**: the HTTP contract remains the behaviour authority
+  (`docs/rust-migration-contract.md`, the 141-case capture) — the extraction
+  is a REF-level move and must leave every captured byte identical; the wave
+  sequence W3–W7 continues; the Python sidecar stays the coexistence backend
+  until W7.
+- **Out of scope here, still**: the shell packaging and the frontend files
+  themselves live in the ICA main repository.
+
+**Consequences of the revision.**
+
+- The original out-of-scope line above ("the Tauri 2 desktop shell") is
+  superseded for the *Rust command layer* only; shell packaging stays with the
+  ICA repository's `desktop/tauri-host` until its disposition is executed.
+- `ica-contracts` joins the compile-enforced inner layer (no axum/sqlx/tokio).
+- ADR-0001 lives in the ICA main repository (read-only for this workspace):
+  revising it — the shell's bundled backend becoming the Rust Core — is a
+  separate work item for the ICA side and **must land before the desktop
+  shell ships**, per that repository's governance.
+- The 1,763-line validation asset stops being HTTP-only: it becomes the
+  shared contract, which is what makes "no dual-entry duplicate
+  implementation" true instead of aspirational.

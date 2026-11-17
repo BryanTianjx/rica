@@ -3,8 +3,10 @@ resolver = "2"
 members = [
     "crates/ica-domain",
     "crates/ica-application",
+    "crates/ica-contracts",
     "crates/ica-infra",
     "crates/ica-api",
+    "crates/ica-desktop",
     "crates/ica-server",
 ]
 
@@ -55,5 +57,7 @@ tempfile = "3"
 # Internal crates
 ica-domain = { path = "crates/ica-domain" }
 ica-application = { path = "crates/ica-application" }
+ica-contracts = { path = "crates/ica-contracts" }
 ica-infra = { path = "crates/ica-infra" }
 ica-api = { path = "crates/ica-api" }
+ica-desktop = { path = "crates/ica-desktop" }

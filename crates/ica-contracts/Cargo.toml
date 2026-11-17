@@ -1,0 +1,19 @@
+[package]
+name = "ica-contracts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "The transport-neutral wire contract: request validation, response DTOs and the error shape shared by every adapter."
+
+# Layer 2.5, beside `ica-application`: pure data and pure validation. No axum,
+# no sqlx, no tokio — an IPC adapter must be able to use every type here
+# without dragging an HTTP stack in (Tauri-audit R0.1 §4.3, option C).
+[dependencies]
+ica-application.workspace = true
+ica-domain.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+form_urlencoded.workspace = true
+serde_urlencoded.workspace = true

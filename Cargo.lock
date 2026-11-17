@@ -567,6 +567,7 @@ dependencies = [
  "form_urlencoded",
  "http-body-util",
  "ica-application",
+ "ica-contracts",
  "ica-domain",
  "ica-infra",
  "serde",
@@ -587,6 +588,36 @@ dependencies = [
  "chrono",
  "ica-domain",
  "serde_json",
+]
+
+[[package]]
+name = "ica-contracts"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "form_urlencoded",
+ "ica-application",
+ "ica-domain",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+]
+
+[[package]]
+name = "ica-desktop"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ica-application",
+ "ica-contracts",
+ "ica-domain",
+ "ica-infra",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

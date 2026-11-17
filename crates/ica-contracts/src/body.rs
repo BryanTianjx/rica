@@ -24,7 +24,7 @@ use ica_domain::{
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 
-use crate::error::{ApiError, ValidationIssue};
+use crate::error::{ContractError, ValidationIssue};
 
 /// One field of a JSON object: absent, explicitly `null`, or a value.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -62,9 +62,9 @@ fn field<T>(incoming: Incoming<T>) -> Field<T> {
 }
 
 /// Parse a request body, answering 422 (not axum's plain text) on bad JSON.
-pub fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
+pub fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ContractError> {
     serde_json::from_slice(bytes).map_err(|error| {
-        ApiError::validation(ValidationIssue::new(
+        ContractError::validation(ValidationIssue::new(
             "json_invalid",
             vec!["body"],
             &format!("Input should be a valid JSON object: {error}"),
@@ -112,8 +112,8 @@ fn check_non_negative(issues: &mut Vec<ValidationIssue>, field: &str, value: Opt
     }
 }
 
-fn failure<T>(issues: Vec<ValidationIssue>) -> Result<T, ApiError> {
-    Err(ApiError::validation_issues(issues))
+fn failure<T>(issues: Vec<ValidationIssue>) -> Result<T, ContractError> {
+    Err(ContractError::validation_issues(issues))
 }
 
 /// Parse an instant the way pydantic does: RFC 3339, `YYYY-MM-DD HH:MM:SS[.f]`,
@@ -273,7 +273,7 @@ fn take_salary(
 }
 
 /// Validate a `POST /api/positions` body.
-pub fn position_create(raw: RawPositionCreate) -> Result<NewPosition, ApiError> {
+pub fn position_create(raw: RawPositionCreate) -> Result<NewPosition, ContractError> {
     let mut issues = Vec::new();
 
     let name = take_required_string(&mut issues, "name", raw.name, Some(200));
@@ -331,7 +331,7 @@ pub fn position_create(raw: RawPositionCreate) -> Result<NewPosition, ApiError> 
 /// `archived`) is a 422, not the 500 the baseline produces when SQLAlchemy tries
 /// to store NULL. `status = null` is still accepted and ignored, because the
 /// baseline's `if payload.status is not None` skips it.
-pub fn position_patch(raw: RawPositionPatch) -> Result<PositionPatch, ApiError> {
+pub fn position_patch(raw: RawPositionPatch) -> Result<PositionPatch, ContractError> {
     let mut issues = Vec::new();
 
     let name = match raw.name {
@@ -488,7 +488,7 @@ fn clean_candidate_name(issues: &mut Vec<ValidationIssue>, value: String) -> Str
 }
 
 /// Validate a `POST /api/candidates` body.
-pub fn candidate_create(raw: RawCandidateCreate) -> Result<NewCandidate, ApiError> {
+pub fn candidate_create(raw: RawCandidateCreate) -> Result<NewCandidate, ContractError> {
     let mut issues = Vec::new();
 
     let raw_name = take_required_string(&mut issues, "name", raw.name, Some(200));
@@ -552,7 +552,7 @@ pub fn candidate_create(raw: RawCandidateCreate) -> Result<NewCandidate, ApiErro
 ///
 /// `name`, `source`, `status` and `archived` are NOT NULL: an explicit `null`
 /// is a 422 (not an IntegrityError), and an omitted field stays untouched.
-pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, ApiError> {
+pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, ContractError> {
     let mut issues = Vec::new();
 
     let name = match raw.name {
@@ -687,7 +687,7 @@ pub struct RawMessageCreate {
 }
 
 /// Validate a `POST /api/conversations` body.
-pub fn conversation_create(raw: RawConversationCreate) -> Result<NewConversation, ApiError> {
+pub fn conversation_create(raw: RawConversationCreate) -> Result<NewConversation, ContractError> {
     let mut issues = Vec::new();
     let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
     let channel = match raw.channel {
@@ -721,7 +721,7 @@ pub fn conversation_create(raw: RawConversationCreate) -> Result<NewConversation
 }
 
 /// Validate a `POST /api/messages` body.
-pub fn message_create(raw: RawMessageCreate) -> Result<NewMessage, ApiError> {
+pub fn message_create(raw: RawMessageCreate) -> Result<NewMessage, ContractError> {
     let mut issues = Vec::new();
     let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
     let content = take_required_string(&mut issues, "content", raw.content, None);
@@ -793,7 +793,7 @@ pub struct RawSendRecordCreate {
 }
 
 /// Validate a `POST /api/send-records` body.
-pub fn send_record_create(raw: RawSendRecordCreate) -> Result<NewSendRecord, ApiError> {
+pub fn send_record_create(raw: RawSendRecordCreate) -> Result<NewSendRecord, ContractError> {
     let mut issues = Vec::new();
     let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
 
@@ -869,7 +869,7 @@ pub struct RawFollowUpCreate {
 }
 
 /// Validate a `POST /api/follow-ups` body (`objective` caps at 64 characters).
-pub fn follow_up_create(raw: RawFollowUpCreate) -> Result<NewFollowUpTask, ApiError> {
+pub fn follow_up_create(raw: RawFollowUpCreate) -> Result<NewFollowUpTask, ContractError> {
     let mut issues = Vec::new();
     let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
     let position_id = take_optional_string(raw.position_id);
@@ -918,7 +918,7 @@ const FOLLOW_UP_STATUS_EXPECTED: &str = "'Pending', 'Eligible', 'Drafting', 'Rev
      'Expired' or 'Blocked'";
 
 /// Validate a `PATCH /api/follow-ups/{id}` body.
-pub fn follow_up_patch(raw: RawFollowUpPatch) -> Result<FollowUpTaskPatch, ApiError> {
+pub fn follow_up_patch(raw: RawFollowUpPatch) -> Result<FollowUpTaskPatch, ContractError> {
     let mut issues = Vec::new();
 
     let objective = match &raw.objective {
@@ -984,7 +984,7 @@ pub struct RawFollowUpResult {
 }
 
 /// Validate a `POST /api/follow-ups/{id}/record-result` body.
-pub fn follow_up_result(raw: RawFollowUpResult) -> Result<NewFollowUpResult, ApiError> {
+pub fn follow_up_result(raw: RawFollowUpResult) -> Result<NewFollowUpResult, ContractError> {
     let mut issues = Vec::new();
     let result_type = match take_enum(
         &mut issues,
@@ -1020,7 +1020,9 @@ pub struct RawFollowUpEvaluate {
 }
 
 /// Validate a `POST /api/follow-ups/evaluate` body.
-pub fn follow_up_evaluate(raw: RawFollowUpEvaluate) -> Result<NewFollowUpEvaluation, ApiError> {
+pub fn follow_up_evaluate(
+    raw: RawFollowUpEvaluate,
+) -> Result<NewFollowUpEvaluation, ContractError> {
     let mut issues = Vec::new();
     let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
     let position_id = take_optional_string(raw.position_id);
@@ -1085,7 +1087,7 @@ fn take_policy_int(
 /// Validate a `PATCH /api/follow-ups/policy/current` body.
 pub fn follow_up_policy_patch(
     raw: RawFollowUpPolicyPatch,
-) -> Result<FollowUpPolicyPatch, ApiError> {
+) -> Result<FollowUpPolicyPatch, ContractError> {
     let mut issues = Vec::new();
     let first_follow_up_delay_hours = take_policy_int(
         &mut issues,
@@ -1135,7 +1137,7 @@ mod tests {
     fn an_explicit_null_name_is_rejected_on_patch() {
         let raw: RawPositionPatch = parse(br#"{"name": null}"#).unwrap();
         let error = position_patch(raw).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a 422");
         };
         assert_eq!(issues[0].loc, ["body", "name"]);

@@ -6,7 +6,7 @@
 //!
 //! Request bodies are taken as `Bytes` and parsed by `body::parse` so a
 //! malformed body produces the project's JSON 422 envelope instead of axum's
-//! plain-text extractor error. Queries go through [`ApiQuery`](crate::query::ApiQuery)
+//! plain-text extractor error. Queries go through [`ApiQuery`](crate::extract::ApiQuery)
 //! for the same reason, and the parity middlewares in `http_parity` keep the
 //! 405/HEAD/trailing-slash answers on Starlette's side of the line.
 
@@ -25,9 +25,10 @@ use crate::dto::{
     SendRecordRead, TimelineEntryRead,
 };
 use crate::error::ApiError;
+use crate::extract::ApiQuery;
 use crate::http_parity::RoutePatterns;
 use crate::query::{
-    self, ApiQuery, RawFollowUpCancelQuery, RawListCandidatesQuery, RawListConversationsQuery,
+    self, RawFollowUpCancelQuery, RawListCandidatesQuery, RawListConversationsQuery,
     RawListFollowUpsQuery, RawListMessagesQuery, RawListPositionsQuery, RawListSendRecordsQuery,
     RawTimelineQuery,
 };

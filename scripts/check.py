@@ -43,10 +43,12 @@ FORBIDDEN_IN_INNER_LAYERS = {"axum", "sqlx", "tokio", "hyper"}
 # new wrapper — `ica-application -> ica-infra` would drag sqlx in without this
 # gate ever seeing the framework name (audit finding F-08). The reverse edge,
 # ica-infra depending on ica-application, is the intended direction and is not
-# checked here.
-ADAPTER_CRATES = {"ica-infra", "ica-api", "ica-server"}
-# Crates whose dependency list must stay clean.
-GUARDED_CRATES = {"ica-domain", "ica-application"}
+# checked here. `ica-desktop` joins them with the Tauri route (ADR-0002 §5).
+ADAPTER_CRATES = {"ica-infra", "ica-api", "ica-server", "ica-desktop"}
+# Crates whose dependency list must stay clean — now including the wire
+# contract, so an IPC adapter can trust it to be transport-neutral
+# (Tauri-audit R0.1 §4.3, option C).
+GUARDED_CRATES = {"ica-domain", "ica-application", "ica-contracts"}
 
 # `cargo test` prints one line per test target:
 #   test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out

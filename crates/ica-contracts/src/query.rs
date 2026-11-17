@@ -5,18 +5,13 @@
 //! and the rejection codes, because the frontend and the desktop shell send
 //! `0`/`1` for booleans and rely on `limit` being clamped, not silently fixed.
 //!
-//! Extraction goes through [`ApiQuery`], not axum's `Query`: Starlette keeps
-//! the **last** occurrence of a repeated key where axum rejects with a
-//! plain-text 400, and pydantic's number grammar (underscores, `+` sign, no
-//! upper bound) differs from what `str::parse::<i64>` accepts.
+//! The HTTP adapter additionally binds these validators to axum via
+//! `ica_api`'s `ApiQuery` extractor, which keeps the **last** occurrence of a
+//! repeated query key the way Starlette does.
 //!
 //! Every validator collects *all* problems before failing, the way pydantic
 //! reports one 422 with a list of errors instead of stopping at the first one.
 
-use std::collections::HashSet;
-
-use axum::extract::FromRequestParts;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 use ica_application::{
@@ -26,7 +21,7 @@ use ica_domain::{
     normalize_search, CandidateStatus, FollowUpTaskStatus, ResultType, MAX_SEARCH_LEN,
 };
 
-use crate::error::{ApiError, ValidationIssue};
+use crate::error::{ContractError, ValidationIssue};
 
 /// Page size when the caller does not ask for one (`Query(default=50)`).
 pub const DEFAULT_LIMIT: usize = 50;
@@ -38,64 +33,6 @@ pub const DEFAULT_MESSAGE_LIMIT: usize = 200;
 pub const MAX_MESSAGE_LIMIT: usize = 1000;
 
 // ── Shared parsing helpers ─────────────────────────────────────────────────
-
-/// A query extractor that mirrors the Python baseline's `QueryParams`.
-///
-/// axum's built-in `Query<T>` rejects a repeated key (`?limit=1&limit=2`) with
-/// a plain-text 400 — a format the frontend's single error path cannot parse,
-/// and a semantic divergence too: Starlette answers that request 200 with the
-/// **last** value. This extractor decodes with the same rules as Python's
-/// `urllib.parse.parse_qsl` (form decoding: `+` is a space, `%XX` decoded,
-/// invalid UTF-8 replaced, a bare key becomes an empty value) and keeps the
-/// last occurrence of every key before deserialising.
-pub struct ApiQuery<T>(pub T);
-
-impl<S, T> FromRequestParts<S> for ApiQuery<T>
-where
-    S: Send + Sync,
-    T: DeserializeOwned,
-{
-    type Rejection = ApiError;
-
-    async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        _state: &S,
-    ) -> Result<Self, Self::Rejection> {
-        let raw = parts.uri.query().unwrap_or("");
-        let pairs = last_value_wins(raw);
-        let encoded = form_urlencoded::Serializer::new(String::new())
-            .extend_pairs(
-                pairs
-                    .iter()
-                    .map(|(key, value)| (key.as_str(), value.as_str())),
-            )
-            .finish();
-        let value = serde_urlencoded::from_str(&encoded).map_err(|error| {
-            // Unreachable for the current query structs: every field is an
-            // `Option<String>` and keys are unique after the merge. Mapped to
-            // the envelope anyway, so a future field can never reintroduce
-            // axum's plain-text rejection here.
-            ApiError::Http {
-                status: 400,
-                message: format!("Failed to deserialize query string: {error}"),
-            }
-        })?;
-        Ok(ApiQuery(value))
-    }
-}
-
-/// Decode a raw query string into pairs, keeping only the **last** occurrence
-/// of every key, in the order those last occurrences appear.
-fn last_value_wins(raw: &str) -> Vec<(String, String)> {
-    let mut pairs: Vec<(String, String)> = form_urlencoded::parse(raw.as_bytes())
-        .map(|(key, value)| (key.into_owned(), value.into_owned()))
-        .collect();
-    let mut seen = HashSet::new();
-    pairs.reverse();
-    pairs.retain(|(key, _)| seen.insert(key.clone()));
-    pairs.reverse();
-    pairs
-}
 
 /// Raw query values, exactly as they arrived: no coercion has happened yet.
 #[derive(Debug, Default, Clone, Deserialize)]
@@ -321,18 +258,18 @@ fn search_or_none(raw: Option<&str>, issues: &mut Vec<ValidationIssue>) -> Optio
     }
 }
 
-fn finish<T>(issues: Vec<ValidationIssue>, value: T) -> Result<T, ApiError> {
+fn finish<T>(issues: Vec<ValidationIssue>, value: T) -> Result<T, ContractError> {
     if issues.is_empty() {
         Ok(value)
     } else {
-        Err(ApiError::validation_issues(issues))
+        Err(ContractError::validation_issues(issues))
     }
 }
 
 // ── Positions ──────────────────────────────────────────────────────────────
 
 /// Validate every `GET /api/positions` parameter.
-pub fn validate(raw: RawListPositionsQuery) -> Result<ListPositions, ApiError> {
+pub fn validate(raw: RawListPositionsQuery) -> Result<ListPositions, ContractError> {
     let mut issues = Vec::new();
 
     let include_archived = match raw.include_archived.as_deref() {
@@ -380,7 +317,7 @@ pub struct RawListCandidatesQuery {
 }
 
 /// Validate every `GET /api/candidates` parameter.
-pub fn validate_candidates(raw: RawListCandidatesQuery) -> Result<ListCandidates, ApiError> {
+pub fn validate_candidates(raw: RawListCandidatesQuery) -> Result<ListCandidates, ContractError> {
     let mut issues = Vec::new();
 
     let search = search_or_none(raw.search.as_deref(), &mut issues);
@@ -435,7 +372,7 @@ pub struct RawListConversationsQuery {
 /// Validate every `GET /api/conversations` parameter.
 pub fn validate_conversations(
     raw: RawListConversationsQuery,
-) -> Result<ListConversations, ApiError> {
+) -> Result<ListConversations, ContractError> {
     let mut issues = Vec::new();
     let offset = offset_or_default(raw.offset.as_deref(), &mut issues);
     let limit = limit_or_default(raw.limit.as_deref(), DEFAULT_LIMIT, MAX_LIMIT, &mut issues);
@@ -461,7 +398,7 @@ pub struct RawListMessagesQuery {
 }
 
 /// Validate every `GET /api/messages` parameter.
-pub fn validate_messages(raw: RawListMessagesQuery) -> Result<ListMessages, ApiError> {
+pub fn validate_messages(raw: RawListMessagesQuery) -> Result<ListMessages, ContractError> {
     let mut issues = Vec::new();
     let offset = offset_or_default(raw.offset.as_deref(), &mut issues);
     let limit = limit_or_default(
@@ -488,7 +425,7 @@ pub struct RawTimelineQuery {
 }
 
 /// Validate `limit` for the timeline endpoint.
-pub fn validate_timeline(raw: RawTimelineQuery) -> Result<usize, ApiError> {
+pub fn validate_timeline(raw: RawTimelineQuery) -> Result<usize, ContractError> {
     let mut issues = Vec::new();
     let limit = limit_or_default(
         raw.limit.as_deref(),
@@ -514,7 +451,9 @@ pub struct RawListSendRecordsQuery {
 }
 
 /// Validate every `GET /api/send-records` parameter.
-pub fn validate_send_records(raw: RawListSendRecordsQuery) -> Result<ListSendRecords, ApiError> {
+pub fn validate_send_records(
+    raw: RawListSendRecordsQuery,
+) -> Result<ListSendRecords, ContractError> {
     let mut issues = Vec::new();
     let status: Option<ResultType> = parse_enum(
         raw.status.as_deref(),
@@ -560,7 +499,7 @@ pub struct ListFollowUps {
 }
 
 /// Validate every `GET /api/follow-ups` parameter.
-pub fn validate_follow_ups(raw: RawListFollowUpsQuery) -> Result<ListFollowUps, ApiError> {
+pub fn validate_follow_ups(raw: RawListFollowUpsQuery) -> Result<ListFollowUps, ContractError> {
     let mut issues = Vec::new();
     let status = parse_enum(
         raw.status.as_deref(),
@@ -587,6 +526,48 @@ pub fn validate_follow_ups(raw: RawListFollowUpsQuery) -> Result<ListFollowUps, 
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct RawFollowUpCancelQuery {
     pub reason: Option<String>,
+}
+
+// ── Typed-argument variants (Tauri IPC) ────────────────────────────────────
+//
+// The HTTP side parses query strings; an IPC command receives JSON values,
+// which arrive already typed. The ranges and error codes must stay identical,
+// so these helpers reuse the same ValidationIssue shapes with `["args", …]`
+// locations — the wire shape an IPC client sees is this crate's choice, and
+// it deliberately mirrors the HTTP one.
+
+/// Typed `offset`: non-negative, default 0.
+pub fn typed_offset(offset: Option<i64>) -> Result<usize, ContractError> {
+    match offset {
+        None => Ok(0),
+        Some(value) if value >= 0 => Ok(usize::try_from(value as u64).unwrap_or(usize::MAX)),
+        Some(value) => Err(ContractError::validation(ValidationIssue::new(
+            "greater_than_equal",
+            vec!["args", "offset"],
+            "Input should be greater than or equal to 0",
+            &value.to_string(),
+        ))),
+    }
+}
+
+/// Typed `limit`: `1..=max`, with the endpoint's default.
+pub fn typed_limit(limit: Option<i64>, default: usize, max: usize) -> Result<usize, ContractError> {
+    match limit {
+        None => Ok(default),
+        Some(value) if value <= 0 => Err(ContractError::validation(ValidationIssue::new(
+            "greater_than",
+            vec!["args", "limit"],
+            "Input should be greater than 0",
+            &value.to_string(),
+        ))),
+        Some(value) if value > max as i64 => Err(ContractError::validation(ValidationIssue::new(
+            "less_than_equal",
+            vec!["args", "limit"],
+            &format!("Input should be less than or equal to {max}"),
+            &value.to_string(),
+        ))),
+        Some(value) => Ok(value as usize),
+    }
 }
 
 #[cfg(test)]
@@ -683,7 +664,7 @@ mod tests {
     #[test]
     fn an_offset_beyond_u64_is_an_int_parsing_error_imp4() {
         let error = validate(raw(None, Some("18446744073709551616"), None)).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "int_parsing");
@@ -692,7 +673,7 @@ mod tests {
     #[test]
     fn a_limit_beyond_u64_is_less_than_equal_like_python() {
         let error = validate(raw(None, None, Some("18446744073709551616"))).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "less_than_equal");
@@ -706,26 +687,9 @@ mod tests {
     }
 
     #[test]
-    fn the_last_occurrence_of_a_repeated_key_wins() {
-        let pairs = last_value_wins("limit=1&limit=2&search=x&search=");
-        assert_eq!(
-            pairs,
-            vec![
-                ("limit".to_string(), "2".to_string()),
-                ("search".to_string(), String::new()),
-            ]
-        );
-        // A bare key arrives as an empty value, like `parse_qsl(keep_blank_values=True)`.
-        assert_eq!(
-            last_value_wins("limit"),
-            vec![("limit".to_string(), String::new())]
-        );
-    }
-
-    #[test]
     fn limit_zero_is_rejected_as_greater_than_zero() {
         let error = validate(raw(None, None, Some("0"))).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "greater_than");
@@ -735,7 +699,7 @@ mod tests {
     #[test]
     fn limit_above_the_ceiling_is_rejected() {
         let error = validate(raw(None, None, Some("501"))).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "less_than_equal");
@@ -749,7 +713,7 @@ mod tests {
     #[test]
     fn a_negative_offset_is_rejected() {
         let error = validate(raw(None, Some("-1"), None)).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "greater_than_equal");
@@ -759,7 +723,7 @@ mod tests {
     #[test]
     fn a_non_numeric_limit_is_an_int_parsing_error() {
         let error = validate(raw(None, None, Some("abc"))).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "int_parsing");
@@ -768,7 +732,7 @@ mod tests {
     #[test]
     fn every_bad_parameter_is_reported_together() {
         let error = validate(raw(Some("maybe"), Some("-1"), Some("0"))).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues.len(), 3);
@@ -789,7 +753,7 @@ mod tests {
         let mut query = raw(None, None, None);
         query.search = Some("a".repeat(201));
         let error = validate(query).unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "string_too_long");
@@ -814,7 +778,7 @@ mod tests {
             ..Default::default()
         })
         .unwrap_err();
-        assert!(matches!(error, ApiError::ValidationIssues { .. }));
+        assert!(matches!(error, ContractError::ValidationIssues { .. }));
         assert_eq!(
             validate_messages(RawListMessagesQuery {
                 limit: Some("1000".to_string()),
@@ -833,7 +797,7 @@ mod tests {
             ..Default::default()
         })
         .unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "enum");
@@ -847,7 +811,7 @@ mod tests {
             ..Default::default()
         })
         .unwrap_err();
-        let ApiError::ValidationIssues { issues } = error else {
+        let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a validation error");
         };
         assert_eq!(issues[0].kind, "enum");

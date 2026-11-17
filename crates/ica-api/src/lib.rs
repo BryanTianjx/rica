@@ -1,27 +1,22 @@
-//! ICA HTTP layer: axum routes, DTOs and error mapping.
+//! ICA HTTP layer: axum routes, state and the error binding.
 //!
-//! This crate is the only place that knows about HTTP. It translates a request
-//! into an application use case and the result into the exact JSON the Python
-//! baseline emits, so an existing frontend cannot tell the two apart.
+//! This crate is the HTTP adapter over the wire contract: the contract itself
+//! (request validation, response DTOs, the error vocabulary) lives in
+//! `ica-contracts`, and the use cases live in `ica-application` — both are
+//! shared with the desktop adapter, so no contract logic is duplicated per
+//! transport (Tauri-audit R0.1 §4.3, option C).
 
-pub mod body;
-pub mod dto;
 pub mod error;
+pub mod extract;
 pub mod http_parity;
-pub mod query;
 pub mod routes;
 pub mod state;
 
-pub use dto::{
-    CandidateDetailRead, CandidateRead, ConversationRead, DashboardRead, FollowUpDecisionRead,
-    FollowUpPolicyRead, FollowUpTaskRead, HealthResponse, MessageRead, PageResponse, PositionRead,
-    SendRecordRead, TimelineEntryRead,
-};
-pub use error::{ApiError, ValidationIssue};
-pub use query::{
-    RawFollowUpCancelQuery, RawListCandidatesQuery, RawListConversationsQuery,
-    RawListFollowUpsQuery, RawListMessagesQuery, RawListPositionsQuery, RawListSendRecordsQuery,
-    RawTimelineQuery, DEFAULT_LIMIT, DEFAULT_MESSAGE_LIMIT, MAX_LIMIT, MAX_MESSAGE_LIMIT,
-};
+// The contract modules keep their established paths (`crate::dto`, …) inside
+// this crate and stay importable as `ica_api::dto` from the outside.
+pub use ica_contracts::{body, dto, query};
+
+pub use error::ApiError;
+pub use ica_contracts::error::ValidationIssue;
 pub use routes::router;
 pub use state::{AppConfig, AppState};

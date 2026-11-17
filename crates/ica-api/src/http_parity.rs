@@ -20,6 +20,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 use crate::error::ApiError;
+use ica_contracts::error::ContractError;
 
 /// Route patterns the parity middlewares test against.
 pub type RoutePatterns = Arc<[&'static str]>;
@@ -82,10 +83,10 @@ pub async fn redirect_trailing_slash(
 /// does — and the baseline's handler drops Starlette's `Allow` header, so the
 /// envelope is sent bare as well.
 pub fn method_not_allowed() -> Response {
-    ApiError::Http {
+    ApiError(ContractError::Http {
         status: 405,
         message: "Method Not Allowed".to_string(),
-    }
+    })
     .into_response()
 }
 

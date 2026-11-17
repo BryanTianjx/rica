@@ -1,0 +1,27 @@
+[package]
+name = "ica-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Tauri IPC command layer for the ICA backend: the desktop adapter over the same contract and use cases as ica-api."
+
+# Adapter layer (like ica-server): it wires the ports to SQLite and renders
+# the contract for one transport. No axum — the HTTP adapter lives in
+# ica-api; the Tauri runtime itself is wired by the shell host on top of this
+# crate's command functions (each is a plain async fn so it can be wrapped
+# with `#[tauri::command]` without this crate depending on the tauri stack).
+[dependencies]
+ica-contracts.workspace = true
+ica-domain.workspace = true
+ica-application.workspace = true
+ica-infra.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+sqlx.workspace = true
+tokio.workspace = true
+tempfile.workspace = true
