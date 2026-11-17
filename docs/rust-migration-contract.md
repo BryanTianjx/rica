@@ -18,9 +18,9 @@ The route set was measured from the live FastAPI app object, not from a text
 scan of the source:
 
 ```
-cd /mnt/o/ica/backend
-PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH .venv/bin/python \
-  /home/bryan/.hermes/profiles/software-engineer/cache/scratch/route_table.py
+cd /mnt/o/ICA-RUST
+PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH -u PYTHONHOME \
+  /mnt/o/ica/backend/.venv/bin/python scripts/check_endpoint_map.py
 ```
 
 Result: **68 (path, method) pairs under `/api`**, plus `GET /health` and
@@ -29,12 +29,21 @@ Result: **68 (path, method) pairs under `/api`**, plus `GET /health` and
 > **Note on the ticket's "66 endpoints".** The work item says 66. The measured
 > number is 68, and the table below enumerates all 68 so the sum can be checked
 > row by row: `2 (R0) + 15 (W1) + 11 (W2) + 10 (W3) + 7 (W4) + 15 (W5) +
-> 8 (W6) = 68`. The 2-route difference is *not* hidden: two `GET`/`POST`
-> `/api/settings/ai-egress*` routes (added by commit `47852db`, "feat(ai):
-> egress disclosure and an operator-controlled off switch (PRIV-07)") are the
-> most likely origin of the older figure, but the draft gives no arithmetic, so
-> this document records the measurement instead of adjusting it to match. A
-> reviewer can re-run the command above and compare.
+> 8 (W6) = 68`. The 2-route difference is *not* hidden: the draft gives no
+> arithmetic, so this document records the measurement instead of adjusting it
+> to match. A reviewer can re-derive it with the in-repo script:
+>
+> ```bash
+> cd /mnt/o/ICA-RUST
+> PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH -u PYTHONHOME \
+>   /mnt/o/ica/backend/.venv/bin/python scripts/check_endpoint_map.py
+> ```
+>
+> It reads the live FastAPI `app.routes` table, prints `live /api routes: 68`
+> and `documented rows: 68`, and exits non-zero if the table and the API
+> disagree. (An earlier revision of this document cited a scratch script that
+> lived in another Hermes profile's cache directory; that path is not
+> reproducible from a clean checkout and has been replaced.)
 
 Excluded from the 68 (deliberately, not forgotten):
 
@@ -226,7 +235,7 @@ R0–W6 run **both** services side by side:
 | Timestamps | Python (`as_utc` + pydantic) renders `2026-11-10T09:00:00Z`, and six fractional digits **only when non-zero** (`...T12:00:00.500000Z`). Verified against a live server; implemented in `ica-api/src/dto.rs::format_utc`. |
 | `422 details.errors` | The list is pydantic-specific. `contract_diff.py` compares status + `error.code` + `error.message` + the set of `details` keys, and ignores the per-provider error list. The Rust side still emits a structurally similar list (`type`, `loc`, `msg`, `input`). |
 | `GET /` | Not implemented (not part of the API surface). |
-| Read-only opening | `?mode=ro` alone still updates the `-shm` sidecar of a WAL database. The baseline proof therefore uses `?mode=ro&immutable=true`, which leaves `ica.db`, `-wal` and `-shm` byte- and mtime-identical. |
+| Read-only opening | `?mode=ro` (without `immutable`) still updates the `-shm` sidecar's **mtime** of a WAL database — measured, and the cause is *any* such open, including `scripts/compare_baseline_schema.py`; the file's **content sha256 does not change**. The Rust service opens the baseline with `?mode=ro&immutable=true`, which leaves `ica.db`, `-wal` and `-shm` byte- and mtime-identical. |
 | Baseline emptiness | The current baseline database contains 0 positions, so the read-only proof is the startup self-check (20 tables) plus a 200 from `/api/positions`; contract parity is proven against the seeded database instead. |
 
 ## 8. Re-running the comparison

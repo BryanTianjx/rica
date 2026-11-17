@@ -79,7 +79,7 @@ approval.
 
 ### Neutral
 
-- R0 implements three read-only endpoints. The remaining 65 `/api` routes are
+- R0 implements three read-only endpoints. The remaining 66 `/api` routes are
   mapped to waves W1–W7 with their own acceptance criteria.
 
 ## 4. Review conditions

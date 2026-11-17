@@ -3,7 +3,7 @@
 Rust port of the ICA Personal backend (axum + sqlx + SQLite).
 
 **Status: R0 — skeleton.** Three read-only endpoints are implemented and
-contract-verified against the Python baseline; the remaining 65 `/api` routes
+contract-verified against the Python baseline; the remaining 66 `/api` routes
 are mapped to waves W1–W7 in [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md)
 and are **not** implemented yet. There are no write paths, no auth and no AI
 calls.
