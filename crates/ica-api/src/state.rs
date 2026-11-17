@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use ica_application::{
-    CandidateRepository, ConversationRepository, MessageRepository, PositionRepository,
-    SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, FollowUpRepository,
+    MessageRepository, PositionRepository, SendRecordRepository,
 };
 
 /// Settings that shape a response body.
@@ -30,16 +30,21 @@ pub struct AppState {
     conversations: Arc<dyn ConversationRepository>,
     messages: Arc<dyn MessageRepository>,
     send_records: Arc<dyn SendRecordRepository>,
+    follow_ups: Arc<dyn FollowUpRepository>,
+    dashboard: Arc<dyn DashboardRepository>,
     config: AppConfig,
 }
 
 impl AppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         positions: Arc<dyn PositionRepository>,
         candidates: Arc<dyn CandidateRepository>,
         conversations: Arc<dyn ConversationRepository>,
         messages: Arc<dyn MessageRepository>,
         send_records: Arc<dyn SendRecordRepository>,
+        follow_ups: Arc<dyn FollowUpRepository>,
+        dashboard: Arc<dyn DashboardRepository>,
         config: AppConfig,
     ) -> Self {
         Self {
@@ -48,6 +53,8 @@ impl AppState {
             conversations,
             messages,
             send_records,
+            follow_ups,
+            dashboard,
             config,
         }
     }
@@ -70,6 +77,14 @@ impl AppState {
 
     pub fn send_records(&self) -> &dyn SendRecordRepository {
         self.send_records.as_ref()
+    }
+
+    pub fn follow_ups(&self) -> &dyn FollowUpRepository {
+        self.follow_ups.as_ref()
+    }
+
+    pub fn dashboard(&self) -> &dyn DashboardRepository {
+        self.dashboard.as_ref()
     }
 
     pub fn config(&self) -> &AppConfig {

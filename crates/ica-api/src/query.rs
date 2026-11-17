@@ -22,7 +22,9 @@ use serde::Deserialize;
 use ica_application::{
     ListCandidates, ListConversations, ListMessages, ListPositions, ListSendRecords,
 };
-use ica_domain::{normalize_search, CandidateStatus, ResultType, MAX_SEARCH_LEN};
+use ica_domain::{
+    normalize_search, CandidateStatus, FollowUpTaskStatus, ResultType, MAX_SEARCH_LEN,
+};
 
 use crate::error::{ApiError, ValidationIssue};
 
@@ -534,6 +536,57 @@ pub fn validate_send_records(raw: RawListSendRecordsQuery) -> Result<ListSendRec
             limit,
         },
     )
+}
+
+// ── Follow-ups (W2) ────────────────────────────────────────────────────────
+
+/// Raw `GET /api/follow-ups` query.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct RawListFollowUpsQuery {
+    pub candidate_id: Option<String>,
+    /// Query alias `status` (`task_status` in the Python signature).
+    pub status: Option<String>,
+    pub offset: Option<String>,
+    pub limit: Option<String>,
+}
+
+/// A validated `GET /api/follow-ups` request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListFollowUps {
+    pub candidate_id: Option<String>,
+    pub status: Option<FollowUpTaskStatus>,
+    pub offset: usize,
+    pub limit: usize,
+}
+
+/// Validate every `GET /api/follow-ups` parameter.
+pub fn validate_follow_ups(raw: RawListFollowUpsQuery) -> Result<ListFollowUps, ApiError> {
+    let mut issues = Vec::new();
+    let status = parse_enum(
+        raw.status.as_deref(),
+        "status",
+        "'Pending', 'Eligible', 'Drafting', 'Reviewing', 'Rejected', 'Approved', \
+         'Copied', 'AwaitingResult', 'Completed', 'Cancelled', 'Expired' or 'Blocked'",
+        FollowUpTaskStatus::parse,
+        &mut issues,
+    );
+    let offset = offset_or_default(raw.offset.as_deref(), &mut issues);
+    let limit = limit_or_default(raw.limit.as_deref(), DEFAULT_LIMIT, MAX_LIMIT, &mut issues);
+    finish(
+        issues,
+        ListFollowUps {
+            candidate_id: raw.candidate_id,
+            status,
+            offset,
+            limit,
+        },
+    )
+}
+
+/// Raw `POST /api/follow-ups/{id}/cancel` query: only the reason.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct RawFollowUpCancelQuery {
+    pub reason: Option<String>,
 }
 
 #[cfg(test)]

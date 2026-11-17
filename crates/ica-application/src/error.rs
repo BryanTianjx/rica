@@ -7,8 +7,10 @@
 
 use std::collections::BTreeMap;
 
+use serde_json::Value;
+
 /// Why a use case could not produce a result.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ApplicationError {
     /// The requested entity does not exist (HTTP 404).
     NotFound { message: String },
@@ -25,6 +27,10 @@ pub enum ApplicationError {
         message: String,
         details: BTreeMap<String, String>,
     },
+    /// A 409 whose ``details`` carry non-string values — the follow-up state
+    /// machine ships the settable-status list as a JSON array, exactly like
+    /// the baseline's ``BusinessRuleError``.
+    ConflictValue { message: String, details: Value },
     /// The repository could not be read or written (HTTP 500).
     Unavailable { message: String },
 }
@@ -53,25 +59,22 @@ impl ApplicationError {
         }
     }
 
+    /// A 409 with free-form JSON details (arrays included).
+    pub fn conflict_value(message: impl Into<String>, details: Value) -> Self {
+        ApplicationError::ConflictValue {
+            message: message.into(),
+            details,
+        }
+    }
+
     /// Human-readable message, unchanged from the source that produced it.
     pub fn message(&self) -> &str {
         match self {
             ApplicationError::NotFound { message }
             | ApplicationError::Validation { message, .. }
             | ApplicationError::Conflict { message, .. }
+            | ApplicationError::ConflictValue { message, .. }
             | ApplicationError::Unavailable { message } => message,
-        }
-    }
-
-    /// Structured details rendered into ``error.details`` (empty for the
-    /// variants the baseline leaves empty).
-    pub fn details(&self) -> BTreeMap<String, String> {
-        match self {
-            ApplicationError::Validation { details, .. }
-            | ApplicationError::Conflict { details, .. } => details.clone(),
-            ApplicationError::NotFound { .. } | ApplicationError::Unavailable { .. } => {
-                BTreeMap::new()
-            }
         }
     }
 }

@@ -18,10 +18,14 @@ use sqlx::SqliteConnection;
 use crate::store::{new_uuid, to_sql_timestamp, DEFAULT_TENANT_ID, LOCAL_ACTOR};
 
 /// One audit event to append.
+///
+/// `entity_type`/`entity_id` are optional: the follow-up sweep
+/// (`follow_up.tasks_expired`) writes a storage-level event with no entity,
+/// exactly like the baseline's bare `record_audit(event_type=..., summary=...)`.
 pub struct AuditEntry<'a> {
     pub event_type: &'a str,
-    pub entity_type: &'a str,
-    pub entity_id: &'a str,
+    pub entity_type: Option<&'a str>,
+    pub entity_id: Option<&'a str>,
     pub summary: String,
     pub metadata: Option<Value>,
 }
@@ -35,8 +39,19 @@ impl<'a> AuditEntry<'a> {
     ) -> Self {
         Self {
             event_type,
-            entity_type,
-            entity_id,
+            entity_type: Some(entity_type),
+            entity_id: Some(entity_id),
+            summary: summary.into(),
+            metadata: None,
+        }
+    }
+
+    /// An event with no entity (summary only), like the baseline's sweep audit.
+    pub fn without_entity(event_type: &'a str, summary: impl Into<String>) -> Self {
+        Self {
+            event_type,
+            entity_type: None,
+            entity_id: None,
             summary: summary.into(),
             metadata: None,
         }

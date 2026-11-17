@@ -147,6 +147,11 @@ impl From<ApplicationError> for ApiError {
                 message,
                 details: details_value(&details),
             },
+            // The state machine's 409: `details` is already free-form JSON
+            // (it carries the settable-status list as an array).
+            ApplicationError::ConflictValue { message, details } => {
+                ApiError::Conflict { message, details }
+            }
             ApplicationError::Unavailable { message } => ApiError::Internal { message },
         }
     }

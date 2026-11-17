@@ -67,9 +67,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| database_url.clone());
 
     let repository = SqliteStore::new(pool);
-    // One adapter, five port views: the HTTP layer sees only the traits, and a
+    // One adapter, seven port views: the HTTP layer sees only the traits, and a
     // write plus its audit event always share the same pool/transaction.
     let state = AppState::new(
+        Arc::new(repository.clone()),
+        Arc::new(repository.clone()),
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),

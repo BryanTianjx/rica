@@ -1,4 +1,4 @@
-//! Route table — the 18 endpoints R0 + W1 serve.
+//! Route table — the 29 endpoints R0 + W1 + W2 serve.
 //!
 //! Every handler is a thin adapter: validate the query/body, call one use case,
 //! map the result. The interesting rules live in `ica-application`, the SQL in
@@ -15,19 +15,21 @@ use std::sync::Arc;
 use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{middleware, Json, Router};
 
 use crate::body;
 use crate::dto::{
-    CandidateDetailRead, CandidateRead, ConversationRead, HealthResponse, MessageRead,
-    PageResponse, PositionRead, SendRecordRead, TimelineEntryRead,
+    CandidateDetailRead, CandidateRead, ConversationRead, DashboardRead, FollowUpDecisionRead,
+    FollowUpPolicyRead, FollowUpTaskRead, HealthResponse, MessageRead, PageResponse, PositionRead,
+    SendRecordRead, TimelineEntryRead,
 };
 use crate::error::ApiError;
 use crate::http_parity::RoutePatterns;
 use crate::query::{
-    self, ApiQuery, RawListCandidatesQuery, RawListConversationsQuery, RawListMessagesQuery,
-    RawListPositionsQuery, RawListSendRecordsQuery, RawTimelineQuery,
+    self, ApiQuery, RawFollowUpCancelQuery, RawListCandidatesQuery, RawListConversationsQuery,
+    RawListFollowUpsQuery, RawListMessagesQuery, RawListPositionsQuery, RawListSendRecordsQuery,
+    RawTimelineQuery,
 };
 use crate::state::AppState;
 
@@ -48,6 +50,14 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/conversations",
     "/api/messages",
     "/api/send-records",
+    "/api/follow-ups/evaluate",
+    "/api/follow-ups/policy/current",
+    "/api/follow-ups",
+    "/api/follow-ups/{task_id}",
+    "/api/follow-ups/{task_id}/cancel",
+    "/api/follow-ups/{task_id}/complete",
+    "/api/follow-ups/{task_id}/record-result",
+    "/api/dashboard",
 ];
 
 /// Build the router for `state`.
@@ -86,6 +96,29 @@ pub fn router(state: AppState) -> Router {
             "/api/send-records",
             get(list_send_records).post(record_send),
         )
+        .route("/api/follow-ups/evaluate", post(follow_up_evaluate))
+        .route(
+            "/api/follow-ups/policy/current",
+            get(get_follow_up_policy).patch(update_follow_up_policy),
+        )
+        .route(
+            "/api/follow-ups",
+            get(list_follow_ups).post(create_follow_up),
+        )
+        .route(
+            "/api/follow-ups/{task_id}",
+            get(get_follow_up).patch(update_follow_up),
+        )
+        .route("/api/follow-ups/{task_id}/cancel", post(cancel_follow_up))
+        .route(
+            "/api/follow-ups/{task_id}/complete",
+            post(complete_follow_up),
+        )
+        .route(
+            "/api/follow-ups/{task_id}/record-result",
+            post(record_follow_up_result),
+        )
+        .route("/api/dashboard", get(dashboard))
         .fallback(unknown_path)
         .method_not_allowed_fallback(|| async { crate::http_parity::method_not_allowed() })
         // `reject_head` must sit *inside* the redirect (added first = run last):
@@ -121,9 +154,7 @@ async fn list_positions(
 ) -> Result<Json<PageResponse<PositionRead>>, ApiError> {
     let query = query::validate(raw)?;
     let page = ica_application::list_positions(state.positions(), query).await?;
-    Ok(Json(PageResponse::from_page(page, |position| {
-        PositionRead::from(position)
-    })))
+    Ok(Json(PageResponse::from_page(page, PositionRead::from)))
 }
 
 /// `POST /api/positions` — create one, 201 with the stored row.
@@ -180,9 +211,7 @@ async fn list_candidates(
 ) -> Result<Json<PageResponse<CandidateRead>>, ApiError> {
     let query = query::validate_candidates(raw)?;
     let page = ica_application::candidates::list_candidates(state.candidates(), query).await?;
-    Ok(Json(PageResponse::from_page(page, |candidate| {
-        CandidateRead::from(candidate)
-    })))
+    Ok(Json(PageResponse::from_page(page, CandidateRead::from)))
 }
 
 /// `POST /api/candidates` — create one; a missing position is a 404.
@@ -249,9 +278,7 @@ async fn list_conversations(
     let query = query::validate_conversations(raw)?;
     let page =
         ica_application::conversations::list_conversations(state.conversations(), query).await?;
-    Ok(Json(PageResponse::from_page(page, |conversation| {
-        ConversationRead::from(conversation)
-    })))
+    Ok(Json(PageResponse::from_page(page, ConversationRead::from)))
 }
 
 /// `POST /api/conversations` — open a thread and audit `conversation.created`.
@@ -280,9 +307,7 @@ async fn list_messages(
 ) -> Result<Json<PageResponse<MessageRead>>, ApiError> {
     let query = query::validate_messages(raw)?;
     let page = ica_application::conversations::list_messages(state.messages(), query).await?;
-    Ok(Json(PageResponse::from_page(page, |message| {
-        MessageRead::from(message)
-    })))
+    Ok(Json(PageResponse::from_page(page, MessageRead::from)))
 }
 
 /// `POST /api/messages` — record one, opening or reusing the conversation.
@@ -344,13 +369,189 @@ async fn list_send_records(
     let query = query::validate_send_records(raw)?;
     let page =
         ica_application::send_records::list_send_records(state.send_records(), query).await?;
-    Ok(Json(PageResponse::from_page(page, |record| {
-        SendRecordRead::from(record)
-    })))
+    Ok(Json(PageResponse::from_page(page, SendRecordRead::from)))
 }
 
 /// Unknown path: keep the project's error envelope instead of axum's plain
 /// text 404, so a client never has to parse two error formats.
 async fn unknown_path() -> ApiError {
     ApiError::unknown_path()
+}
+
+// ── Follow-ups and dashboard (W2) ──────────────────────────────────────────
+
+/// `POST /api/follow-ups/evaluate` — the decision engine's answer, 200.
+///
+/// Not a 201: the endpoint creates nothing (the baseline declares 200).
+async fn follow_up_evaluate(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<FollowUpDecisionRead>, ApiError> {
+    let raw: body::RawFollowUpEvaluate = body::parse(&body)?;
+    let evaluation = body::follow_up_evaluate(raw)?;
+    let decision = ica_application::evaluate(
+        state.follow_ups(),
+        state.candidates(),
+        state.positions(),
+        evaluation,
+    )
+    .await?;
+    Ok(Json(FollowUpDecisionRead::from(decision)))
+}
+
+/// `GET /api/follow-ups` — one page of tasks; stale rows are swept first.
+async fn list_follow_ups(
+    State(state): State<AppState>,
+    ApiQuery(raw): ApiQuery<RawListFollowUpsQuery>,
+) -> Result<Json<PageResponse<FollowUpTaskRead>>, ApiError> {
+    let query = query::validate_follow_ups(raw)?;
+    let filter = ica_application::FollowUpTaskFilter {
+        candidate_id: query.candidate_id,
+        status: query.status,
+    };
+    let (tasks, total) =
+        ica_application::list_tasks(state.follow_ups(), filter, query.offset, query.limit).await?;
+    let page = ica_domain::Page {
+        items: tasks,
+        total,
+        offset: query.offset,
+        limit: query.limit,
+    };
+    Ok(Json(PageResponse::from_page(page, FollowUpTaskRead::from)))
+}
+
+/// `POST /api/follow-ups` — create (or reuse) a task, 201 with the row.
+async fn create_follow_up(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<(StatusCode, Json<FollowUpTaskRead>), ApiError> {
+    let raw: body::RawFollowUpCreate = body::parse(&body)?;
+    let new = body::follow_up_create(raw)?;
+    let task = ica_application::create_task(
+        state.follow_ups(),
+        state.candidates(),
+        state.positions(),
+        new,
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(FollowUpTaskRead::from(task))))
+}
+
+/// `GET /api/follow-ups/{task_id}` — one task.
+async fn get_follow_up(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+) -> Result<Json<FollowUpTaskRead>, ApiError> {
+    let task = ica_application::get_task(state.follow_ups(), &task_id).await?;
+    Ok(Json(FollowUpTaskRead::from(task)))
+}
+
+/// `PATCH /api/follow-ups/{task_id}` — patch fields; the state machine
+/// validates any status change before the row is written.
+async fn update_follow_up(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<FollowUpTaskRead>, ApiError> {
+    let raw: body::RawFollowUpPatch = body::parse(&body)?;
+    let patch = body::follow_up_patch(raw)?;
+    let task = ica_application::update_task(state.follow_ups(), &task_id, patch).await?;
+    Ok(Json(FollowUpTaskRead::from(task)))
+}
+
+/// `POST /api/follow-ups/{task_id}/cancel` — a 200 self-transition on an
+/// already-cancelled task, 409 from a closed terminal state.
+async fn cancel_follow_up(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+    ApiQuery(raw): ApiQuery<RawFollowUpCancelQuery>,
+) -> Result<Json<FollowUpTaskRead>, ApiError> {
+    let task = ica_application::cancel_task(state.follow_ups(), &task_id, raw.reason).await?;
+    Ok(Json(FollowUpTaskRead::from(task)))
+}
+
+/// `POST /api/follow-ups/{task_id}/complete` — 200 from `Copied`,
+/// `AwaitingResult` and `Completed` (self), 409 elsewhere.
+async fn complete_follow_up(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+) -> Result<Json<FollowUpTaskRead>, ApiError> {
+    let task = ica_application::complete_task(state.follow_ups(), &task_id).await?;
+    Ok(Json(FollowUpTaskRead::from(task)))
+}
+
+/// `POST /api/follow-ups/{task_id}/record-result` — the only operation that
+/// can mark a message as actually sent; appends the send log row.
+async fn record_follow_up_result(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<FollowUpTaskRead>, ApiError> {
+    let raw: body::RawFollowUpResult = body::parse(&body)?;
+    let result = body::follow_up_result(raw)?;
+    let task = ica_application::record_result(state.follow_ups(), &task_id, result).await?;
+    Ok(Json(FollowUpTaskRead::from(task)))
+}
+
+/// `GET /api/follow-ups/policy/current` — creates the default row on first use.
+async fn get_follow_up_policy(
+    State(state): State<AppState>,
+) -> Result<Json<FollowUpPolicyRead>, ApiError> {
+    let record = ica_application::ensure_default_policy(state.follow_ups()).await?;
+    Ok(Json(FollowUpPolicyRead::from(record)))
+}
+
+/// `PATCH /api/follow-ups/policy/current` — thresholds with pydantic ranges.
+async fn update_follow_up_policy(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<FollowUpPolicyRead>, ApiError> {
+    let raw: body::RawFollowUpPolicyPatch = body::parse(&body)?;
+    let patch = body::follow_up_policy_patch(raw)?;
+    let record = ica_application::update_policy(state.follow_ups(), patch).await?;
+    Ok(Json(FollowUpPolicyRead::from(record)))
+}
+
+/// `GET /api/dashboard` — the aggregated workbench, after the maintenance tick.
+async fn dashboard(State(state): State<AppState>) -> Result<Json<DashboardRead>, ApiError> {
+    use ica_domain::CandidateStatus;
+    let snapshot = ica_application::dashboard(state.dashboard()).await?;
+    let mut status_counts: std::collections::BTreeMap<String, i64> =
+        std::collections::BTreeMap::new();
+    // The baseline seeds every enumeration key with 0 before filling counts.
+    for status in [
+        CandidateStatus::New,
+        CandidateStatus::Contacted,
+        CandidateStatus::ReadNoReply,
+        CandidateStatus::Replied,
+        CandidateStatus::Active,
+        CandidateStatus::Interview,
+        CandidateStatus::Rejected,
+        CandidateStatus::Withdrawn,
+        CandidateStatus::Closed,
+    ] {
+        status_counts.insert(status.as_str().to_string(), 0);
+    }
+    for (status, count) in snapshot.candidate_status_counts {
+        status_counts.insert(status, count);
+    }
+    Ok(Json(DashboardRead {
+        candidate_total: snapshot.candidate_total,
+        candidate_status_counts: status_counts,
+        active_follow_up_count: snapshot.active_follow_up_count,
+        pending_follow_ups: snapshot
+            .pending_follow_ups
+            .into_iter()
+            .map(FollowUpTaskRead::from)
+            .collect(),
+        awaiting_result_count: snapshot.awaiting_result_count,
+        pending_draft_count: snapshot.pending_draft_count,
+        recent_messages: snapshot
+            .recent_messages
+            .into_iter()
+            .map(MessageRead::from)
+            .collect(),
+        position_total: snapshot.position_total,
+        open_position_count: snapshot.open_position_count,
+    }))
 }

@@ -14,10 +14,13 @@
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use ica_application::{
-    CandidatePatch, Field, NewCandidate, NewConversation, NewMessage, NewPosition, NewSendRecord,
-    PositionPatch,
+    CandidatePatch, Field, FollowUpPolicyPatch, FollowUpTaskPatch, NewCandidate, NewConversation,
+    NewFollowUpEvaluation, NewFollowUpResult, NewFollowUpTask, NewMessage, NewPosition,
+    NewSendRecord, PositionPatch,
 };
-use ica_domain::{CandidateStatus, MessageSource, PositionStatus, ResultType, SenderType};
+use ica_domain::{
+    CandidateStatus, FollowUpTaskStatus, MessageSource, PositionStatus, ResultType, SenderType,
+};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 
@@ -845,6 +848,282 @@ pub fn send_record_create(raw: RawSendRecordCreate) -> Result<NewSendRecord, Api
         status,
         sent_at,
         note: take_optional_string(raw.note),
+    })
+}
+
+// ── Follow-ups (W2) ────────────────────────────────────────────────────────
+
+/// A validated `POST /api/follow-ups` body.
+#[derive(Deserialize, Default)]
+pub struct RawFollowUpCreate {
+    #[serde(default)]
+    pub candidate_id: Incoming<String>,
+    #[serde(default)]
+    pub position_id: Incoming<String>,
+    #[serde(default)]
+    pub objective: Incoming<String>,
+    #[serde(default)]
+    pub reason: Incoming<String>,
+    #[serde(default)]
+    pub recommended_at: Incoming<String>,
+}
+
+/// Validate a `POST /api/follow-ups` body (`objective` caps at 64 characters).
+pub fn follow_up_create(raw: RawFollowUpCreate) -> Result<NewFollowUpTask, ApiError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
+    let position_id = take_optional_string(raw.position_id);
+    let objective = match &raw.objective {
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "objective", value, 64);
+            Some(value.clone())
+        }
+        Incoming::Null | Incoming::Absent => None,
+    };
+    let reason = take_optional_string(raw.reason);
+    let recommended_at = take_datetime(&mut issues, "recommended_at", raw.recommended_at);
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewFollowUpTask {
+        candidate_id,
+        position_id,
+        objective,
+        reason,
+        recommended_at,
+    })
+}
+
+/// A validated `PATCH /api/follow-ups/{id}` body.
+///
+/// The three-state distinction matters for `recommended_at`: an explicit null
+/// clears the field (`model_dump(exclude_unset=True)` keeps it), while an
+/// absent key leaves it alone. `status` collapses null into absent — the
+/// baseline checks `payload.status is not None` after the pydantic round trip.
+#[derive(Deserialize, Default)]
+pub struct RawFollowUpPatch {
+    #[serde(default)]
+    pub objective: Incoming<String>,
+    #[serde(default)]
+    pub reason: Incoming<String>,
+    #[serde(default)]
+    pub recommended_at: Incoming<String>,
+    #[serde(default)]
+    pub status: Incoming<String>,
+}
+
+const FOLLOW_UP_STATUS_EXPECTED: &str = "'Pending', 'Eligible', 'Drafting', 'Reviewing', \
+     'Rejected', 'Approved', 'Copied', 'AwaitingResult', 'Completed', 'Cancelled', \
+     'Expired' or 'Blocked'";
+
+/// Validate a `PATCH /api/follow-ups/{id}` body.
+pub fn follow_up_patch(raw: RawFollowUpPatch) -> Result<FollowUpTaskPatch, ApiError> {
+    let mut issues = Vec::new();
+
+    let objective = match &raw.objective {
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "objective", value, 64);
+            Field::Value(value.clone())
+        }
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+    let reason = field(raw.reason);
+    let recommended_at = match raw.recommended_at {
+        Incoming::Value(raw) => match parse_datetime(&raw) {
+            Some(value) => Field::Value(value),
+            None => {
+                issues.push(issue(
+                    "datetime_parsing",
+                    "recommended_at",
+                    "Input should be a valid datetime",
+                    &raw,
+                ));
+                Field::Absent
+            }
+        },
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+    let status = match raw.status {
+        Incoming::Value(raw) => match FollowUpTaskStatus::parse(&raw) {
+            Some(status) => Field::Value(status),
+            None => {
+                issues.push(issue(
+                    "enum",
+                    "status",
+                    &format!("Input should be {FOLLOW_UP_STATUS_EXPECTED}"),
+                    &raw,
+                ));
+                Field::Absent
+            }
+        },
+        // Absent and null mean the same thing for a status: no change.
+        Incoming::Null | Incoming::Absent => Field::Absent,
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(FollowUpTaskPatch {
+        objective,
+        reason,
+        recommended_at,
+        status,
+    })
+}
+
+/// A validated `POST /api/follow-ups/{id}/record-result` body.
+#[derive(Deserialize, Default)]
+pub struct RawFollowUpResult {
+    #[serde(default)]
+    pub result_type: Incoming<String>,
+    #[serde(default)]
+    pub note: Incoming<String>,
+}
+
+/// Validate a `POST /api/follow-ups/{id}/record-result` body.
+pub fn follow_up_result(raw: RawFollowUpResult) -> Result<NewFollowUpResult, ApiError> {
+    let mut issues = Vec::new();
+    let result_type = match take_enum(
+        &mut issues,
+        "result_type",
+        raw.result_type,
+        "'sent', 'not_sent', 'candidate_replied', 'candidate_no_reply', 'candidate_declined', 'interview' or 'other'",
+        ResultType::parse,
+    ) {
+        Some(result_type) => result_type,
+        None => {
+            if issues.iter().all(|entry| entry.loc[1] != "result_type") {
+                issues.push(issue("missing", "result_type", "Field required", ""));
+            }
+            ResultType::Sent
+        }
+    };
+    let note = take_optional_string(raw.note);
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewFollowUpResult { result_type, note })
+}
+
+/// A validated `POST /api/follow-ups/evaluate` body (`policy_id` is accepted
+/// and ignored, so it is not even read here).
+#[derive(Deserialize, Default)]
+pub struct RawFollowUpEvaluate {
+    #[serde(default)]
+    pub candidate_id: Incoming<String>,
+    #[serde(default)]
+    pub position_id: Incoming<String>,
+}
+
+/// Validate a `POST /api/follow-ups/evaluate` body.
+pub fn follow_up_evaluate(raw: RawFollowUpEvaluate) -> Result<NewFollowUpEvaluation, ApiError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
+    let position_id = take_optional_string(raw.position_id);
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewFollowUpEvaluation {
+        candidate_id,
+        position_id,
+    })
+}
+
+/// A validated `PATCH /api/follow-ups/policy/current` body. Every field is
+/// `int | None` with a range; `null` and absent collapse into "left alone".
+#[derive(Deserialize, Default)]
+pub struct RawFollowUpPolicyPatch {
+    #[serde(default)]
+    pub first_follow_up_delay_hours: Incoming<i64>,
+    #[serde(default)]
+    pub max_active_follow_ups: Incoming<i64>,
+    #[serde(default)]
+    pub min_interval_hours: Incoming<i64>,
+    #[serde(default)]
+    pub task_validity_days: Incoming<i64>,
+}
+
+/// Clamp-check one policy integer against its pydantic range.
+fn take_policy_int(
+    issues: &mut Vec<ValidationIssue>,
+    field_name: &str,
+    value: Incoming<i64>,
+    min: i64,
+    max: i64,
+) -> Option<i64> {
+    match value {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => {
+            if value < min {
+                issues.push(issue(
+                    "greater_than_equal",
+                    field_name,
+                    &format!("Input should be greater than or equal to {min}"),
+                    &value.to_string(),
+                ));
+                None
+            } else if value > max {
+                issues.push(issue(
+                    "less_than_equal",
+                    field_name,
+                    &format!("Input should be less than or equal to {max}"),
+                    &value.to_string(),
+                ));
+                None
+            } else {
+                Some(value)
+            }
+        }
+    }
+}
+
+/// Validate a `PATCH /api/follow-ups/policy/current` body.
+pub fn follow_up_policy_patch(
+    raw: RawFollowUpPolicyPatch,
+) -> Result<FollowUpPolicyPatch, ApiError> {
+    let mut issues = Vec::new();
+    let first_follow_up_delay_hours = take_policy_int(
+        &mut issues,
+        "first_follow_up_delay_hours",
+        raw.first_follow_up_delay_hours,
+        0,
+        720,
+    );
+    let max_active_follow_ups = take_policy_int(
+        &mut issues,
+        "max_active_follow_ups",
+        raw.max_active_follow_ups,
+        1,
+        20,
+    );
+    let min_interval_hours = take_policy_int(
+        &mut issues,
+        "min_interval_hours",
+        raw.min_interval_hours,
+        0,
+        720,
+    );
+    let task_validity_days = take_policy_int(
+        &mut issues,
+        "task_validity_days",
+        raw.task_validity_days,
+        1,
+        365,
+    );
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(FollowUpPolicyPatch {
+        first_follow_up_delay_hours,
+        max_active_follow_ups,
+        min_interval_hours,
+        task_validity_days,
     })
 }
 

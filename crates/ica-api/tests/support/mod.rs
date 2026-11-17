@@ -24,8 +24,8 @@ use axum::Router;
 use http_body_util::BodyExt;
 use ica_api::{AppConfig, AppState};
 use ica_application::{
-    CandidateRepository, ConversationRepository, MessageRepository, PositionRepository,
-    SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, FollowUpRepository,
+    MessageRepository, PositionRepository, SendRecordRepository,
 };
 use ica_infra::{connect, SqliteStore};
 
@@ -382,7 +382,9 @@ pub async fn app_for(path: &Path) -> Router {
         Arc::new(store.clone()) as Arc<dyn CandidateRepository>,
         Arc::new(store.clone()) as Arc<dyn ConversationRepository>,
         Arc::new(store.clone()) as Arc<dyn MessageRepository>,
-        Arc::new(store) as Arc<dyn SendRecordRepository>,
+        Arc::new(store.clone()) as Arc<dyn SendRecordRepository>,
+        Arc::new(store.clone()) as Arc<dyn FollowUpRepository>,
+        Arc::new(store) as Arc<dyn DashboardRepository>,
         AppConfig {
             app_name: "ICA Personal".to_string(),
             ai_enabled: false,

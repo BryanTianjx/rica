@@ -15,6 +15,9 @@ async-trait.workspace = true
 # Payloads carry parsed instants (`message_time`, `sent_at`); chrono is a pure
 # value type, not a runtime or a driver.
 chrono.workspace = true
+# The state machine's 409 details ship a JSON array (`settable`), so the
+# application error carries a serde_json value. Pure data, no runtime.
+serde_json.workspace = true
 
 [dev-dependencies]
 # Test fixtures build Position values, whose timestamps are chrono types.

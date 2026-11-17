@@ -5,11 +5,11 @@
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T16:24:02.264381Z",
+        "created_at": "2026-11-17T17:36:00.365439Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -19,7 +19,7 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Contacted",
-        "updated_at": "2026-11-17T16:24:02.264384Z"
+        "updated_at": "2026-11-17T17:36:00.365443Z"
       },
       "content_type": "application/json",
       "location": null,
@@ -32,7 +32,7 @@
       "content_type": "",
       "location": null,
       "method": "DELETE",
-      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+      "path": "/api/candidates/62bd71e0-c072-41f0-8712-55baadb44311",
       "status": 204
     },
     "candidate_delete_with_children": {
@@ -91,13 +91,13 @@
         "error": {
           "code": "not_found",
           "details": {},
-          "message": "Candidate 'e344ba5b-4af9-4bee-9194-2f19bc6dcdae' was not found"
+          "message": "Candidate '62bd71e0-c072-41f0-8712-55baadb44311' was not found"
         }
       },
       "content_type": "application/json",
       "location": null,
       "method": "GET",
-      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+      "path": "/api/candidates/62bd71e0-c072-41f0-8712-55baadb44311",
       "status": 404
     },
     "candidate_detail_after_position_delete": {
@@ -119,7 +119,7 @@
         "skill_summary": null,
         "source": "boss",
         "status": "New",
-        "updated_at": "2026-11-17T16:24:02.520755Z"
+        "updated_at": "2026-11-17T17:36:00.608546Z"
       },
       "content_type": "application/json",
       "location": null,
@@ -131,11 +131,11 @@
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T16:24:02.264381Z",
+        "created_at": "2026-11-17T17:36:00.365439Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -162,12 +162,12 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Contacted",
-        "updated_at": "2026-11-17T16:24:02.264384Z"
+        "updated_at": "2026-11-17T17:36:00.365443Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "GET",
-      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+      "path": "/api/candidates/62bd71e0-c072-41f0-8712-55baadb44311",
       "status": 200
     },
     "candidate_detail_missing": {
@@ -231,11 +231,11 @@
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T16:24:02.264381Z",
+        "created_at": "2026-11-17T17:36:00.365439Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -245,12 +245,12 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Replied",
-        "updated_at": "2026-11-17T16:24:02.293922Z"
+        "updated_at": "2026-11-17T17:36:00.393416Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "PATCH",
-      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+      "path": "/api/candidates/62bd71e0-c072-41f0-8712-55baadb44311",
       "status": 200
     },
     "candidate_patch_missing": {
@@ -293,18 +293,18 @@
       "content_type": "application/json",
       "location": null,
       "method": "PATCH",
-      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+      "path": "/api/candidates/62bd71e0-c072-41f0-8712-55baadb44311",
       "status": 422
     },
     "candidate_patch_null_position": {
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T16:24:02.264381Z",
+        "created_at": "2026-11-17T17:36:00.365439Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -314,12 +314,12 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Replied",
-        "updated_at": "2026-11-17T16:24:02.306501Z"
+        "updated_at": "2026-11-17T17:36:00.406410Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "PATCH",
-      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+      "path": "/api/candidates/62bd71e0-c072-41f0-8712-55baadb44311",
       "status": 200
     },
     "candidates_bad_status": {
@@ -482,7 +482,7 @@
             "skill_summary": null,
             "source": "boss",
             "status": "New",
-            "updated_at": "2026-11-17T16:24:02.520755Z"
+            "updated_at": "2026-11-17T17:36:00.608546Z"
           },
           {
             "active_follow_up_count": 0,
@@ -542,7 +542,7 @@
             "updated_at": "2026-11-10T09:05:00.000002Z"
           },
           {
-            "active_follow_up_count": 1,
+            "active_follow_up_count": 2,
             "archived": false,
             "created_at": "2026-11-10T09:05:00.000001Z",
             "expected_location": null,
@@ -1098,15 +1098,15 @@
       "body": {
         "candidate_id": "c0000000-0000-0000-0000-000000000006",
         "channel": "boss",
-        "created_at": "2026-11-17T16:24:02.343628Z",
-        "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
+        "created_at": "2026-11-17T17:36:00.441830Z",
+        "id": "c9287d33-c346-48e7-9b86-0c860b645415",
         "is_active": true,
         "last_message_at": null,
         "message_count": 0,
         "position_id": "77777777-7777-7777-7777-777777777777",
         "position_name": "ML Engineer",
         "title": "Contract thread",
-        "updated_at": "2026-11-17T16:24:02.343631Z"
+        "updated_at": "2026-11-17T17:36:00.441833Z"
       },
       "content_type": "application/json",
       "location": null,
@@ -1135,15 +1135,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
-            "created_at": "2026-11-17T16:24:02.380869Z",
-            "id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
+            "created_at": "2026-11-17T17:36:00.477382Z",
+            "id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
             "is_active": true,
-            "last_message_at": "2026-11-17T16:24:02.381254Z",
+            "last_message_at": "2026-11-17T17:36:00.477668Z",
             "message_count": 1,
             "position_id": "11111111-1111-1111-1111-111111111111",
             "position_name": "Senior Rust Engineer",
             "title": null,
-            "updated_at": "2026-11-17T16:24:02.381556Z"
+            "updated_at": "2026-11-17T17:36:00.477909Z"
           },
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
@@ -1161,15 +1161,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000006",
             "channel": "boss",
-            "created_at": "2026-11-17T16:24:02.343628Z",
-            "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
+            "created_at": "2026-11-17T17:36:00.441830Z",
+            "id": "c9287d33-c346-48e7-9b86-0c860b645415",
             "is_active": true,
             "last_message_at": null,
             "message_count": 0,
             "position_id": null,
             "position_name": null,
             "title": "Contract thread",
-            "updated_at": "2026-11-17T16:24:02.343631Z"
+            "updated_at": "2026-11-17T17:36:00.441833Z"
           }
         ],
         "limit": 50,
@@ -1189,15 +1189,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
-            "created_at": "2026-11-17T16:24:02.380869Z",
-            "id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
+            "created_at": "2026-11-17T17:36:00.477382Z",
+            "id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
             "is_active": true,
-            "last_message_at": "2026-11-17T16:24:02.381254Z",
+            "last_message_at": "2026-11-17T17:36:00.477668Z",
             "message_count": 1,
             "position_id": "11111111-1111-1111-1111-111111111111",
             "position_name": "Senior Rust Engineer",
             "title": null,
-            "updated_at": "2026-11-17T16:24:02.381556Z"
+            "updated_at": "2026-11-17T17:36:00.477909Z"
           },
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000001",
@@ -1210,7 +1210,7 @@
             "position_id": "11111111-1111-1111-1111-111111111111",
             "position_name": "Senior Rust Engineer",
             "title": null,
-            "updated_at": "2026-11-17T16:24:02.366355Z"
+            "updated_at": "2026-11-17T17:36:00.464709Z"
           },
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
@@ -1228,15 +1228,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000006",
             "channel": "boss",
-            "created_at": "2026-11-17T16:24:02.343628Z",
-            "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
+            "created_at": "2026-11-17T17:36:00.441830Z",
+            "id": "c9287d33-c346-48e7-9b86-0c860b645415",
             "is_active": true,
             "last_message_at": null,
             "message_count": 0,
             "position_id": "77777777-7777-7777-7777-777777777777",
             "position_name": "ML Engineer",
             "title": "Contract thread",
-            "updated_at": "2026-11-17T16:24:02.343631Z"
+            "updated_at": "2026-11-17T17:36:00.441833Z"
           }
         ],
         "limit": 50,
@@ -1373,6 +1373,717 @@
       "path": "/api/conversations?candidate_id=does-not-exist",
       "status": 200
     },
+    "dashboard_default": {
+      "body": {
+        "active_follow_up_count": 0,
+        "awaiting_result_count": 0,
+        "candidate_status_counts": {
+          "Active": 0,
+          "Closed": 0,
+          "Contacted": 0,
+          "Interview": 0,
+          "New": 4,
+          "ReadNoReply": 0,
+          "Rejected": 0,
+          "Replied": 0,
+          "Withdrawn": 0
+        },
+        "candidate_total": 4,
+        "open_position_count": 3,
+        "pending_draft_count": 0,
+        "pending_follow_ups": [],
+        "position_total": 5,
+        "recent_messages": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content": "auto thread",
+            "conversation_id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
+            "created_at": "2026-11-17T17:36:00.478071Z",
+            "id": "8eb1eaa4-1963-4080-b3ec-b53ce194d422",
+            "message_time": null,
+            "sender_type": null,
+            "source": "manual"
+          }
+        ]
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/dashboard",
+      "status": 200
+    },
+    "follow_up_cancel": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 0,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Cancelled",
+        "updated_at": "2026-11-17T17:36:00.862165Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12/cancel",
+      "status": 200
+    },
+    "follow_up_cancel_again": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 0,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Cancelled",
+        "updated_at": "2026-11-17T17:36:00.862165Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12/cancel",
+      "status": 200
+    },
+    "follow_up_complete_wrong": {
+      "body": {
+        "error": {
+          "code": "business_rule_violation",
+          "details": {
+            "current": "Cancelled"
+          },
+          "message": "A task in state Cancelled cannot be completed"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12/complete",
+      "status": 409
+    },
+    "follow_up_create_bob": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "candidate_name": "Bob",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.773408Z",
+        "expires_at": "2026-11-24T17:36:00.769565Z",
+        "follow_up_count": 0,
+        "id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Eligible",
+        "updated_at": "2026-11-17T17:36:00.773412Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups",
+      "status": 201
+    },
+    "follow_up_create_bob_again": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "candidate_name": "Bob",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.773408Z",
+        "expires_at": "2026-11-24T17:36:00.769565Z",
+        "follow_up_count": 0,
+        "id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Eligible",
+        "updated_at": "2026-11-17T17:36:00.773412Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups",
+      "status": 201
+    },
+    "follow_up_create_frank": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 0,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Eligible",
+        "updated_at": "2026-11-17T17:36:00.805107Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups",
+      "status": 201
+    },
+    "follow_up_evaluate_bob": {
+      "body": {
+        "block_reasons": [],
+        "eligible": true,
+        "outcome": "eligible",
+        "reasons": [
+          "No prior communication recorded."
+        ],
+        "recommended_at": null,
+        "risks": [],
+        "suggested_objective": "greeting"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/evaluate",
+      "status": 200
+    },
+    "follow_up_evaluate_closed_position": {
+      "body": {
+        "block_reasons": [
+          "Position status is Closed; ordinary follow-up is not allowed."
+        ],
+        "eligible": false,
+        "outcome": "blocked",
+        "reasons": [],
+        "recommended_at": null,
+        "risks": [],
+        "suggested_objective": null
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/evaluate",
+      "status": 200
+    },
+    "follow_up_evaluate_frank": {
+      "body": {
+        "block_reasons": [],
+        "eligible": true,
+        "outcome": "eligible",
+        "reasons": [
+          "No prior communication recorded."
+        ],
+        "recommended_at": null,
+        "risks": [
+          "The candidate is not linked to a position, so the message cannot reference position requirements."
+        ],
+        "suggested_objective": "greeting"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/evaluate",
+      "status": 200
+    },
+    "follow_up_evaluate_unknown": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Candidate 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/evaluate",
+      "status": 404
+    },
+    "follow_up_get_missing": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Follow-up task 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/follow-ups/does-not-exist",
+      "status": 404
+    },
+    "follow_up_patch_approved_direct": {
+      "body": {
+        "error": {
+          "code": "business_rule_violation",
+          "details": {
+            "current": "Rejected",
+            "requested": "Approved",
+            "settable": [
+              "Cancelled",
+              "Drafting",
+              "Eligible",
+              "Pending",
+              "Rejected",
+              "Reviewing"
+            ]
+          },
+          "message": "'Approved' cannot be set directly; it is recorded by the action it represents"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12",
+      "status": 409
+    },
+    "follow_up_patch_drafting": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 0,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Drafting",
+        "updated_at": "2026-11-17T17:36:00.815622Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12",
+      "status": 200
+    },
+    "follow_up_patch_illegal": {
+      "body": {
+        "error": {
+          "code": "business_rule_violation",
+          "details": {
+            "current": "Rejected",
+            "requested": "Drafting"
+          },
+          "message": "Illegal follow-up transition Rejected → Drafting"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12",
+      "status": 409
+    },
+    "follow_up_patch_invalid_status": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "expected": "'Pending', 'Eligible', 'Drafting', 'Reviewing', 'Rejected', 'Approved', 'Copied', 'AwaitingResult', 'Completed', 'Cancelled', 'Expired' or 'Blocked'"
+                },
+                "input": "Nonsense",
+                "loc": [
+                  "body",
+                  "status"
+                ],
+                "msg": "Input should be 'Pending', 'Eligible', 'Drafting', 'Reviewing', 'Rejected', 'Approved', 'Copied', 'AwaitingResult', 'Completed', 'Cancelled', 'Expired' or 'Blocked'",
+                "type": "enum"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12",
+      "status": 422
+    },
+    "follow_up_patch_reject": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 0,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Rejected",
+        "updated_at": "2026-11-17T17:36:00.835215Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12",
+      "status": 200
+    },
+    "follow_up_patch_reviewing": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 0,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": null,
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Reviewing",
+        "updated_at": "2026-11-17T17:36:00.825754Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12",
+      "status": 200
+    },
+    "follow_up_policy_get": {
+      "body": {
+        "first_follow_up_delay_hours": 24,
+        "id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "is_active": true,
+        "max_active_follow_ups": 2,
+        "min_interval_hours": 48,
+        "name": "default",
+        "task_validity_days": 7
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/follow-ups/policy/current",
+      "status": 200
+    },
+    "follow_up_policy_patch": {
+      "body": {
+        "first_follow_up_delay_hours": 24,
+        "id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "is_active": true,
+        "max_active_follow_ups": 3,
+        "min_interval_hours": 48,
+        "name": "default",
+        "task_validity_days": 7
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/policy/current",
+      "status": 200
+    },
+    "follow_up_policy_patch_invalid": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "ge": 1
+                },
+                "input": 0,
+                "loc": [
+                  "body",
+                  "max_active_follow_ups"
+                ],
+                "msg": "Input should be greater than or equal to 1",
+                "type": "greater_than_equal"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/policy/current",
+      "status": 422
+    },
+    "follow_up_policy_patch_null": {
+      "body": {
+        "first_follow_up_delay_hours": 24,
+        "id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "is_active": true,
+        "max_active_follow_ups": 3,
+        "min_interval_hours": 48,
+        "name": "default",
+        "task_validity_days": 7
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/policy/current",
+      "status": 200
+    },
+    "follow_up_policy_restore": {
+      "body": {
+        "first_follow_up_delay_hours": 24,
+        "id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "is_active": true,
+        "max_active_follow_ups": 2,
+        "min_interval_hours": 48,
+        "name": "default",
+        "task_validity_days": 7
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PATCH",
+      "path": "/api/follow-ups/policy/current",
+      "status": 200
+    },
+    "follow_up_record_result": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 1,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": "2026-11-17T17:36:00.888586Z",
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": "contract",
+        "result_recorded_at": "2026-11-17T17:36:00.888586Z",
+        "result_type": "sent",
+        "status": "Cancelled",
+        "updated_at": "2026-11-17T17:36:00.894475Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12/record-result",
+      "status": 200
+    },
+    "follow_up_record_result_again": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "candidate_name": "Frank",
+        "completed_at": null,
+        "created_at": "2026-11-17T17:36:00.805106Z",
+        "expires_at": "2026-11-24T17:36:00.803259Z",
+        "follow_up_count": 1,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "last_follow_up_at": "2026-11-17T17:36:00.914806Z",
+        "objective": "greeting",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": "contract",
+        "result_recorded_at": "2026-11-17T17:36:00.914806Z",
+        "result_type": "sent",
+        "status": "Cancelled",
+        "updated_at": "2026-11-17T17:36:00.917144Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/8c6c7a9b-3bea-49ba-825d-981698147b12/record-result",
+      "status": 200
+    },
+    "follow_up_record_result_bob": {
+      "body": {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "candidate_name": "Bob",
+        "completed_at": "2026-11-17T17:36:00.946562Z",
+        "created_at": "2026-11-17T17:36:00.773408Z",
+        "expires_at": "2026-11-24T17:36:00.769565Z",
+        "follow_up_count": 1,
+        "id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "last_follow_up_at": "2026-11-17T17:36:00.946562Z",
+        "objective": "greeting",
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": "2026-11-17T17:36:00.946562Z",
+        "result_type": "candidate_replied",
+        "status": "Completed",
+        "updated_at": "2026-11-17T17:36:00.955111Z"
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "POST",
+      "path": "/api/follow-ups/8851b0ff-58c7-4f48-96d0-3ee34f1f1d24/record-result",
+      "status": 200
+    },
+    "follow_ups_list_default": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "block_reason": null,
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "candidate_name": "Bob",
+            "completed_at": null,
+            "created_at": "2026-11-10T09:00:00Z",
+            "expires_at": null,
+            "follow_up_count": 0,
+            "id": "dddddddd-0000-0000-0000-000000000003",
+            "last_follow_up_at": null,
+            "objective": null,
+            "position_id": null,
+            "reason": null,
+            "recommended_at": null,
+            "result_note": null,
+            "result_recorded_at": null,
+            "result_type": null,
+            "status": "Completed",
+            "updated_at": "2026-11-10T09:00:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 1
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/follow-ups",
+      "status": 200
+    },
+    "follow_ups_list_final": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "block_reason": null,
+            "candidate_id": "c0000000-0000-0000-0000-000000000006",
+            "candidate_name": "Frank",
+            "completed_at": null,
+            "created_at": "2026-11-17T17:36:00.805106Z",
+            "expires_at": "2026-11-24T17:36:00.803259Z",
+            "follow_up_count": 1,
+            "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+            "last_follow_up_at": "2026-11-17T17:36:00.914806Z",
+            "objective": "greeting",
+            "position_id": null,
+            "reason": "No prior communication recorded.",
+            "recommended_at": null,
+            "result_note": "contract",
+            "result_recorded_at": "2026-11-17T17:36:00.914806Z",
+            "result_type": "sent",
+            "status": "Cancelled",
+            "updated_at": "2026-11-17T17:36:00.917144Z"
+          },
+          {
+            "block_reason": null,
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "candidate_name": "Bob",
+            "completed_at": "2026-11-17T17:36:00.946562Z",
+            "created_at": "2026-11-17T17:36:00.773408Z",
+            "expires_at": "2026-11-24T17:36:00.769565Z",
+            "follow_up_count": 1,
+            "id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+            "last_follow_up_at": "2026-11-17T17:36:00.946562Z",
+            "objective": "greeting",
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "reason": "No prior communication recorded.",
+            "recommended_at": null,
+            "result_note": null,
+            "result_recorded_at": "2026-11-17T17:36:00.946562Z",
+            "result_type": "candidate_replied",
+            "status": "Completed",
+            "updated_at": "2026-11-17T17:36:00.955111Z"
+          },
+          {
+            "block_reason": null,
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "candidate_name": "Bob",
+            "completed_at": null,
+            "created_at": "2026-11-10T09:00:00Z",
+            "expires_at": null,
+            "follow_up_count": 0,
+            "id": "dddddddd-0000-0000-0000-000000000003",
+            "last_follow_up_at": null,
+            "objective": null,
+            "position_id": null,
+            "reason": null,
+            "recommended_at": null,
+            "result_note": null,
+            "result_recorded_at": null,
+            "result_type": null,
+            "status": "Completed",
+            "updated_at": "2026-11-10T09:00:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 3
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/follow-ups",
+      "status": 200
+    },
     "health": {
       "body": {
         "ai_enabled": false,
@@ -1390,9 +2101,9 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "boss",
         "content": "auto thread",
-        "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
-        "created_at": "2026-11-17T16:24:02.381774Z",
-        "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
+        "conversation_id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
+        "created_at": "2026-11-17T17:36:00.478071Z",
+        "id": "8eb1eaa4-1963-4080-b3ec-b53ce194d422",
         "message_time": null,
         "sender_type": null,
         "source": "manual"
@@ -1438,8 +2149,8 @@
         "channel": "boss",
         "content": "  Contract   Message  ",
         "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
-        "created_at": "2026-11-17T16:24:02.367041Z",
-        "id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
+        "created_at": "2026-11-17T17:36:00.465435Z",
+        "id": "a17129be-7ff4-4933-8b0b-265ad9c9ab9d",
         "message_time": "2026-11-14T09:30:00Z",
         "sender_type": "Recruiter",
         "source": "manual"
@@ -1503,9 +2214,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
             "content": "auto thread",
-            "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
-            "created_at": "2026-11-17T16:24:02.381774Z",
-            "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
+            "conversation_id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
+            "created_at": "2026-11-17T17:36:00.478071Z",
+            "id": "8eb1eaa4-1963-4080-b3ec-b53ce194d422",
             "message_time": null,
             "sender_type": null,
             "source": "manual"
@@ -1574,8 +2285,8 @@
             "channel": "boss",
             "content": "  Contract   Message  ",
             "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
-            "created_at": "2026-11-17T16:24:02.367041Z",
-            "id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
+            "created_at": "2026-11-17T17:36:00.465435Z",
+            "id": "a17129be-7ff4-4933-8b0b-265ad9c9ab9d",
             "message_time": "2026-11-14T09:30:00Z",
             "sender_type": "Recruiter",
             "source": "manual"
@@ -1595,9 +2306,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
             "content": "auto thread",
-            "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
-            "created_at": "2026-11-17T16:24:02.381774Z",
-            "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
+            "conversation_id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
+            "created_at": "2026-11-17T17:36:00.478071Z",
+            "id": "8eb1eaa4-1963-4080-b3ec-b53ce194d422",
             "message_time": null,
             "sender_type": null,
             "source": "manual"
@@ -1958,11 +2669,11 @@
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T16:24:02.186047Z",
+        "created_at": "2026-11-17T17:36:00.283379Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "location": "Wuhan",
         "name": "Contract Created",
         "notes": null,
@@ -1970,7 +2681,7 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T16:24:02.186051Z"
+        "updated_at": "2026-11-17T17:36:00.283382Z"
       },
       "content_type": "application/json",
       "location": null,
@@ -1983,7 +2694,7 @@
       "content_type": "",
       "location": null,
       "method": "DELETE",
-      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+      "path": "/api/positions/bfd136b1-e925-49ce-bbec-b31958f4b4c9",
       "status": 204
     },
     "position_delete_missing": {
@@ -2037,13 +2748,13 @@
         "error": {
           "code": "not_found",
           "details": {},
-          "message": "Position 'b8560ed2-806a-4fad-8c5a-70f0ca8034f7' was not found"
+          "message": "Position 'bfd136b1-e925-49ce-bbec-b31958f4b4c9' was not found"
         }
       },
       "content_type": "application/json",
       "location": null,
       "method": "GET",
-      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+      "path": "/api/positions/bfd136b1-e925-49ce-bbec-b31958f4b4c9",
       "status": 404
     },
     "position_detail_archived": {
@@ -2074,11 +2785,11 @@
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T16:24:02.186047Z",
+        "created_at": "2026-11-17T17:36:00.283379Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "location": "Wuhan",
         "name": "Contract Created",
         "notes": null,
@@ -2086,12 +2797,12 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T16:24:02.186051Z"
+        "updated_at": "2026-11-17T17:36:00.283382Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "GET",
-      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+      "path": "/api/positions/bfd136b1-e925-49ce-bbec-b31958f4b4c9",
       "status": 200
     },
     "position_detail_missing": {
@@ -2120,11 +2831,11 @@
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T16:24:02.186047Z",
+        "created_at": "2026-11-17T17:36:00.283379Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "location": "Wuhan",
         "name": "Contract Renamed",
         "notes": null,
@@ -2132,23 +2843,23 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T16:24:02.203951Z"
+        "updated_at": "2026-11-17T17:36:00.302989Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "PATCH",
-      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+      "path": "/api/positions/bfd136b1-e925-49ce-bbec-b31958f4b4c9",
       "status": 200
     },
     "position_patch_archived": {
       "body": {
         "archived": true,
         "candidate_count": 0,
-        "created_at": "2026-11-17T16:24:02.186047Z",
+        "created_at": "2026-11-17T17:36:00.283379Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "location": null,
         "name": "Contract Renamed",
         "notes": null,
@@ -2156,23 +2867,23 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T16:24:02.229853Z"
+        "updated_at": "2026-11-17T17:36:00.332782Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "PATCH",
-      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+      "path": "/api/positions/bfd136b1-e925-49ce-bbec-b31958f4b4c9",
       "status": 200
     },
     "position_patch_clear_nullable": {
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T16:24:02.186047Z",
+        "created_at": "2026-11-17T17:36:00.283379Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "location": null,
         "name": "Contract Renamed",
         "notes": null,
@@ -2180,12 +2891,12 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T16:24:02.221393Z"
+        "updated_at": "2026-11-17T17:36:00.323181Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "PATCH",
-      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+      "path": "/api/positions/bfd136b1-e925-49ce-bbec-b31958f4b4c9",
       "status": 200
     },
     "position_patch_missing": {
@@ -2234,11 +2945,11 @@
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T16:24:02.186047Z",
+        "created_at": "2026-11-17T17:36:00.283379Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "location": "Wuhan",
         "name": "Contract Renamed",
         "notes": null,
@@ -2246,12 +2957,12 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T16:24:02.203951Z"
+        "updated_at": "2026-11-17T17:36:00.302989Z"
       },
       "content_type": "application/json",
       "location": null,
       "method": "PATCH",
-      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+      "path": "/api/positions/bfd136b1-e925-49ce-bbec-b31958f4b4c9",
       "status": 200
     },
     "positions_default": {
@@ -3532,11 +4243,11 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000001",
         "channel": "boss",
         "content_summary": "contract send",
-        "created_at": "2026-11-17T16:24:02.456582Z",
+        "created_at": "2026-11-17T17:36:00.547974Z",
         "draft_id": null,
-        "id": "4d6efdcf-7981-46a0-bdb9-4f3214034225",
+        "id": "d57236de-50d5-4fe5-8eb1-04fbf47b124f",
         "note": null,
-        "sent_at": "2026-11-17T16:24:02.455823Z",
+        "sent_at": "2026-11-17T17:36:00.547309Z",
         "status": "sent",
         "target": "boss-42",
         "task_id": null
@@ -3553,9 +4264,9 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "wx",
         "content_summary": null,
-        "created_at": "2026-11-17T16:24:02.467609Z",
+        "created_at": "2026-11-17T17:36:00.558034Z",
         "draft_id": null,
-        "id": "c878f502-137c-4f2b-b03e-84536d721a66",
+        "id": "ed568131-88a2-490f-b7a2-65a213f0895a",
         "note": null,
         "sent_at": "2026-11-14T08:15:00Z",
         "status": "candidate_replied",
@@ -3625,9 +4336,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "wx",
             "content_summary": null,
-            "created_at": "2026-11-17T16:24:02.467609Z",
+            "created_at": "2026-11-17T17:36:00.558034Z",
             "draft_id": null,
-            "id": "c878f502-137c-4f2b-b03e-84536d721a66",
+            "id": "ed568131-88a2-490f-b7a2-65a213f0895a",
             "note": null,
             "sent_at": "2026-11-14T08:15:00Z",
             "status": "candidate_replied",
@@ -3668,11 +4379,11 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000001",
             "channel": "boss",
             "content_summary": "contract send",
-            "created_at": "2026-11-17T16:24:02.456582Z",
+            "created_at": "2026-11-17T17:36:00.547974Z",
             "draft_id": null,
-            "id": "4d6efdcf-7981-46a0-bdb9-4f3214034225",
+            "id": "d57236de-50d5-4fe5-8eb1-04fbf47b124f",
             "note": null,
-            "sent_at": "2026-11-17T16:24:02.455823Z",
+            "sent_at": "2026-11-17T17:36:00.547309Z",
             "status": "sent",
             "target": "boss-42",
             "task_id": null
@@ -3682,9 +4393,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "wx",
             "content_summary": null,
-            "created_at": "2026-11-17T16:24:02.467609Z",
+            "created_at": "2026-11-17T17:36:00.558034Z",
             "draft_id": null,
-            "id": "c878f502-137c-4f2b-b03e-84536d721a66",
+            "id": "ed568131-88a2-490f-b7a2-65a213f0895a",
             "note": null,
             "sent_at": "2026-11-14T08:15:00Z",
             "status": "candidate_replied",
@@ -4005,8 +4716,8 @@
       "body": [
         {
           "content": "auto thread",
-          "created_at": "2026-11-17T16:24:02.381774Z",
-          "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
+          "created_at": "2026-11-17T17:36:00.478071Z",
+          "id": "8eb1eaa4-1963-4080-b3ec-b53ce194d422",
           "kind": "message",
           "message_time": null,
           "sender_type": null,
@@ -4064,8 +4775,8 @@
         },
         {
           "content": "  Contract   Message  ",
-          "created_at": "2026-11-17T16:24:02.367041Z",
-          "id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
+          "created_at": "2026-11-17T17:36:00.465435Z",
+          "id": "a17129be-7ff4-4933-8b0b-265ad9c9ab9d",
           "kind": "message",
           "message_time": "2026-11-14T09:30:00Z",
           "sender_type": "Recruiter",
@@ -4197,184 +4908,184 @@
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.186718",
-        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "created_at": "2026-11-17 17:36:00.283960",
+        "entity_id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "entity_type": "position",
         "event_type": "position.created",
-        "id": "74f30c1f-de28-4871-8236-3708b646a657",
+        "id": "253d5e6b-c881-4af0-8a65-c04a970a9b88",
         "metadata_json": null,
         "summary": "Created position 'Contract Created'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.186721"
+        "updated_at": "2026-11-17 17:36:00.283962"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.203329",
-        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "created_at": "2026-11-17 17:36:00.302487",
+        "entity_id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "4f104696-acea-4fcf-b43f-aade96266f08",
+        "id": "13c6f9f9-4fdb-4912-8029-3f59347c7bbd",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.203334"
+        "updated_at": "2026-11-17 17:36:00.302491"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.212967",
-        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "created_at": "2026-11-17 17:36:00.312618",
+        "entity_id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "37ff9d5f-0d9d-41be-807a-25515459e384",
+        "id": "1ec00808-9a40-41f6-9d99-be5960fdc192",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.212970"
+        "updated_at": "2026-11-17 17:36:00.312624"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.220971",
-        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "created_at": "2026-11-17 17:36:00.322740",
+        "entity_id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "641385ea-6889-4d01-a4a7-d8ce3cb450c1",
+        "id": "40f55753-0cae-4bcc-a306-acb5e28c0d15",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.220974"
+        "updated_at": "2026-11-17 17:36:00.322744"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.229700",
-        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "created_at": "2026-11-17 17:36:00.332606",
+        "entity_id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "ed5c5ded-5503-4505-b7b1-5eb22833fcc2",
+        "id": "543297ba-80da-4989-8d98-9a2691877be1",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.229703"
+        "updated_at": "2026-11-17 17:36:00.332610"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.244432",
-        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
+        "created_at": "2026-11-17 17:36:00.347202",
+        "entity_id": "bfd136b1-e925-49ce-bbec-b31958f4b4c9",
         "entity_type": "position",
         "event_type": "position.deleted",
-        "id": "a1e60bb5-643e-4c2a-9286-d17077c32e0e",
+        "id": "2055e03e-37aa-4c72-91b1-30df043e2694",
         "metadata_json": null,
         "summary": "Deleted position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.244435"
+        "updated_at": "2026-11-17 17:36:00.347205"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.264997",
-        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "created_at": "2026-11-17 17:36:00.365987",
+        "entity_id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "entity_type": "candidate",
         "event_type": "candidate.created",
-        "id": "258784b6-e7ad-44f3-8ff1-b92112381a7d",
+        "id": "ee261abd-4427-4a89-8d6f-c8008b1991f8",
         "metadata_json": null,
         "summary": "Created candidate",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.264999"
+        "updated_at": "2026-11-17 17:36:00.365990"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.293445",
-        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "created_at": "2026-11-17 17:36:00.392928",
+        "entity_id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "entity_type": "candidate",
         "event_type": "candidate.updated",
-        "id": "f8a3bc0f-a10d-437e-b4b0-61451f2cf380",
+        "id": "fea280ea-10d5-478b-8c9f-37f7fd591276",
         "metadata_json": null,
         "summary": "Updated candidate",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.293448"
+        "updated_at": "2026-11-17 17:36:00.392931"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.305957",
-        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "created_at": "2026-11-17 17:36:00.405963",
+        "entity_id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "entity_type": "candidate",
         "event_type": "candidate.updated",
-        "id": "23d464f4-ac54-4d8c-b6cd-5618eec83dce",
+        "id": "0194ca31-b523-4a9f-9a0f-b6c0c79d739e",
         "metadata_json": null,
         "summary": "Updated candidate",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.305961"
+        "updated_at": "2026-11-17 17:36:00.405966"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.329535",
-        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
+        "created_at": "2026-11-17 17:36:00.427912",
+        "entity_id": "62bd71e0-c072-41f0-8712-55baadb44311",
         "entity_type": "candidate",
         "event_type": "candidate.deleted",
-        "id": "53c9e13a-c41b-472d-9282-9a8ae7e1294d",
+        "id": "266eb5e5-a5e0-4d06-8362-764d7efabc37",
         "metadata_json": null,
         "summary": "Deleted candidate and all dependent records",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.329539"
+        "updated_at": "2026-11-17 17:36:00.427915"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.344140",
-        "entity_id": "6d8abc47-6778-450c-a938-45f25ef578c2",
+        "created_at": "2026-11-17 17:36:00.442306",
+        "entity_id": "c9287d33-c346-48e7-9b86-0c860b645415",
         "entity_type": "conversation",
         "event_type": "conversation.created",
-        "id": "1e321e2c-650b-4e0c-bc27-d034cd4e1dd5",
+        "id": "af099943-6b42-41ba-92bb-3e2d90e58dd7",
         "metadata_json": null,
         "summary": "Opened conversation",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.344142"
+        "updated_at": "2026-11-17 17:36:00.442307"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.367587",
-        "entity_id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
+        "created_at": "2026-11-17 17:36:00.466052",
+        "entity_id": "a17129be-7ff4-4933-8b0b-265ad9c9ab9d",
         "entity_type": "message",
         "event_type": "message.created",
-        "id": "7acbed5a-c876-47ef-a882-0a0cf4a4716c",
+        "id": "54dca8bd-1b0a-4711-8206-e059d2b48e42",
         "metadata_json": {
           "source": "manual"
         },
         "summary": "Recorded a message",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.367588"
+        "updated_at": "2026-11-17 17:36:00.466054"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.382335",
-        "entity_id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
+        "created_at": "2026-11-17 17:36:00.478541",
+        "entity_id": "8eb1eaa4-1963-4080-b3ec-b53ce194d422",
         "entity_type": "message",
         "event_type": "message.created",
-        "id": "5c042df5-bb91-418f-b301-b268d44afd26",
+        "id": "1e2ce91f-d44a-4cc4-a84b-d22f4c298d2b",
         "metadata_json": {
           "source": "manual"
         },
         "summary": "Recorded a message",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.382337"
+        "updated_at": "2026-11-17 17:36:00.478542"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.457200",
-        "entity_id": "4d6efdcf-7981-46a0-bdb9-4f3214034225",
+        "created_at": "2026-11-17 17:36:00.548489",
+        "entity_id": "d57236de-50d5-4fe5-8eb1-04fbf47b124f",
         "entity_type": "send_record",
         "event_type": "send.recorded",
-        "id": "43ae4231-310e-4285-be81-e381f718beed",
+        "id": "570321dd-080b-4c9f-9cda-3f3e8745002a",
         "metadata_json": {
           "candidate_id": "c0000000-0000-0000-0000-000000000001",
           "channel": "boss",
@@ -4385,16 +5096,16 @@
         },
         "summary": "Recorded manual send with status 'sent'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.457202"
+        "updated_at": "2026-11-17 17:36:00.548491"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.468056",
-        "entity_id": "c878f502-137c-4f2b-b03e-84536d721a66",
+        "created_at": "2026-11-17 17:36:00.558450",
+        "entity_id": "ed568131-88a2-490f-b7a2-65a213f0895a",
         "entity_type": "send_record",
         "event_type": "send.recorded",
-        "id": "14413008-9755-42ea-a925-6ac46110af27",
+        "id": "aaa795a5-95a2-4693-ab9e-1ad9ec9c4ca7",
         "metadata_json": {
           "candidate_id": "c0000000-0000-0000-0000-000000000002",
           "channel": "wx",
@@ -4405,33 +5116,273 @@
         },
         "summary": "Recorded manual send with status 'candidate_replied'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.468058"
+        "updated_at": "2026-11-17 17:36:00.558452"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.520513",
+        "created_at": "2026-11-17 17:36:00.608345",
         "entity_id": "77777777-7777-7777-7777-777777777777",
         "entity_type": "position",
         "event_type": "position.deleted",
-        "id": "ea80614a-92ef-456c-bbb9-c8959640cc4e",
+        "id": "37e53690-7dfe-480e-8da3-e314861b7b4c",
         "metadata_json": null,
         "summary": "Deleted position 'ML Engineer'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.520517"
+        "updated_at": "2026-11-17 17:36:00.608347"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 16:24:02.539643",
+        "created_at": "2026-11-17 17:36:00.627007",
         "entity_id": "c0000000-0000-0000-0000-000000000001",
         "entity_type": "candidate",
         "event_type": "candidate.deleted",
-        "id": "2be49226-e1c8-44d2-a12f-4d7c3f836253",
+        "id": "074e7b97-aba0-411a-a105-c117862bf151",
         "metadata_json": null,
         "summary": "Deleted candidate and all dependent records",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.539646"
+        "updated_at": "2026-11-17 17:36:00.627011"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.695422",
+        "entity_id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "entity_type": "follow_up_policy",
+        "event_type": "follow_up.policy_updated",
+        "id": "811379b7-d8ad-41aa-9efe-3d9666cb79e1",
+        "metadata_json": {
+          "max_active_follow_ups": 3
+        },
+        "summary": "Updated follow-up policy 'default'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.695425"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.706312",
+        "entity_id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "entity_type": "follow_up_policy",
+        "event_type": "follow_up.policy_updated",
+        "id": "62240692-20eb-4809-a9e6-4144ec0e5715",
+        "metadata_json": null,
+        "summary": "Updated follow-up policy 'default'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.706349"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.712345",
+        "entity_id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "entity_type": "follow_up_policy",
+        "event_type": "follow_up.policy_updated",
+        "id": "7582f1ab-4f7e-4c0f-9e8e-9496ed6597ec",
+        "metadata_json": {
+          "max_active_follow_ups": 2
+        },
+        "summary": "Updated follow-up policy 'default'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.712347"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.774058",
+        "entity_id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_created",
+        "id": "40dffb50-6581-4357-8d8f-ad09e04eec47",
+        "metadata_json": {
+          "outcome": "eligible",
+          "status": "Eligible"
+        },
+        "summary": "Created follow-up task",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.774060"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.790545",
+        "entity_id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_reused",
+        "id": "21b65a91-33ea-4619-8e3f-dea05ab6edd0",
+        "metadata_json": {
+          "status": "Eligible"
+        },
+        "summary": "Reused the existing open follow-up task",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.790547"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.805472",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_created",
+        "id": "cd6b25f3-9e5e-4689-97de-6bd46f456706",
+        "metadata_json": {
+          "outcome": "eligible",
+          "status": "Eligible"
+        },
+        "summary": "Created follow-up task",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.805473"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.815197",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_updated",
+        "id": "cc07c55f-19e8-4d8b-b457-5bba25a606da",
+        "metadata_json": null,
+        "summary": "Updated follow-up task (Drafting)",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.815200"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.825609",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_updated",
+        "id": "aafad8de-0834-45f6-855e-9de5e8285ccb",
+        "metadata_json": null,
+        "summary": "Updated follow-up task (Reviewing)",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.825612"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.835061",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_updated",
+        "id": "706f0acb-6dc8-4af5-8af1-4f81b93f8aba",
+        "metadata_json": null,
+        "summary": "Updated follow-up task (Rejected)",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.835065"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.862014",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_cancelled",
+        "id": "7f74625b-332b-4d3a-a941-73fd6dd2ce22",
+        "metadata_json": null,
+        "summary": "Cancelled follow-up task",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.862017"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.871586",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.task_cancelled",
+        "id": "75710ec7-2b93-4702-977a-55f5eba2144c",
+        "metadata_json": null,
+        "summary": "Cancelled follow-up task",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.871589"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.893941",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.result_recorded",
+        "id": "c43df345-446b-49ce-be50-b0685fdfcbdf",
+        "metadata_json": {
+          "result_type": "sent"
+        },
+        "summary": "Recorded result 'sent'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.893943"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.895572",
+        "entity_id": "a14dde1a-2fc6-4d40-861c-afc3a5952efe",
+        "entity_type": "send_record",
+        "event_type": "send.recorded",
+        "id": "2b524cf2-7a83-427f-9a46-457b7fac46fb",
+        "metadata_json": {
+          "candidate_id": "c0000000-0000-0000-0000-000000000006",
+          "channel": "boss",
+          "draft_id": null,
+          "indicates_contact": true,
+          "status": "sent",
+          "task_id": "8c6c7a9b-3bea-49ba-825d-981698147b12"
+        },
+        "summary": "Recorded manual send with status 'sent'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.895575"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.915630",
+        "entity_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.result_recorded",
+        "id": "7846749c-b1b7-4980-a748-74f7baab8e72",
+        "metadata_json": {
+          "result_type": "sent"
+        },
+        "summary": "Recorded result 'sent'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.915634"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.954541",
+        "entity_id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "entity_type": "follow_up_task",
+        "event_type": "follow_up.result_recorded",
+        "id": "c9ccc0cb-6c7e-4030-b66e-6df4f74ce79e",
+        "metadata_json": {
+          "result_type": "candidate_replied"
+        },
+        "summary": "Recorded result 'candidate_replied'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.954543"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 17:36:00.955978",
+        "entity_id": "4fefac25-cb0c-4cb7-944e-e5f583232327",
+        "entity_type": "send_record",
+        "event_type": "send.recorded",
+        "id": "ff307ad1-3d15-4dc0-b9bc-c1812fe79025",
+        "metadata_json": {
+          "candidate_id": "c0000000-0000-0000-0000-000000000002",
+          "channel": "boss",
+          "draft_id": null,
+          "indicates_contact": true,
+          "status": "candidate_replied",
+          "task_id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24"
+        },
+        "summary": "Recorded manual send with status 'candidate_replied'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.955980"
       }
     ],
     "candidates": [
@@ -4505,7 +5456,7 @@
         "source": "boss",
         "status": "New",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.520755"
+        "updated_at": "2026-11-17 17:36:00.608546"
       },
       {
         "archived": 1,
@@ -4530,14 +5481,14 @@
       {
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "boss",
-        "created_at": "2026-11-17 16:24:02.380869",
-        "id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
+        "created_at": "2026-11-17 17:36:00.477382",
+        "id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
         "is_active": 1,
-        "last_message_at": "2026-11-17 16:24:02.381254",
+        "last_message_at": "2026-11-17 17:36:00.477668",
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
         "title": null,
-        "updated_at": "2026-11-17 16:24:02.381556"
+        "updated_at": "2026-11-17 17:36:00.477909"
       },
       {
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
@@ -4554,17 +5505,54 @@
       {
         "candidate_id": "c0000000-0000-0000-0000-000000000006",
         "channel": "boss",
-        "created_at": "2026-11-17 16:24:02.343628",
-        "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
+        "created_at": "2026-11-17 17:36:00.441830",
+        "id": "c9287d33-c346-48e7-9b86-0c860b645415",
         "is_active": 1,
         "last_message_at": null,
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
         "title": "Contract thread",
-        "updated_at": "2026-11-17 16:24:02.343631"
+        "updated_at": "2026-11-17 17:36:00.441833"
+      }
+    ],
+    "follow_up_policies": [
+      {
+        "created_at": "2026-11-17 17:36:00.688333",
+        "first_follow_up_delay_hours": 24,
+        "id": "60b29a45-8c80-4032-b32d-e7203466308c",
+        "is_active": 1,
+        "max_active_follow_ups": 2,
+        "min_interval_hours": 48,
+        "name": "default",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "task_validity_days": 7,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.712493"
       }
     ],
     "follow_up_tasks": [
+      {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "completed_at": "2026-11-17 17:36:00.946562",
+        "created_at": "2026-11-17 17:36:00.773408",
+        "expires_at": "2026-11-24 17:36:00.769565",
+        "follow_up_count": 1,
+        "id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "idempotency_key": null,
+        "last_follow_up_at": "2026-11-17 17:36:00.946562",
+        "objective": "greeting",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": "2026-11-17 17:36:00.946562",
+        "result_type": "candidate_replied",
+        "status": "Completed",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.955111"
+      },
       {
         "block_reason": null,
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
@@ -4586,6 +5574,28 @@
         "status": "Completed",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
         "updated_at": "2026-11-10 09:00:00.000000"
+      },
+      {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "completed_at": null,
+        "created_at": "2026-11-17 17:36:00.805106",
+        "expires_at": "2026-11-24 17:36:00.803259",
+        "follow_up_count": 1,
+        "id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "idempotency_key": null,
+        "last_follow_up_at": "2026-11-17 17:36:00.914806",
+        "objective": "greeting",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": null,
+        "reason": "No prior communication recorded.",
+        "recommended_at": null,
+        "result_note": "contract",
+        "result_recorded_at": "2026-11-17 17:36:00.914806",
+        "result_type": "sent",
+        "status": "Cancelled",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.917144"
       }
     ],
     "generated_drafts": [
@@ -4629,16 +5639,16 @@
         "channel": "boss",
         "content": "auto thread",
         "content_hash": "324e0d9a9edc406cfe94d5de8584b0784cb9fc899bec84d587f862651480ee41",
-        "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
-        "created_at": "2026-11-17 16:24:02.381774",
-        "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
+        "conversation_id": "ff1055b0-9b0a-4af3-9532-eb3e3593b888",
+        "created_at": "2026-11-17 17:36:00.478071",
+        "id": "8eb1eaa4-1963-4080-b3ec-b53ce194d422",
         "import_record_id": null,
         "message_time": null,
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "sender_type": null,
         "source": "manual",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.381776"
+        "updated_at": "2026-11-17 17:36:00.478072"
       }
     ],
     "positions": [
@@ -4756,6 +5766,23 @@
         "actor": "local_user",
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "boss",
+        "content_summary": "greeting",
+        "created_at": "2026-11-17 17:36:00.955447",
+        "draft_id": null,
+        "id": "4fefac25-cb0c-4cb7-944e-e5f583232327",
+        "note": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "sent_at": "2026-11-17 17:36:00.954110",
+        "status": "candidate_replied",
+        "target": null,
+        "task_id": "8851b0ff-58c7-4f48-96d0-3ee34f1f1d24",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.955449"
+      },
+      {
+        "actor": "local_user",
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "boss",
         "content_summary": "summary",
         "created_at": "2026-11-13 10:00:00.000000",
         "draft_id": null,
@@ -4774,9 +5801,9 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "wx",
         "content_summary": null,
-        "created_at": "2026-11-17 16:24:02.467609",
+        "created_at": "2026-11-17 17:36:00.558034",
         "draft_id": null,
-        "id": "c878f502-137c-4f2b-b03e-84536d721a66",
+        "id": "ed568131-88a2-490f-b7a2-65a213f0895a",
         "note": null,
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "sent_at": "2026-11-14 08:15:00.000000",
@@ -4784,9 +5811,26 @@
         "target": null,
         "task_id": null,
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 16:24:02.467613"
+        "updated_at": "2026-11-17 17:36:00.558036"
+      },
+      {
+        "actor": "local_user",
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "channel": "boss",
+        "content_summary": "greeting",
+        "created_at": "2026-11-17 17:36:00.894857",
+        "draft_id": null,
+        "id": "a14dde1a-2fc6-4d40-861c-afc3a5952efe",
+        "note": "contract",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "sent_at": "2026-11-17 17:36:00.893471",
+        "status": "sent",
+        "target": null,
+        "task_id": "8c6c7a9b-3bea-49ba-825d-981698147b12",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 17:36:00.894861"
       }
     ]
   },
-  "started_at": "2026-11-17T16:24:01.216307+00:00"
+  "started_at": "2026-11-17T17:35:59.345481+00:00"
 }

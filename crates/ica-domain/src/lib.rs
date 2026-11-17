@@ -7,6 +7,7 @@
 pub mod candidate;
 pub mod content_hash;
 pub mod conversation;
+pub mod follow_up;
 pub mod pagination;
 pub mod position;
 pub mod search;
@@ -15,6 +16,12 @@ pub mod send_record;
 pub use candidate::{Candidate, CandidateStatus};
 pub use content_hash::content_hash;
 pub use conversation::{Conversation, Message, MessageSource, SenderType, TimelineEntry};
+pub use follow_up::{
+    can_transition, evaluate_follow_up, find_transition_path, is_task_expired, task_expiry,
+    DecisionOutcome, EvaluateInput, FollowUpDecision, FollowUpPolicy, FollowUpTask,
+    FollowUpTaskStatus,
+};
+
 pub use pagination::Page;
 pub use position::{Position, PositionStatus};
 pub use search::{normalize_search, MAX_SEARCH_LEN};

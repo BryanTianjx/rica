@@ -8,7 +8,9 @@
 //! IMP-2 depend on.
 
 use chrono::{DateTime, Utc};
-use ica_domain::{CandidateStatus, MessageSource, PositionStatus, ResultType, SenderType};
+use ica_domain::{
+    CandidateStatus, FollowUpTaskStatus, MessageSource, PositionStatus, ResultType, SenderType,
+};
 
 /// A field in a PATCH body: the three states pydantic's `model_dump(exclude_unset=True)`
 /// can distinguish.
@@ -177,4 +179,90 @@ pub struct SendRecordFilter {
     pub task_id: Option<String>,
     pub draft_id: Option<String>,
     pub status: Option<ResultType>,
+}
+
+// ── Follow-ups (W2) ────────────────────────────────────────────────────────
+
+/// A validated `POST /api/follow-ups` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewFollowUpTask {
+    pub candidate_id: String,
+    pub position_id: Option<String>,
+    pub objective: Option<String>,
+    pub reason: Option<String>,
+    pub recommended_at: Option<DateTime<Utc>>,
+}
+
+/// A validated `PATCH /api/follow-ups/{id}` body. `status` carries the
+/// three-state distinction too: absent and null both mean "no status change"
+/// (the baseline checks `payload.status is not None` after pydantic).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FollowUpTaskPatch {
+    pub objective: Field<String>,
+    pub reason: Field<String>,
+    pub recommended_at: Field<DateTime<Utc>>,
+    pub status: Field<FollowUpTaskStatus>,
+}
+
+/// A validated `POST /api/follow-ups/{id}/record-result` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewFollowUpResult {
+    pub result_type: ResultType,
+    pub note: Option<String>,
+}
+
+/// A validated `POST /api/follow-ups/evaluate` body. `policy_id` is accepted
+/// but ignored, exactly like the baseline (the service never reads it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewFollowUpEvaluation {
+    pub candidate_id: String,
+    pub position_id: Option<String>,
+}
+
+/// A validated `PATCH /api/follow-ups/policy/current` body. A `null` value and
+/// an absent key behave identically (`exclude_unset` + `exclude_none`), so
+/// both collapse into `None` — the field is simply left alone.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FollowUpPolicyPatch {
+    pub first_follow_up_delay_hours: Option<i64>,
+    pub max_active_follow_ups: Option<i64>,
+    pub min_interval_hours: Option<i64>,
+    pub task_validity_days: Option<i64>,
+}
+
+impl FollowUpPolicyPatch {
+    /// Whether the body carried no field at all (the audit metadata is NULL
+    /// for an empty patch, matching the baseline's empty-dict handling).
+    pub fn is_empty(&self) -> bool {
+        self.first_follow_up_delay_hours.is_none()
+            && self.max_active_follow_ups.is_none()
+            && self.min_interval_hours.is_none()
+            && self.task_validity_days.is_none()
+    }
+}
+
+/// Filter for `GET /api/follow-ups`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FollowUpTaskFilter {
+    pub candidate_id: Option<String>,
+    pub status: Option<FollowUpTaskStatus>,
+}
+
+/// The fields a result recording writes onto the task row. The repository
+/// applies them together with the follow-up audit and the optional send
+/// record, in one transaction like the baseline's `record_result`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FollowUpResultPatch {
+    pub result_type: String,
+    pub result_note: Option<String>,
+    pub result_recorded_at: DateTime<Utc>,
+    /// `Some(Completed)` when the current state may legally be closed by a
+    /// recorded result; `None` keeps the status (e.g. on a terminal task).
+    pub status: Option<FollowUpTaskStatus>,
+    pub completed_at: Option<DateTime<Utc>>,
+    /// Whether this outcome increments `follow_up_count` (a contact-indicating
+    /// result that was not already counted).
+    pub bump_count: bool,
+    /// `last_follow_up_at = now` for contact-indicating results.
+    pub last_follow_up_at: Option<DateTime<Utc>>,
 }

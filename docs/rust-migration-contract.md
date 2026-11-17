@@ -140,7 +140,7 @@ codebases by symbol.
 | 22 | GET | `/messages` | `list_messages` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
 | 23 | POST | `/messages` | `create_message` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
 | 24 | GET | `/candidates/{candidate_id}/timeline` | `candidate_timeline` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
-| 25 | GET | `/dashboard` | `dashboard` | `ica-application/dashboard.rs` | W2 |
+| 25 | GET | `/dashboard` | `dashboard` | `ica-application/dashboard.rs` | W2 ✅ |
 | 26 | GET | `/drafts` | `list_drafts` | `ica-application/drafts.rs` | W3 |
 | 27 | GET | `/drafts/{draft_id}` | `get_draft` | `ica-application/drafts.rs` | W3 |
 | 28 | POST | `/drafts/generate` | `generate` | `ica-application/drafts.rs` | W3 |
@@ -151,16 +151,16 @@ codebases by symbol.
 | 33 | POST | `/drafts/{draft_id}/copy` | `copy_draft` | `ica-application/drafts.rs` | W3 |
 | 34 | GET | `/draft-groups/{group_id}` | `get_draft_group` | `ica-application/drafts.rs` | W3 |
 | 35 | POST | `/draft-groups/{group_id}/select` | `select_draft_from_group` | `ica-application/drafts.rs` | W3 |
-| 36 | POST | `/follow-ups/evaluate` | `evaluate_follow_up` | `ica-application/follow_ups.rs` | W2 |
-| 37 | GET | `/follow-ups` | `list_follow_ups` | `ica-application/follow_ups.rs` | W2 |
-| 38 | POST | `/follow-ups` | `create_follow_up` | `ica-application/follow_ups.rs` | W2 |
-| 39 | GET | `/follow-ups/{task_id}` | `get_follow_up` | `ica-application/follow_ups.rs` | W2 |
-| 40 | PATCH | `/follow-ups/{task_id}` | `update_follow_up` | `ica-application/follow_ups.rs` | W2 |
-| 41 | POST | `/follow-ups/{task_id}/cancel` | `cancel_follow_up` | `ica-application/follow_ups.rs` | W2 |
-| 42 | POST | `/follow-ups/{task_id}/complete` | `complete_follow_up` | `ica-application/follow_ups.rs` | W2 |
-| 43 | POST | `/follow-ups/{task_id}/record-result` | `record_result` | `ica-application/follow_ups.rs` | W2 |
-| 44 | GET | `/follow-ups/policy/current` | `get_policy` | `ica-application/follow_ups.rs` | W2 |
-| 45 | PATCH | `/follow-ups/policy/current` | `update_policy` | `ica-application/follow_ups.rs` | W2 |
+| 36 | POST | `/follow-ups/evaluate` | `evaluate_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 37 | GET | `/follow-ups` | `list_follow_ups` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 38 | POST | `/follow-ups` | `create_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 39 | GET | `/follow-ups/{task_id}` | `get_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 40 | PATCH | `/follow-ups/{task_id}` | `update_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 41 | POST | `/follow-ups/{task_id}/cancel` | `cancel_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 42 | POST | `/follow-ups/{task_id}/complete` | `complete_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 43 | POST | `/follow-ups/{task_id}/record-result` | `record_result` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 44 | GET | `/follow-ups/policy/current` | `get_policy` | `ica-application/follow_ups.rs` | W2 ✅ |
+| 45 | PATCH | `/follow-ups/policy/current` | `update_policy` | `ica-application/follow_ups.rs` | W2 ✅ |
 | 46 | POST | `/imports/preview` | `preview_import` | `ica-application/imports.rs` | W4 |
 | 47 | GET | `/imports/{session_id}` | `get_import` | `ica-application/imports.rs` | W4 |
 | 48 | POST | `/imports/{session_id}/confirm` | `confirm_import` | `ica-application/imports.rs` | W4 |

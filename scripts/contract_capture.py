@@ -295,6 +295,77 @@ CASES: list[dict] = [
     {"name": "conversations_after_cascade", "method": "GET", "path": "/api/conversations"},
     {"name": "timeline_after_cascade", "method": "GET", "path": f"/api/candidates/{BOB}/timeline"},
 
+    # ── W2: follow-ups (state machine) + policy + dashboard ────────────────
+    # Runs after the FK section: Alice is gone (cascade removed her tasks),
+    # Frank has no position, Bob keeps his Completed task and message.
+    {"name": "follow_ups_list_default", "method": "GET", "path": "/api/follow-ups"},
+    {"name": "follow_up_get_missing", "method": "GET", "path": "/api/follow-ups/does-not-exist"},
+    # First use creates the default policy row; the diff sees it in db_state.
+    {"name": "follow_up_policy_get", "method": "GET", "path": "/api/follow-ups/policy/current"},
+    {"name": "follow_up_policy_patch", "method": "PATCH",
+     "path": "/api/follow-ups/policy/current", "json": {"max_active_follow_ups": 3}},
+    {"name": "follow_up_policy_patch_invalid", "method": "PATCH",
+     "path": "/api/follow-ups/policy/current", "json": {"max_active_follow_ups": 0}},
+    {"name": "follow_up_policy_patch_null", "method": "PATCH",
+     "path": "/api/follow-ups/policy/current", "json": {"task_validity_days": None}},
+    {"name": "follow_up_policy_restore", "method": "PATCH",
+     "path": "/api/follow-ups/policy/current", "json": {"max_active_follow_ups": 2}},
+    # The decision engine: every case lands on a branch whose reason string is
+    # stable (fixed seed timestamps); the humanized-duration branches are
+    # pinned in w2-python-facts.md instead, they would flip across an hour
+    # boundary between the two captures.
+    {"name": "follow_up_evaluate_frank", "method": "POST", "path": "/api/follow-ups/evaluate",
+     "json": {"candidate_id": FRANK}},
+    {"name": "follow_up_evaluate_bob", "method": "POST", "path": "/api/follow-ups/evaluate",
+     "json": {"candidate_id": BOB}},
+    {"name": "follow_up_evaluate_unknown", "method": "POST", "path": "/api/follow-ups/evaluate",
+     "json": {"candidate_id": "does-not-exist"}},
+    {"name": "follow_up_evaluate_closed_position", "method": "POST", "path": "/api/follow-ups/evaluate",
+     "json": {"candidate_id": BOB, "position_id": POSITION_ARCHIVED}},
+    # Task creation: Bob's only task is terminal, so a new open one is created;
+    # the second call reuses it (same id on both sides).
+    {"name": "follow_up_create_bob", "method": "POST", "path": "/api/follow-ups",
+     "json": {"candidate_id": BOB}, "capture": {"created_task_id": "id"}},
+    {"name": "follow_up_create_bob_again", "method": "POST", "path": "/api/follow-ups",
+     "json": {"candidate_id": BOB}},
+    {"name": "follow_up_create_frank", "method": "POST", "path": "/api/follow-ups",
+     "json": {"candidate_id": FRANK}, "capture": {"frank_task_id": "id"}},
+    # The state machine, walked over real PATCHes with the measured 409s.
+    {"name": "follow_up_patch_drafting", "method": "PATCH",
+     "path": "/api/follow-ups/{frank_task_id}", "json": {"status": "Drafting"}},
+    {"name": "follow_up_patch_reviewing", "method": "PATCH",
+     "path": "/api/follow-ups/{frank_task_id}", "json": {"status": "Reviewing"}},
+    {"name": "follow_up_patch_reject", "method": "PATCH",
+     "path": "/api/follow-ups/{frank_task_id}", "json": {"status": "Rejected"}},
+    {"name": "follow_up_patch_illegal", "method": "PATCH",
+     "path": "/api/follow-ups/{frank_task_id}", "json": {"status": "Drafting"}},
+    {"name": "follow_up_patch_approved_direct", "method": "PATCH",
+     "path": "/api/follow-ups/{frank_task_id}", "json": {"status": "Approved"}},
+    {"name": "follow_up_patch_invalid_status", "method": "PATCH",
+     "path": "/api/follow-ups/{frank_task_id}", "json": {"status": "Nonsense"}},
+    # Cancel from Rejected is legal; re-cancelling is the legal self-transition.
+    {"name": "follow_up_cancel", "method": "POST",
+     "path": "/api/follow-ups/{frank_task_id}/cancel"},
+    {"name": "follow_up_cancel_again", "method": "POST",
+     "path": "/api/follow-ups/{frank_task_id}/cancel"},
+    {"name": "follow_up_complete_wrong", "method": "POST",
+     "path": "/api/follow-ups/{frank_task_id}/complete"},
+    # record-result never rejects; a cancelled task keeps its status but gains
+    # the result, the count and one send-record row. The replay adds nothing.
+    {"name": "follow_up_record_result", "method": "POST",
+     "path": "/api/follow-ups/{frank_task_id}/record-result",
+     "json": {"result_type": "sent", "note": "contract"}},
+    {"name": "follow_up_record_result_again", "method": "POST",
+     "path": "/api/follow-ups/{frank_task_id}/record-result",
+     "json": {"result_type": "sent", "note": "contract"}},
+    # Bob's open task completes through result recording (Eligible is
+    # result-completable; a bare complete from Eligible would 409).
+    {"name": "follow_up_record_result_bob", "method": "POST",
+     "path": "/api/follow-ups/{created_task_id}/record-result",
+     "json": {"result_type": "candidate_replied"}},
+    {"name": "follow_ups_list_final", "method": "GET", "path": "/api/follow-ups"},
+    {"name": "dashboard_default", "method": "GET", "path": "/api/dashboard"},
+
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
@@ -308,6 +379,7 @@ DB_TABLES = [
     "messages",
     "send_records",
     "follow_up_tasks",
+    "follow_up_policies",
     "generated_drafts",
     "audit_events",
 ]

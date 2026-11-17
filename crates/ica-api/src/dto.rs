@@ -4,8 +4,14 @@
 //! here without the Python schema gaining it first is a wire-format break, and
 //! a naive timestamp (no `Z`) makes every browser read the value as local time.
 
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, SecondsFormat, Utc};
-use ica_domain::{Candidate, Conversation, Message, Page, Position, SendRecord, TimelineEntry};
+use ica_application::FollowUpPolicyRecord;
+use ica_domain::{
+    Candidate, Conversation, FollowUpDecision, FollowUpTask, Message, Page, Position, SendRecord,
+    TimelineEntry,
+};
 use serde::{Serialize, Serializer};
 
 /// Render a UTC instant the way the Python baseline does.
@@ -290,6 +296,129 @@ impl From<SendRecord> for SendRecordRead {
             created_at: record.created_at,
         }
     }
+}
+
+/// One follow-up task (`FollowUpTaskRead`), field-for-field identical to the
+/// Python schema — including the mapper-added `candidate_name`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FollowUpTaskRead {
+    pub id: String,
+    pub candidate_id: String,
+    pub position_id: Option<String>,
+    pub status: &'static str,
+    pub objective: Option<String>,
+    pub reason: Option<String>,
+    pub block_reason: Option<String>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub recommended_at: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub last_follow_up_at: Option<DateTime<Utc>>,
+    pub follow_up_count: i64,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub completed_at: Option<DateTime<Utc>>,
+    pub result_type: Option<String>,
+    pub result_note: Option<String>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub result_recorded_at: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub updated_at: DateTime<Utc>,
+    pub candidate_name: Option<String>,
+}
+
+impl From<FollowUpTask> for FollowUpTaskRead {
+    fn from(task: FollowUpTask) -> Self {
+        Self {
+            id: task.id,
+            candidate_id: task.candidate_id,
+            position_id: task.position_id,
+            status: task.status.as_str(),
+            objective: task.objective,
+            reason: task.reason,
+            block_reason: task.block_reason,
+            recommended_at: task.recommended_at,
+            expires_at: task.expires_at,
+            last_follow_up_at: task.last_follow_up_at,
+            follow_up_count: task.follow_up_count,
+            completed_at: task.completed_at,
+            result_type: task.result_type,
+            result_note: task.result_note,
+            result_recorded_at: task.result_recorded_at,
+            created_at: task.created_at,
+            updated_at: task.updated_at,
+            candidate_name: task.candidate_name,
+        }
+    }
+}
+
+/// The decision engine's answer (`FollowUpDecisionRead`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FollowUpDecisionRead {
+    pub outcome: String,
+    pub eligible: bool,
+    pub reasons: Vec<String>,
+    pub block_reasons: Vec<String>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub recommended_at: Option<DateTime<Utc>>,
+    pub suggested_objective: Option<String>,
+    pub risks: Vec<String>,
+}
+
+impl From<FollowUpDecision> for FollowUpDecisionRead {
+    fn from(decision: FollowUpDecision) -> Self {
+        Self {
+            outcome: decision.outcome.as_str().to_string(),
+            eligible: decision.eligible(),
+            reasons: decision.reasons,
+            block_reasons: decision.block_reasons,
+            recommended_at: decision.recommended_at,
+            suggested_objective: decision.suggested_objective,
+            risks: decision.risks,
+        }
+    }
+}
+
+/// The active follow-up policy (`FollowUpPolicyRead`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FollowUpPolicyRead {
+    pub id: String,
+    pub name: String,
+    pub first_follow_up_delay_hours: i64,
+    pub max_active_follow_ups: i64,
+    pub min_interval_hours: i64,
+    pub task_validity_days: i64,
+    pub is_active: bool,
+}
+
+impl From<FollowUpPolicyRecord> for FollowUpPolicyRead {
+    fn from(record: FollowUpPolicyRecord) -> Self {
+        Self {
+            id: record.id,
+            name: record.name,
+            first_follow_up_delay_hours: record.policy.first_follow_up_delay_hours,
+            max_active_follow_ups: record.policy.max_active_follow_ups,
+            min_interval_hours: record.policy.min_interval_hours,
+            task_validity_days: record.policy.task_validity_days,
+            is_active: record.is_active,
+        }
+    }
+}
+
+/// The aggregated workbench view (`DashboardRead`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DashboardRead {
+    pub candidate_total: i64,
+    pub candidate_status_counts: BTreeMap<String, i64>,
+    pub active_follow_up_count: i64,
+    pub pending_follow_ups: Vec<FollowUpTaskRead>,
+    pub awaiting_result_count: i64,
+    pub pending_draft_count: i64,
+    pub recent_messages: Vec<MessageRead>,
+    pub position_total: i64,
+    pub open_position_count: i64,
 }
 
 /// The `Page<T>` envelope: rows plus the metadata the UI pages with.

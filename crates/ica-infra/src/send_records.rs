@@ -140,30 +140,9 @@ impl SendRecordRepository for SqliteStore {
         let status = new.status.as_str();
 
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
-        sqlx::query(concat!(
-            "INSERT INTO send_records (id, candidate_id, task_id, draft_id, channel, target,",
-            " content_summary, status, sent_at, note, actor, created_at, updated_at, owner_id,",
-            " tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ))
-        .bind(&id)
-        .bind(&new.candidate_id)
-        .bind(&new.task_id)
-        .bind(&new.draft_id)
-        .bind(&new.channel)
-        .bind(&new.target)
-        .bind(&new.content_summary)
-        .bind(status)
-        .bind(&sent_at)
-        .bind(&new.note)
-        .bind(LOCAL_ACTOR)
-        .bind(&now)
-        .bind(&now)
-        .bind(LOCAL_OWNER_ID)
-        .bind(DEFAULT_TENANT_ID)
-        .execute(&mut *tx)
-        .await
-        .map_err(repo_error)?;
-
+        insert_send_record(&mut tx, &id, &new, &sent_at, &now)
+            .await
+            .map_err(repo_error)?;
         insert_audit(
             &mut tx,
             AuditEntry::new(
@@ -229,4 +208,43 @@ impl SendRecordRepository for SqliteStore {
                 .map_err(repo_error)?;
         Ok(row)
     }
+}
+
+/// The one send-record insert, shared by `SendRecordRepository::create` and the
+/// follow-up result recording (which appends the log row **inside the task's
+/// transaction**, so the task update, both audit events and the new row land
+/// together — the same atomicity the baseline's `record_result` guarantees).
+///
+/// `sent_at` is the column value (an explicit request value or now);
+/// `created_at`/`updated_at` are always the insert moment, like the baseline.
+pub(crate) async fn insert_send_record(
+    tx: &mut sqlx::SqliteConnection,
+    id: &str,
+    new: &NewSendRecord,
+    sent_at: &str,
+    created_at: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(concat!(
+        "INSERT INTO send_records (id, candidate_id, task_id, draft_id, channel, target,",
+        " content_summary, status, sent_at, note, actor, created_at, updated_at, owner_id,",
+        " tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ))
+    .bind(id)
+    .bind(&new.candidate_id)
+    .bind(&new.task_id)
+    .bind(&new.draft_id)
+    .bind(&new.channel)
+    .bind(&new.target)
+    .bind(&new.content_summary)
+    .bind(new.status.as_str())
+    .bind(sent_at)
+    .bind(&new.note)
+    .bind(LOCAL_ACTOR)
+    .bind(created_at)
+    .bind(created_at)
+    .bind(LOCAL_OWNER_ID)
+    .bind(DEFAULT_TENANT_ID)
+    .execute(tx)
+    .await?;
+    Ok(())
 }

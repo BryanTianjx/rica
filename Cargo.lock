@@ -586,6 +586,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "ica-domain",
+ "serde_json",
 ]
 
 [[package]]
