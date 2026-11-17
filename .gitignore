@@ -18,3 +18,8 @@ target/
 .env
 .env.*
 !.env.example
+
+# Python bytecode. The scripts/ helpers are imported directly by reviewers
+# and by the audit commands, which leaves __pycache__ directories behind.
+__pycache__/
+*.py[cod]

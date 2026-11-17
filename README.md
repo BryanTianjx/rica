@@ -6,7 +6,7 @@ Rust port of the ICA Personal backend (axum + sqlx + SQLite).
 routes; W1 adds the 15 remaining positions/candidate/conversation/message/
 send-record routes, including the write paths (`POST`/`PATCH`/`DELETE`). All 18
 are contract-verified against the Python baseline — responses **and** the rows
-they leave behind — and 207 tests pass. The remaining 50 `/api` routes are
+they leave behind — and 231 tests pass. The remaining 50 `/api` routes are
 mapped to waves W2–W6 in
 [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md) and are
 **not** implemented yet. No auth, no AI calls, no frontend change.
@@ -46,11 +46,19 @@ crates/ica-infra/         sqlx + SQLite: connect, pragmas, one store implementin
 crates/ica-api/           axum routes, DTOs, body/query validation, error mapping
 crates/ica-server/        binary: env config, tracing, startup self-check, shutdown
 crates/ica-infra/schema/ica-baseline.sql   exported DDL of the real baseline database
-scripts/check.sh          fmt + clippy + tests (+ layering check) in one command
-scripts/contract_verify.sh                       seed → run both services → capture → diff
+scripts/check.py           fmt + clippy + tests (+ layering check) in one command
+scripts/contract_verify.py                      seed → run both services → capture → diff
 scripts/contract_capture.py / contract_diff.py   contract capture and comparison
 scripts/seed_contract_db.py                      the seed both sides are compared on
 scripts/check_endpoint_map.py                    doc table vs. live FastAPI routes
+```
+
+The two `*.sh` files are thin wrappers around `check.py` and
+`contract_verify.py`, kept so every existing invocation keeps working:
+
+```bash
+scripts/check.sh          # same as: python3 scripts/check.py
+scripts/contract_verify.sh   # same as: python3 scripts/contract_verify.py
 ```
 
 Within `ica-infra`, `store.rs` holds the one adapter object (one connection
@@ -62,7 +70,7 @@ calls inside its own transaction.
 Dependency direction: `ica-server → ica-api + ica-infra → ica-application →
 ica-domain`. It is compile-enforced: the inner crates simply do not list a web
 framework, a database driver or an async runtime, so `use sqlx::…` there does
-not build. `scripts/check.sh` re-asserts it with a readable error.
+not build. `scripts/check.py` re-asserts it with a readable error.
 
 ## Prerequisites
 
@@ -77,6 +85,10 @@ not build. `scripts/check.sh` re-asserts it with a readable error.
 cd /mnt/o/ICA-RUST
 scripts/check.sh          # layering + cargo fmt --check + clippy -D warnings + cargo test
 ```
+
+The gate itself is `scripts/check.py`; `scripts/check.sh` is a wrapper around it.
+It prints the real test count (`tests: N passed / M failed`) — quote that number,
+never an older one.
 
 Individual gates:
 
@@ -137,7 +149,8 @@ drain in-flight requests before exit.
 ## Contract comparison (re-run)
 
 The Rust service must answer exactly like Python — same responses **and** the
-same rows afterwards. `scripts/contract_verify.sh` does the whole thing:
+same rows afterwards. `scripts/contract_verify.py` does the whole thing
+(`scripts/contract_verify.sh` is a wrapper around it):
 
 ```bash
 cd /mnt/o/ICA-RUST
@@ -150,12 +163,13 @@ starts the Rust port, captures both sides, and diffs responses plus the final
 state of all eight business tables. It finishes by proving the baseline is
 untouched (`git status` empty, HEAD `d39e321`, `ica.db` sha256 unchanged).
 
-Last run: **`102/102 cases matched, 0 failure(s)`**, with `PASS db.<table>` for
+Last run: **`113/113 cases matched, 0 failure(s)`**, with `PASS db.<table>` for
 `positions`, `candidates`, `conversations`, `messages`, `send_records`,
 `follow_up_tasks`, `generated_drafts` and `audit_events` (17 audit events), and
 the `improvements:` section asserting IMP-1 (`python total=2 / rust total=5`),
-IMP-2 (`python 500 / rust 422` for both NULL cases) and IMP-3 (five lists, one
-`total` meaning). The individual steps are in
+IMP-2 (`python 500 / rust 422` for both NULL cases), IMP-3 (five lists, one
+`total` meaning) and IMP-4 (`offset` past `u64::MAX` → 422). The individual
+steps are in
 [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md) §8.
 
 ## Proving the baseline database was not modified

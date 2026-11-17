@@ -11,7 +11,7 @@ from Python (FastAPI + SQLAlchemy) to Rust (axum + sqlx), one wave at a time.
   HEAD `b262c33`.
 - **W1 (this milestone)**: the 15 write/read routes of the positions-write,
   candidate, conversation, message and send-record families. **18 routes are
-  served in total** (207 tests, R0's 98 included); the remaining 50 `/api`
+  served in total** (231 tests, R0's 98 included); the remaining 50 `/api`
   routes stay mapped to W2–W6.
 - **Evidence**: `docs/contract-baseline/w1-python.json` (captured from a running
   Python baseline) and `w1-rust.json` (captured from the Rust port against its
@@ -86,8 +86,8 @@ unchanged, and the browser subsystem is **excluded from this migration**:
   count drifts, so the prefix list cannot silently widen. `scripts/
   compare_baseline_schema.py` strips `--exclude-table` objects (default
   `browser_*`, owner-table aware for indexes) and prints their count.
-  `scripts/check_scope.sh` runs both against the frozen mirror plus the two
-  self-tests; it is an audit tool and stays out of `scripts/check.sh`
+  `scripts/check_scope.py` runs both against the frozen mirror plus the two
+  self-tests; it is an audit tool and stays out of `scripts/check.py`
   (which must run without a Python environment).
 - **Measured arithmetic** (all measured 2026-11-18 on copies, never on the
   mirrors): frozen baseline = 20 tables (19 business/identity +
@@ -261,7 +261,7 @@ This is enforced two ways, and neither depends on discipline:
 1. **By the compiler.** A forbidden dependency is not in the crate's
    `Cargo.toml`, so `use sqlx::…` inside `ica-domain` does not compile. There is
    no allow-list to forget to update.
-2. **By `scripts/check.sh`**, which runs `cargo metadata --no-deps` and fails if
+2. **By `scripts/check.py`**, which runs `cargo metadata --no-deps` and fails if
    `ica-domain` or `ica-application` lists axum / sqlx / tokio / hyper (a
    transitive path would not compile either, but the direct check gives a clear
    message).
@@ -420,7 +420,10 @@ cd /mnt/o/ICA-RUST
 scripts/contract_verify.sh
 ```
 
-Last run: **`102/102 cases matched, 0 failure(s)`**, including
+The implementation is `scripts/contract_verify.py`; the shell file is a wrapper
+around it.
+
+Last run: **`113/113 cases matched, 0 failure(s)`**, including
 `PASS db.<table>` for all eight business tables (17 audit events, 6 positions,
 5 candidates, 3 conversations, 1 message, 2 send records, 1 follow-up task,
 1 draft — the post-scenario state of both databases, row for row).
