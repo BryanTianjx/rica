@@ -1,66 +1,298 @@
 #!/usr/bin/env python3
-"""Capture the positions endpoint contract from a running ICA server.
+"""Capture the ICA contract from a running server: responses *and* final rows.
 
-Runs the same request set against any base URL (the Python baseline or the
-Rust port) and writes one JSON file per side, so ``contract_diff.py`` can
-compare them.
+The script plays one fixed scenario against any base URL — the Python baseline
+or the Rust port — and writes a single JSON document with three parts:
+
+``cases``
+    The ordered request/response pairs. Names are the diff keys, so they must be
+    identical on both sides.
+
+``db_state``
+    Every row of the business tables *after* the scenario, so a response that
+    looks right while the write was wrong cannot pass. Read-only: the capture
+    never writes to the database itself.
+
+``started_at``
+    When the scenario began. ``contract_diff.py`` uses it to render timestamps
+    produced *during* the run (the ``created_at`` of a new row, a defaulted
+    ``sent_at``) as one placeholder on both sides, while seeded timestamps stay
+    literal and are compared exactly.
+
+Each side must run against its **own copy** of the seed database, because the
+scenario writes: `contract_verify.sh` makes two copies and points one server at
+each.
 
 Usage:
     python3 scripts/contract_capture.py --base-url http://127.0.0.1:8010 \
-        --out docs/contract-baseline/positions-python.json
+        --db /tmp/ica-contract/python.db --out docs/contract-baseline/w1-python.json
 
-Standard library only: no third-party dependency, so it runs under any
-python3 on the box.
+Standard library only: no third-party dependency, so it runs under any python3.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
+from pathlib import Path
 
-# Every case is a name -> path pair. Names are the diff keys, so they must
-# stay stable across both sides.
-CASES: list[tuple[str, str]] = [
-    ("health", "/health"),
-    ("positions_default", "/api/positions"),
-    ("positions_limit2", "/api/positions?limit=2"),
-    ("positions_page2", "/api/positions?limit=2&offset=2"),
-    ("positions_offset_beyond_total", "/api/positions?offset=100"),
-    ("positions_include_archived", "/api/positions?include_archived=true"),
-    ("positions_include_archived_bool1", "/api/positions?include_archived=1"),
-    ("positions_search_hit", "/api/positions?search=beijing"),
-    ("positions_search_hit_with_archived",
-     "/api/positions?search=beijing&include_archived=true"),
-    ("positions_search_case_insensitive", "/api/positions?search=RUST"),
-    ("positions_search_miss", "/api/positions?search=zzz-nothing"),
-    ("positions_search_padded", "/api/positions?search=%20beijing%20"),
-    ("positions_limit_max", "/api/positions?limit=500"),
-    ("positions_limit_zero", "/api/positions?limit=0"),
-    ("positions_limit_over_max", "/api/positions?limit=501"),
-    ("positions_offset_negative", "/api/positions?offset=-1"),
-    ("positions_search_too_long",
-     "/api/positions?search=" + "a" * 201),
-    (
-        "position_detail",
-        "/api/positions/11111111-1111-1111-1111-111111111111",
-    ),
-    (
-        "position_detail_archived",
-        "/api/positions/44444444-4444-4444-4444-444444444444",
-    ),
-    ("position_detail_missing", "/api/positions/does-not-exist"),
+ALICE = "c0000000-0000-0000-0000-000000000001"
+BOB = "c0000000-0000-0000-0000-000000000002"
+FRANK = "c0000000-0000-0000-0000-000000000006"
+ALICE_CONVERSATION = "aaaaaaaa-0000-0000-0000-000000000001"
+BOB_INACTIVE_CONVERSATION = "aaaaaaaa-0000-0000-0000-000000000002"
+POSITION_WITH_CANDIDATES = "11111111-1111-1111-1111-111111111111"
+POSITION_ARCHIVED = "44444444-4444-4444-4444-444444444444"
+POSITION_DRAFT = "33333333-3333-3333-3333-333333333333"
+#: Only Frank points at this position, so deleting it touches exactly one
+#: candidate (see the FK section of the scenario).
+POSITION_SINGLE_CANDIDATE = "77777777-7777-7777-7777-777777777777"
+
+#: The scenario. Order matters: every read-only case runs before the first write,
+#: so the declared improvements are measured on the untouched seed (five
+#: messages, seven positions, …). ``capture`` pulls a generated id out of the
+#: response into the substitution context used by later paths.
+CASES: list[dict] = [
+    # ── R0: health and positions (unchanged, must not regress) ─────────────
+    {"name": "health", "method": "GET", "path": "/health"},
+    {"name": "positions_default", "method": "GET", "path": "/api/positions"},
+    {"name": "positions_limit2", "method": "GET", "path": "/api/positions?limit=2"},
+    {"name": "positions_page2", "method": "GET", "path": "/api/positions?limit=2&offset=2"},
+    {"name": "positions_offset_beyond_total", "method": "GET", "path": "/api/positions?offset=100"},
+    {"name": "positions_include_archived", "method": "GET",
+     "path": "/api/positions?include_archived=true"},
+    {"name": "positions_include_archived_bool1", "method": "GET",
+     "path": "/api/positions?include_archived=1"},
+    {"name": "positions_search_hit", "method": "GET", "path": "/api/positions?search=beijing"},
+    {"name": "positions_search_hit_with_archived", "method": "GET",
+     "path": "/api/positions?search=beijing&include_archived=true"},
+    {"name": "positions_search_case_insensitive", "method": "GET",
+     "path": "/api/positions?search=RUST"},
+    {"name": "positions_search_miss", "method": "GET",
+     "path": "/api/positions?search=zzz-nothing"},
+    {"name": "positions_search_padded", "method": "GET",
+     "path": "/api/positions?search=%20beijing%20"},
+    {"name": "positions_limit_max", "method": "GET", "path": "/api/positions?limit=500"},
+    {"name": "positions_limit_zero", "method": "GET", "path": "/api/positions?limit=0"},
+    {"name": "positions_limit_over_max", "method": "GET", "path": "/api/positions?limit=501"},
+    {"name": "positions_offset_negative", "method": "GET", "path": "/api/positions?offset=-1"},
+    {"name": "positions_search_too_long", "method": "GET",
+     "path": "/api/positions?search=" + "a" * 201},
+    {"name": "position_detail", "method": "GET",
+     "path": f"/api/positions/{POSITION_WITH_CANDIDATES}"},
+    {"name": "position_detail_archived", "method": "GET",
+     "path": f"/api/positions/{POSITION_ARCHIVED}"},
+    {"name": "position_detail_missing", "method": "GET", "path": "/api/positions/does-not-exist"},
+
+    # ── Candidates (reads) ─────────────────────────────────────────────────
+    {"name": "candidates_default", "method": "GET", "path": "/api/candidates"},
+    {"name": "candidates_limit2", "method": "GET", "path": "/api/candidates?limit=2"},
+    {"name": "candidates_page2", "method": "GET", "path": "/api/candidates?limit=2&offset=2"},
+    {"name": "candidates_include_archived", "method": "GET",
+     "path": "/api/candidates?include_archived=true"},
+    {"name": "candidates_search_name", "method": "GET", "path": "/api/candidates?search=alice"},
+    {"name": "candidates_search_case", "method": "GET", "path": "/api/candidates?search=ALICE"},
+    {"name": "candidates_search_miss", "method": "GET",
+     "path": "/api/candidates?search=zzz-nothing"},
+    {"name": "candidates_status_filter", "method": "GET", "path": "/api/candidates?status=New"},
+    {"name": "candidates_status_empty", "method": "GET",
+     "path": "/api/candidates?status=Contacted"},
+    {"name": "candidates_position_filter", "method": "GET",
+     "path": f"/api/candidates?position_id={POSITION_WITH_CANDIDATES}"},
+    {"name": "candidates_bad_status", "method": "GET", "path": "/api/candidates?status=Nope"},
+    {"name": "candidates_limit_over_max", "method": "GET", "path": "/api/candidates?limit=501"},
+    {"name": "candidate_detail", "method": "GET", "path": f"/api/candidates/{ALICE}"},
+    {"name": "candidate_detail_second", "method": "GET", "path": f"/api/candidates/{BOB}"},
+    {"name": "candidate_detail_missing", "method": "GET", "path": "/api/candidates/does-not-exist"},
+
+    # ── Conversations (reads) ──────────────────────────────────────────────
+    {"name": "conversations_default", "method": "GET", "path": "/api/conversations"},
+    {"name": "conversations_limit2", "method": "GET", "path": "/api/conversations?limit=2"},
+    {"name": "conversations_by_candidate", "method": "GET",
+     "path": f"/api/conversations?candidate_id={BOB}"},
+    {"name": "conversations_unknown_candidate", "method": "GET",
+     "path": "/api/conversations?candidate_id=does-not-exist"},
+
+    # ── Messages and timeline (reads) — IMP-1 is measured here ─────────────
+    {"name": "messages_default", "method": "GET", "path": "/api/messages"},
+    {"name": "messages_limit2", "method": "GET", "path": "/api/messages?limit=2"},
+    {"name": "messages_limit2_offset1", "method": "GET", "path": "/api/messages?limit=2&offset=1"},
+    {"name": "messages_offset_beyond_total", "method": "GET", "path": "/api/messages?offset=100"},
+    {"name": "messages_by_candidate", "method": "GET",
+     "path": f"/api/messages?candidate_id={ALICE}"},
+    {"name": "messages_by_empty_candidate", "method": "GET",
+     "path": f"/api/messages?candidate_id={FRANK}"},
+    {"name": "messages_by_conversation", "method": "GET",
+     "path": f"/api/messages?conversation_id={ALICE_CONVERSATION}"},
+    {"name": "messages_limit_over_max", "method": "GET", "path": "/api/messages?limit=1001"},
+    {"name": "timeline_default", "method": "GET", "path": f"/api/candidates/{ALICE}/timeline"},
+    {"name": "timeline_limit2", "method": "GET",
+     "path": f"/api/candidates/{ALICE}/timeline?limit=2"},
+    {"name": "timeline_missing_candidate", "method": "GET",
+     "path": "/api/candidates/does-not-exist/timeline"},
+
+    # ── Send records (reads) ───────────────────────────────────────────────
+    {"name": "send_records_default", "method": "GET", "path": "/api/send-records"},
+    {"name": "send_records_limit2", "method": "GET", "path": "/api/send-records?limit=2"},
+    {"name": "send_records_by_candidate", "method": "GET",
+     "path": f"/api/send-records?candidate_id={ALICE}"},
+    {"name": "send_records_by_status", "method": "GET", "path": "/api/send-records?status=sent"},
+    {"name": "send_records_bad_status", "method": "GET", "path": "/api/send-records?status=maybe"},
+
+    # ── IMP-2: explicit null on a NOT NULL column (declared difference) ────
+    {"name": "position_patch_null_name", "method": "PATCH",
+     "path": f"/api/positions/{POSITION_DRAFT}", "json": {"name": None}},
+    {"name": "position_patch_null_archived", "method": "PATCH",
+     "path": f"/api/positions/{POSITION_DRAFT}", "json": {"archived": None}},
+
+    # ── Positions (writes) ─────────────────────────────────────────────────
+    {"name": "position_create", "method": "POST", "path": "/api/positions",
+     "json": {"name": "Contract Created", "location": "Wuhan", "salary_min": 10000,
+              "status": "Draft"},
+     "capture": {"created_position_id": "id"}},
+    {"name": "position_detail_created", "method": "GET",
+     "path": "/api/positions/{created_position_id}"},
+    {"name": "position_patch", "method": "PATCH",
+     "path": "/api/positions/{created_position_id}",
+     "json": {"name": "Contract Renamed", "location": "Wuhan", "salary_max": 20000}},
+    {"name": "position_patch_status_null", "method": "PATCH",
+     "path": "/api/positions/{created_position_id}", "json": {"status": None}},
+    {"name": "position_patch_clear_nullable", "method": "PATCH",
+     "path": "/api/positions/{created_position_id}", "json": {"location": None}},
+    {"name": "position_patch_archived", "method": "PATCH",
+     "path": "/api/positions/{created_position_id}", "json": {"archived": True}},
+    {"name": "position_patch_missing", "method": "PATCH", "path": "/api/positions/does-not-exist",
+     "json": {"name": "x"}},
+    {"name": "position_delete", "method": "DELETE", "path": "/api/positions/{created_position_id}"},
+    {"name": "position_detail_after_delete", "method": "GET",
+     "path": "/api/positions/{created_position_id}"},
+    {"name": "position_delete_missing", "method": "DELETE",
+     "path": "/api/positions/does-not-exist"},
+
+    # ── Candidates (writes) ────────────────────────────────────────────────
+    {"name": "candidate_create", "method": "POST", "path": "/api/candidates",
+     "json": {"name": "  Contract Candidate  ", "position_id": POSITION_DRAFT,
+              "status": "Contacted", "expected_location": "Wuhan"},
+     "capture": {"created_candidate_id": "id"}},
+    {"name": "candidate_detail_created", "method": "GET",
+     "path": "/api/candidates/{created_candidate_id}"},
+    {"name": "candidate_patch", "method": "PATCH",
+     "path": "/api/candidates/{created_candidate_id}",
+     "json": {"status": "Replied", "notes": "patched"}},
+    {"name": "candidate_patch_null_position", "method": "PATCH",
+     "path": "/api/candidates/{created_candidate_id}", "json": {"position_id": None}},
+    {"name": "candidate_patch_null_name", "method": "PATCH",
+     "path": "/api/candidates/{created_candidate_id}", "json": {"name": None}},
+    {"name": "candidate_patch_missing", "method": "PATCH",
+     "path": "/api/candidates/does-not-exist", "json": {"name": "x"}},
+    {"name": "candidate_delete", "method": "DELETE",
+     "path": "/api/candidates/{created_candidate_id}"},
+    {"name": "candidate_detail_after_delete", "method": "GET",
+     "path": "/api/candidates/{created_candidate_id}"},
+
+    # ── Conversations and messages (writes) ────────────────────────────────
+    {"name": "conversation_create", "method": "POST", "path": "/api/conversations",
+     "json": {"candidate_id": FRANK, "channel": "boss", "title": "Contract thread"},
+     "capture": {"created_conversation_id": "id"}},
+    {"name": "conversation_create_missing_candidate", "method": "POST",
+     "path": "/api/conversations", "json": {"candidate_id": "does-not-exist"}},
+    {"name": "message_create_explicit_conversation", "method": "POST", "path": "/api/messages",
+     "json": {"candidate_id": ALICE, "conversation_id": ALICE_CONVERSATION,
+              "content": "  Contract   Message  ", "sender_type": "Recruiter",
+              "message_time": "2026-11-14T09:30:00Z"}},
+    # No conversation_id and the candidate's only conversation is inactive:
+    # both sides must open a fresh `boss` thread.
+    {"name": "message_create_auto_conversation", "method": "POST", "path": "/api/messages",
+     "json": {"candidate_id": BOB, "content": "auto thread"},
+     "capture": {"auto_conversation_id": "conversation_id"}},
+    {"name": "message_create_wrong_conversation", "method": "POST", "path": "/api/messages",
+     "json": {"candidate_id": ALICE, "conversation_id": BOB_INACTIVE_CONVERSATION,
+              "content": "wrong thread"}},
+    {"name": "message_create_missing_conversation", "method": "POST", "path": "/api/messages",
+     "json": {"candidate_id": ALICE, "conversation_id": "does-not-exist", "content": "x"}},
+    {"name": "message_create_missing_candidate", "method": "POST", "path": "/api/messages",
+     "json": {"candidate_id": "does-not-exist", "content": "x"}},
+    {"name": "message_create_empty_content", "method": "POST", "path": "/api/messages",
+     "json": {"candidate_id": ALICE, "content": ""}},
+    {"name": "messages_after_writes", "method": "GET", "path": "/api/messages"},
+    {"name": "timeline_after_writes", "method": "GET", "path": f"/api/candidates/{ALICE}/timeline"},
+    {"name": "conversations_after_writes", "method": "GET", "path": "/api/conversations"},
+
+    # ── Send records (writes) ──────────────────────────────────────────────
+    {"name": "send_record_create", "method": "POST", "path": "/api/send-records",
+     "json": {"candidate_id": ALICE, "status": "sent", "target": "boss-42",
+              "content_summary": "contract send"}},
+    {"name": "send_record_create_explicit_time", "method": "POST", "path": "/api/send-records",
+     "json": {"candidate_id": BOB, "status": "candidate_replied",
+              "sent_at": "2026-11-14T08:15:00Z", "channel": "wx"}},
+    {"name": "send_record_task_conflict", "method": "POST", "path": "/api/send-records",
+     "json": {"candidate_id": ALICE, "status": "sent",
+              "task_id": "dddddddd-0000-0000-0000-000000000003"}},
+    {"name": "send_record_draft_not_sendable", "method": "POST", "path": "/api/send-records",
+     "json": {"candidate_id": ALICE, "status": "sent",
+              "draft_id": "eeeeeeee-0000-0000-0000-000000000002"}},
+    {"name": "send_record_missing_task", "method": "POST", "path": "/api/send-records",
+     "json": {"candidate_id": ALICE, "status": "sent", "task_id": "does-not-exist"}},
+    {"name": "send_record_bad_status", "method": "POST", "path": "/api/send-records",
+     "json": {"candidate_id": ALICE, "status": "delivered"}},
+    {"name": "send_records_after_writes", "method": "GET", "path": "/api/send-records"},
+
+    # ── Foreign keys: SET NULL, then CASCADE ───────────────────────────────
+    # The position has exactly one candidate on purpose: Python's ORM stamps the
+    # affected children with one `utcnow()` per row, and two rows updated in the
+    # same microsecond would leave the later `updated_at DESC` order to chance.
+    # With a single child the touch is deterministic.
+    {"name": "position_delete_set_null", "method": "DELETE",
+     "path": f"/api/positions/{POSITION_SINGLE_CANDIDATE}"},
+    {"name": "candidate_detail_after_position_delete", "method": "GET",
+     "path": f"/api/candidates/{FRANK}"},
+    {"name": "candidate_delete_with_children", "method": "DELETE",
+     "path": f"/api/candidates/{ALICE}"},
+    {"name": "messages_after_cascade", "method": "GET", "path": "/api/messages"},
+    {"name": "send_records_after_cascade", "method": "GET", "path": "/api/send-records"},
+    {"name": "conversations_after_cascade", "method": "GET", "path": "/api/conversations"},
+    {"name": "timeline_after_cascade", "method": "GET", "path": f"/api/candidates/{BOB}/timeline"},
+
+    # ── Final observations ─────────────────────────────────────────────────
+    {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
+    {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
 ]
+
+#: Tables compared row-by-row after the scenario.
+DB_TABLES = [
+    "positions",
+    "candidates",
+    "conversations",
+    "messages",
+    "send_records",
+    "follow_up_tasks",
+    "generated_drafts",
+    "audit_events",
+]
+
+#: Columns that hold a JSON document; the diff compares them parsed, so the
+#: exact spacing `json.dumps` vs `serde_json` produce is not a false failure.
+JSON_COLUMNS = {
+    "audit_events": ["metadata_json"],
+}
 
 BASE_URL_DEFAULT = "http://127.0.0.1:8010"
 
 
-def fetch(base_url: str, path: str, timeout: float = 10.0) -> dict[str, object]:
-    """GET one path and return status + decoded body (or raw text)."""
+def fetch(base_url: str, method: str, path: str, payload: dict | None,
+          timeout: float = 20.0) -> dict[str, object]:
+    """Issue one request and return status + decoded body (or raw text)."""
     url = base_url.rstrip("/") + path
-    request = urllib.request.Request(url, headers={"accept": "application/json"})
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    headers = {"accept": "application/json"}
+    if data is not None:
+        headers["content-type"] = "application/json"
+    request = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             status = response.status
@@ -69,33 +301,89 @@ def fetch(base_url: str, path: str, timeout: float = 10.0) -> dict[str, object]:
     except urllib.error.HTTPError as exc:  # 4xx/5xx still carries a body
         status = exc.code
         raw = exc.read().decode("utf-8")
-        content_type = exc.headers.get("content-type", "")
+        content_type = exc.headers.get("content-type", "") if exc.headers else ""
 
+    if not raw:
+        body: object = None
+    else:
+        try:
+            body = json.loads(raw)
+        except json.JSONDecodeError:
+            body = {"__raw__": raw}
+    return {
+        "method": method,
+        "path": path,
+        "status": status,
+        "content_type": content_type.split(";")[0],
+        "body": body,
+    }
+
+
+def dump_db(path: str) -> dict[str, object]:
+    """Every row of the business tables, with JSON columns parsed."""
+    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
     try:
-        body: object = json.loads(raw)
-    except json.JSONDecodeError:
-        body = {"__raw__": raw}
-    return {"path": path, "status": status,
-            "content_type": content_type.split(";")[0], "body": body}
+        state: dict[str, object] = {}
+        for table in DB_TABLES:
+            rows = [dict(row) for row in connection.execute(f"SELECT * FROM {table}")]
+            for row in rows:
+                for column in JSON_COLUMNS.get(table, []):
+                    raw = row.get(column)
+                    if isinstance(raw, str):
+                        try:
+                            row[column] = json.loads(raw)
+                        except json.JSONDecodeError:
+                            pass
+            # Sort by the JSON rendering so a random primary key cannot reorder
+            # the list differently on the two sides; the diff compares content.
+            rows.sort(key=lambda row: json.dumps(row, sort_keys=True, ensure_ascii=False))
+            state[table] = rows
+        return state
+    finally:
+        connection.close()
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default=BASE_URL_DEFAULT)
+    parser.add_argument("--db", required=True, help="database the server writes to")
     parser.add_argument("--out", required=True)
+    parser.add_argument("--skip-db", action="store_true",
+                        help="capture responses only (no final row dump)")
     args = parser.parse_args(argv)
 
-    results = {}
-    for name, path in CASES:
-        results[name] = fetch(args.base_url, path)
-        print(f"{name:38s} {results[name]['status']} {path}")
+    started_at = datetime.now(UTC).isoformat()
+    context: dict[str, str] = {}
+    results: dict[str, dict] = {}
+    failures = 0
 
-    payload = {"base_url": args.base_url, "cases": results}
+    for case in CASES:
+        path = case["path"].format(**context)
+        result = fetch(args.base_url, case["method"], path, case.get("json"))
+        results[case["name"]] = result
+        body = result["body"]
+        for key, field in case.get("capture", {}).items():
+            if not isinstance(body, dict) or field not in body:
+                print(f"  cannot capture {field!r} from {case['name']}: {body!r}")
+                failures += 1
+                continue
+            context[key] = str(body[field])
+        print(f"{case['name']:42s} {result['status']} {path}")
+
+    db_state = {} if args.skip_db else dump_db(args.db)
+    payload = {
+        "base_url": args.base_url,
+        "started_at": started_at,
+        "cases": results,
+        "db_state": db_state,
+    }
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True, ensure_ascii=False)
         handle.write("\n")
-    print(f"wrote {args.out} ({len(results)} cases)")
-    return 0
+    print(f"wrote {args.out} ({len(results)} cases, {len(db_state)} tables)")
+    return 0 if failures == 0 else 1
 
 
 if __name__ == "__main__":

@@ -1,0 +1,952 @@
+//! Request bodies: deserialisation, the omitted/null distinction, and the
+//! field rules the Python pydantic schemas enforce.
+//!
+//! Two decisions are structural, not cosmetic:
+//!
+//! * **`null` and "absent" are different.** [`Incoming`] has three states and is
+//!   used as the field type directly. `Option<Incoming<T>>` would *not* work:
+//!   serde short-circuits a JSON `null` to `None` before the inner type is ever
+//!   asked, which would make `PATCH {"name": null}` indistinguishable from `{}`
+//!   and IMP-2 impossible to implement.
+//! * **`Json<T>` is not used.** axum's extractor answers with its own plain-text
+//!   body and a status that depends on the failure mode; the project needs one
+//!   JSON envelope for every 422, so the bytes are parsed here.
+
+use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use ica_application::{
+    CandidatePatch, Field, NewCandidate, NewConversation, NewMessage, NewPosition, NewSendRecord,
+    PositionPatch,
+};
+use ica_domain::{CandidateStatus, MessageSource, PositionStatus, ResultType, SenderType};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Deserializer};
+
+use crate::error::{ApiError, ValidationIssue};
+
+/// One field of a JSON object: absent, explicitly `null`, or a value.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum Incoming<T> {
+    /// The key was not in the body.
+    #[default]
+    Absent,
+    /// The key was present with `null`.
+    Null,
+    /// The key was present with a value.
+    Value(T),
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for Incoming<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Only called when the key is present; `[serde(default)]` on the struct
+        // supplies `Absent` otherwise.
+        match Option::<T>::deserialize(deserializer)? {
+            Some(value) => Ok(Incoming::Value(value)),
+            None => Ok(Incoming::Null),
+        }
+    }
+}
+
+/// Collapse the wire shape into the application's three-state field.
+fn field<T>(incoming: Incoming<T>) -> Field<T> {
+    match incoming {
+        Incoming::Absent => Field::Absent,
+        Incoming::Null => Field::Null,
+        Incoming::Value(value) => Field::Value(value),
+    }
+}
+
+/// Parse a request body, answering 422 (not axum's plain text) on bad JSON.
+pub fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
+    serde_json::from_slice(bytes).map_err(|error| {
+        ApiError::validation(ValidationIssue::new(
+            "json_invalid",
+            vec!["body"],
+            &format!("Input should be a valid JSON object: {error}"),
+            "",
+        ))
+    })
+}
+
+fn issue(kind: &str, field: &str, message: &str, input: &str) -> ValidationIssue {
+    ValidationIssue::new(kind, vec!["body", field], message, input)
+}
+
+fn check_min_chars(issues: &mut Vec<ValidationIssue>, field: &str, value: &str, min: usize) {
+    if value.chars().count() < min {
+        issues.push(issue(
+            "string_too_short",
+            field,
+            &format!("String should have at least {min} character"),
+            value,
+        ));
+    }
+}
+
+fn check_max_chars(issues: &mut Vec<ValidationIssue>, field: &str, value: &str, max: usize) {
+    if value.chars().count() > max {
+        issues.push(issue(
+            "string_too_long",
+            field,
+            &format!("String should have at most {max} characters"),
+            value,
+        ));
+    }
+}
+
+fn check_non_negative(issues: &mut Vec<ValidationIssue>, field: &str, value: Option<i64>) {
+    if let Some(value) = value {
+        if value < 0 {
+            issues.push(issue(
+                "value_error",
+                field,
+                "Value error, salary must not be negative",
+                &value.to_string(),
+            ));
+        }
+    }
+}
+
+fn failure<T>(issues: Vec<ValidationIssue>) -> Result<T, ApiError> {
+    Err(ApiError::validation_issues(issues))
+}
+
+/// Parse an instant the way pydantic does: RFC 3339, `YYYY-MM-DD HH:MM:SS[.f]`,
+/// or a bare date at midnight. A value without an offset is taken as UTC, which
+/// is how the baseline stores every timestamp.
+fn parse_datetime(raw: &str) -> Option<DateTime<Utc>> {
+    let trimmed = raw.trim();
+    if let Ok(aware) = DateTime::parse_from_rfc3339(trimmed) {
+        return Some(aware.with_timezone(&Utc));
+    }
+    for format in [
+        "%Y-%m-%d %H:%M:%S%.f",
+        "%Y-%m-%dT%H:%M:%S%.f",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%dT%H:%M",
+    ] {
+        if let Ok(naive) = NaiveDateTime::parse_from_str(trimmed, format) {
+            return Some(naive.and_utc());
+        }
+    }
+    if let Ok(date) = NaiveDate::parse_from_str(trimmed, "%Y-%m-%d") {
+        return Utc
+            .from_local_datetime(&date.and_hms_opt(0, 0, 0)?)
+            .single();
+    }
+    None
+}
+
+fn take_datetime(
+    issues: &mut Vec<ValidationIssue>,
+    field_name: &str,
+    value: Incoming<String>,
+) -> Option<DateTime<Utc>> {
+    match value {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(raw) => match parse_datetime(&raw) {
+            Some(parsed) => Some(parsed),
+            None => {
+                issues.push(issue(
+                    "datetime_parsing",
+                    field_name,
+                    "Input should be a valid datetime",
+                    &raw,
+                ));
+                None
+            }
+        },
+    }
+}
+
+fn take_enum<T>(
+    issues: &mut Vec<ValidationIssue>,
+    field_name: &str,
+    value: Incoming<String>,
+    expected: &str,
+    parse: impl Fn(&str) -> Option<T>,
+) -> Option<T> {
+    match value {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(raw) => {
+            let parsed = parse(&raw);
+            if parsed.is_none() {
+                issues.push(issue(
+                    "enum",
+                    field_name,
+                    &format!("Input should be {expected}"),
+                    &raw,
+                ));
+            }
+            parsed
+        }
+    }
+}
+
+/// Take a required string that may not be `null` or absent.
+fn take_required_string(
+    issues: &mut Vec<ValidationIssue>,
+    field_name: &str,
+    value: Incoming<String>,
+    max: Option<usize>,
+) -> String {
+    let value = match value {
+        Incoming::Value(value) => value,
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                field_name,
+                "Input should be a valid string",
+                "null",
+            ));
+            return String::new();
+        }
+        Incoming::Absent => {
+            issues.push(issue("missing", field_name, "Field required", ""));
+            return String::new();
+        }
+    };
+    if let Some(max) = max {
+        check_max_chars(issues, field_name, &value, max);
+    }
+    value
+}
+
+/// An optional string field: `null`/absent both mean "no value".
+fn take_optional_string(value: Incoming<String>) -> Option<String> {
+    match value {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => Some(value),
+    }
+}
+
+// ── Positions ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawPositionCreate {
+    pub name: Incoming<String>,
+    pub description: Incoming<String>,
+    pub location: Incoming<String>,
+    pub skill_requirements: Incoming<String>,
+    pub experience_requirements: Incoming<String>,
+    pub education_requirements: Incoming<String>,
+    pub salary_min: Incoming<i64>,
+    pub salary_max: Incoming<i64>,
+    pub notes: Incoming<String>,
+    pub status: Incoming<String>,
+    pub archived: Incoming<bool>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawPositionPatch {
+    pub name: Incoming<String>,
+    pub description: Incoming<String>,
+    pub location: Incoming<String>,
+    pub skill_requirements: Incoming<String>,
+    pub experience_requirements: Incoming<String>,
+    pub education_requirements: Incoming<String>,
+    pub salary_min: Incoming<i64>,
+    pub salary_max: Incoming<i64>,
+    pub notes: Incoming<String>,
+    pub status: Incoming<String>,
+    pub archived: Incoming<bool>,
+}
+
+fn take_salary(
+    issues: &mut Vec<ValidationIssue>,
+    field_name: &str,
+    value: Incoming<i64>,
+) -> Option<i64> {
+    let parsed = match value {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => Some(value),
+    };
+    check_non_negative(issues, field_name, parsed);
+    parsed
+}
+
+/// Validate a `POST /api/positions` body.
+pub fn position_create(raw: RawPositionCreate) -> Result<NewPosition, ApiError> {
+    let mut issues = Vec::new();
+
+    let name = take_required_string(&mut issues, "name", raw.name, Some(200));
+    if name.is_empty() && issues.iter().all(|entry| entry.loc[1] != "name") {
+        issues.push(issue(
+            "string_too_short",
+            "name",
+            "String should have at least 1 character",
+            &name,
+        ));
+    }
+    let location = take_optional_string(raw.location);
+    if let Some(location) = location.as_deref() {
+        check_max_chars(&mut issues, "location", location, 200);
+    }
+    let education_requirements = take_optional_string(raw.education_requirements);
+    if let Some(value) = education_requirements.as_deref() {
+        check_max_chars(&mut issues, "education_requirements", value, 200);
+    }
+    let salary_min = take_salary(&mut issues, "salary_min", raw.salary_min);
+    let salary_max = take_salary(&mut issues, "salary_max", raw.salary_max);
+    let status = match take_enum(
+        &mut issues,
+        "status",
+        raw.status,
+        "'Draft', 'Open', 'OnHold' or 'Closed'",
+        PositionStatus::parse,
+    ) {
+        Some(status) => status,
+        None => PositionStatus::Open,
+    };
+    // `archived` is not part of PositionCreate in the baseline schema: an extra
+    // key is ignored (pydantic's default) and a new row is always unarchived.
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewPosition {
+        name,
+        description: take_optional_string(raw.description),
+        location,
+        skill_requirements: take_optional_string(raw.skill_requirements),
+        experience_requirements: take_optional_string(raw.experience_requirements),
+        education_requirements,
+        salary_min,
+        salary_max,
+        notes: take_optional_string(raw.notes),
+        status,
+    })
+}
+
+/// Validate a `PATCH /api/positions` body.
+///
+/// IMP-2 lives here: an explicit `null` on a NOT NULL column (`name`,
+/// `archived`) is a 422, not the 500 the baseline produces when SQLAlchemy tries
+/// to store NULL. `status = null` is still accepted and ignored, because the
+/// baseline's `if payload.status is not None` skips it.
+pub fn position_patch(raw: RawPositionPatch) -> Result<PositionPatch, ApiError> {
+    let mut issues = Vec::new();
+
+    let name = match raw.name {
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "name",
+                "Input should be a valid string",
+                "null",
+            ));
+            Field::Absent
+        }
+        Incoming::Value(value) => {
+            check_min_chars(&mut issues, "name", &value, 1);
+            check_max_chars(&mut issues, "name", &value, 200);
+            Field::Value(value)
+        }
+        Incoming::Absent => Field::Absent,
+    };
+
+    let location = match raw.location {
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "location", &value, 200);
+            Field::Value(value)
+        }
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+    let education_requirements = match raw.education_requirements {
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "education_requirements", &value, 200);
+            Field::Value(value)
+        }
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+
+    let salary_min = match raw.salary_min {
+        Incoming::Value(value) => {
+            check_non_negative(&mut issues, "salary_min", Some(value));
+            Field::Value(value)
+        }
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+    let salary_max = match raw.salary_max {
+        Incoming::Value(value) => {
+            check_non_negative(&mut issues, "salary_max", Some(value));
+            Field::Value(value)
+        }
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+
+    // `status = null` is ignored by the baseline (`if payload.status is not None`).
+    let status = match raw.status {
+        Incoming::Value(value) => match PositionStatus::parse(&value) {
+            Some(parsed) => Field::Value(parsed),
+            None => {
+                issues.push(issue(
+                    "enum",
+                    "status",
+                    "Input should be 'Draft', 'Open', 'OnHold' or 'Closed'",
+                    &value,
+                ));
+                Field::Absent
+            }
+        },
+        Incoming::Null | Incoming::Absent => Field::Absent,
+    };
+
+    // IMP-2: `archived` is NOT NULL; an explicit null is a rejected request.
+    let archived = match raw.archived {
+        Incoming::Value(value) => Field::Value(value),
+        Incoming::Null => {
+            issues.push(issue(
+                "bool_type",
+                "archived",
+                "Input should be a valid boolean",
+                "null",
+            ));
+            Field::Absent
+        }
+        Incoming::Absent => Field::Absent,
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(PositionPatch {
+        name,
+        description: field(raw.description),
+        location,
+        skill_requirements: field(raw.skill_requirements),
+        experience_requirements: field(raw.experience_requirements),
+        education_requirements,
+        salary_min,
+        salary_max,
+        status,
+        archived,
+        notes: field(raw.notes),
+    })
+}
+
+// ── Candidates ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawCandidateCreate {
+    pub name: Incoming<String>,
+    pub source: Incoming<String>,
+    pub position_id: Incoming<String>,
+    pub experience_summary: Incoming<String>,
+    pub skill_summary: Incoming<String>,
+    pub expected_salary: Incoming<String>,
+    pub expected_location: Incoming<String>,
+    pub job_intention: Incoming<String>,
+    pub notes: Incoming<String>,
+    pub status: Incoming<String>,
+    pub archived: Incoming<bool>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawCandidatePatch {
+    pub name: Incoming<String>,
+    pub source: Incoming<String>,
+    pub position_id: Incoming<String>,
+    pub experience_summary: Incoming<String>,
+    pub skill_summary: Incoming<String>,
+    pub expected_salary: Incoming<String>,
+    pub expected_location: Incoming<String>,
+    pub job_intention: Incoming<String>,
+    pub notes: Incoming<String>,
+    pub status: Incoming<String>,
+    pub archived: Incoming<bool>,
+}
+
+/// Trim a display name and reject one that is only whitespace.
+///
+/// `min_length=1` runs before trimming in pydantic, so `"   "` would otherwise
+/// pass validation and store a candidate with a blank name.
+fn clean_candidate_name(issues: &mut Vec<ValidationIssue>, value: String) -> String {
+    let cleaned = value.trim().to_string();
+    if cleaned.is_empty() {
+        issues.push(issue(
+            "value_error",
+            "name",
+            "Value error, name must not be blank",
+            &value,
+        ));
+    }
+    cleaned
+}
+
+/// Validate a `POST /api/candidates` body.
+pub fn candidate_create(raw: RawCandidateCreate) -> Result<NewCandidate, ApiError> {
+    let mut issues = Vec::new();
+
+    let raw_name = take_required_string(&mut issues, "name", raw.name, Some(200));
+    let name = clean_candidate_name(&mut issues, raw_name);
+
+    let source = match raw.source {
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "source",
+                "Input should be a valid string",
+                "null",
+            ));
+            "boss".to_string()
+        }
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "source", &value, 64);
+            value
+        }
+        Incoming::Absent => "boss".to_string(),
+    };
+
+    let expected_salary = take_optional_string(raw.expected_salary);
+    if let Some(value) = expected_salary.as_deref() {
+        check_max_chars(&mut issues, "expected_salary", value, 100);
+    }
+    let expected_location = take_optional_string(raw.expected_location);
+    if let Some(value) = expected_location.as_deref() {
+        check_max_chars(&mut issues, "expected_location", value, 200);
+    }
+
+    let status = match take_enum(
+        &mut issues,
+        "status",
+        raw.status,
+        "'New', 'Contacted', 'ReadNoReply', 'Replied', 'Active', 'Interview', 'Rejected', 'Withdrawn' or 'Closed'",
+        CandidateStatus::parse,
+    ) {
+        Some(status) => status,
+        None => CandidateStatus::New,
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewCandidate {
+        name,
+        source,
+        position_id: take_optional_string(raw.position_id),
+        experience_summary: take_optional_string(raw.experience_summary),
+        skill_summary: take_optional_string(raw.skill_summary),
+        expected_salary,
+        expected_location,
+        job_intention: take_optional_string(raw.job_intention),
+        notes: take_optional_string(raw.notes),
+        status,
+    })
+}
+
+/// Validate a `PATCH /api/candidates` body.
+///
+/// `name`, `source`, `status` and `archived` are NOT NULL: an explicit `null`
+/// is a 422 (not an IntegrityError), and an omitted field stays untouched.
+pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, ApiError> {
+    let mut issues = Vec::new();
+
+    let name = match raw.name {
+        Incoming::Null => {
+            issues.push(issue(
+                "value_error",
+                "name",
+                "Value error, name must not be null",
+                "null",
+            ));
+            Field::Absent
+        }
+        Incoming::Value(value) => {
+            check_min_chars(&mut issues, "name", &value, 1);
+            check_max_chars(&mut issues, "name", &value, 200);
+            Field::Value(clean_candidate_name(&mut issues, value))
+        }
+        Incoming::Absent => Field::Absent,
+    };
+
+    let source = match raw.source {
+        Incoming::Null => {
+            issues.push(issue(
+                "value_error",
+                "source",
+                "Value error, field must not be null",
+                "null",
+            ));
+            Field::Absent
+        }
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "source", &value, 64);
+            Field::Value(value)
+        }
+        Incoming::Absent => Field::Absent,
+    };
+
+    let expected_salary = match raw.expected_salary {
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "expected_salary", &value, 100);
+            Field::Value(value)
+        }
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+    let expected_location = match raw.expected_location {
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "expected_location", &value, 200);
+            Field::Value(value)
+        }
+        Incoming::Null => Field::Null,
+        Incoming::Absent => Field::Absent,
+    };
+
+    let status = match raw.status {
+        Incoming::Null => {
+            issues.push(issue(
+                "value_error",
+                "status",
+                "Value error, field must not be null",
+                "null",
+            ));
+            Field::Absent
+        }
+        Incoming::Value(value) => match CandidateStatus::parse(&value) {
+            Some(parsed) => Field::Value(parsed),
+            None => {
+                issues.push(issue(
+                    "enum",
+                    "status",
+                    "Input should be a valid candidate status",
+                    &value,
+                ));
+                Field::Absent
+            }
+        },
+        Incoming::Absent => Field::Absent,
+    };
+
+    let archived = match raw.archived {
+        Incoming::Value(value) => Field::Value(value),
+        Incoming::Null => {
+            issues.push(issue(
+                "value_error",
+                "archived",
+                "Value error, field must not be null",
+                "null",
+            ));
+            Field::Absent
+        }
+        Incoming::Absent => Field::Absent,
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(CandidatePatch {
+        name,
+        source,
+        position_id: field(raw.position_id),
+        experience_summary: field(raw.experience_summary),
+        skill_summary: field(raw.skill_summary),
+        expected_salary,
+        expected_location,
+        job_intention: field(raw.job_intention),
+        status,
+        archived,
+        notes: field(raw.notes),
+    })
+}
+
+// ── Conversations and messages ─────────────────────────────────────────────
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawConversationCreate {
+    pub candidate_id: Incoming<String>,
+    pub channel: Incoming<String>,
+    pub title: Incoming<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawMessageCreate {
+    pub candidate_id: Incoming<String>,
+    pub conversation_id: Incoming<String>,
+    pub sender_type: Incoming<String>,
+    pub content: Incoming<String>,
+    pub message_time: Incoming<String>,
+    pub channel: Incoming<String>,
+    pub source: Incoming<String>,
+}
+
+/// Validate a `POST /api/conversations` body.
+pub fn conversation_create(raw: RawConversationCreate) -> Result<NewConversation, ApiError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
+    let channel = match raw.channel {
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "channel",
+                "Input should be a valid string",
+                "null",
+            ));
+            "boss".to_string()
+        }
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "channel", &value, 32);
+            value
+        }
+        Incoming::Absent => "boss".to_string(),
+    };
+    let title = take_optional_string(raw.title);
+    if let Some(value) = title.as_deref() {
+        check_max_chars(&mut issues, "title", value, 200);
+    }
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewConversation {
+        candidate_id,
+        channel,
+        title,
+    })
+}
+
+/// Validate a `POST /api/messages` body.
+pub fn message_create(raw: RawMessageCreate) -> Result<NewMessage, ApiError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
+    let content = take_required_string(&mut issues, "content", raw.content, None);
+    check_min_chars(&mut issues, "content", &content, 1);
+
+    let channel = match raw.channel {
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "channel",
+                "Input should be a valid string",
+                "null",
+            ));
+            "boss".to_string()
+        }
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "channel", &value, 32);
+            value
+        }
+        Incoming::Absent => "boss".to_string(),
+    };
+    let sender_type: Option<SenderType> = take_enum(
+        &mut issues,
+        "sender_type",
+        raw.sender_type,
+        "'Candidate', 'Recruiter' or 'System'",
+        SenderType::parse,
+    );
+    let source = match take_enum(
+        &mut issues,
+        "source",
+        raw.source,
+        "'manual', 'paste_import' or 'screenshot_ocr'",
+        MessageSource::parse,
+    ) {
+        Some(source) => source,
+        None => MessageSource::Manual,
+    };
+    let message_time = take_datetime(&mut issues, "message_time", raw.message_time);
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewMessage {
+        candidate_id,
+        conversation_id: take_optional_string(raw.conversation_id),
+        sender_type,
+        content,
+        message_time,
+        channel,
+        source,
+    })
+}
+
+// ── Send records ───────────────────────────────────────────────────────────
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawSendRecordCreate {
+    pub candidate_id: Incoming<String>,
+    pub task_id: Incoming<String>,
+    pub draft_id: Incoming<String>,
+    pub channel: Incoming<String>,
+    pub target: Incoming<String>,
+    pub content_summary: Incoming<String>,
+    pub status: Incoming<String>,
+    pub sent_at: Incoming<String>,
+    pub note: Incoming<String>,
+}
+
+/// Validate a `POST /api/send-records` body.
+pub fn send_record_create(raw: RawSendRecordCreate) -> Result<NewSendRecord, ApiError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
+
+    let channel = match raw.channel {
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "channel",
+                "Input should be a valid string",
+                "null",
+            ));
+            "boss".to_string()
+        }
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "channel", &value, 32);
+            value
+        }
+        Incoming::Absent => "boss".to_string(),
+    };
+    let target = take_optional_string(raw.target);
+    if let Some(value) = target.as_deref() {
+        check_max_chars(&mut issues, "target", value, 200);
+    }
+
+    let status = match take_enum(
+        &mut issues,
+        "status",
+        raw.status,
+        "'sent', 'not_sent', 'candidate_replied', 'candidate_no_reply', 'candidate_declined', 'interview' or 'other'",
+        ResultType::parse,
+    ) {
+        Some(status) => status,
+        None => {
+            if issues.iter().all(|entry| entry.loc[1] != "status") {
+                issues.push(issue("missing", "status", "Field required", ""));
+            }
+            ResultType::Sent
+        }
+    };
+    let sent_at = take_datetime(&mut issues, "sent_at", raw.sent_at);
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewSendRecord {
+        candidate_id,
+        task_id: take_optional_string(raw.task_id),
+        draft_id: take_optional_string(raw.draft_id),
+        channel,
+        target,
+        content_summary: take_optional_string(raw.content_summary),
+        status,
+        sent_at,
+        note: take_optional_string(raw.note),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_explicit_null_name_is_rejected_on_patch() {
+        let raw: RawPositionPatch = parse(br#"{"name": null}"#).unwrap();
+        let error = position_patch(raw).unwrap_err();
+        let ApiError::ValidationIssues { issues } = error else {
+            panic!("expected a 422");
+        };
+        assert_eq!(issues[0].loc, ["body", "name"]);
+    }
+
+    #[test]
+    fn an_explicit_null_archived_is_rejected_on_patch() {
+        let raw: RawPositionPatch = parse(br#"{"archived": null}"#).unwrap();
+        assert!(position_patch(raw).is_err());
+    }
+
+    #[test]
+    fn a_null_status_is_ignored_like_the_baseline() {
+        let raw: RawPositionPatch = parse(br#"{"status": null}"#).unwrap();
+        let patch = position_patch(raw).unwrap();
+        assert_eq!(patch.status, Field::Absent);
+    }
+
+    #[test]
+    fn a_null_on_a_nullable_column_clears_it() {
+        let raw: RawPositionPatch = parse(br#"{"location": null}"#).unwrap();
+        let patch = position_patch(raw).unwrap();
+        assert_eq!(patch.location, Field::Null);
+        assert!(patch.description.is_absent());
+    }
+
+    #[test]
+    fn a_whitespace_candidate_name_is_blank() {
+        let raw: RawCandidateCreate = parse(br#"{"name": "   "}"#).unwrap();
+        assert!(candidate_create(raw).is_err());
+    }
+
+    #[test]
+    fn a_whitespace_position_name_is_accepted_like_pydantic() {
+        // PositionBase has no strip validator: "  " is a legal (if useless) name.
+        let raw: RawPositionCreate = parse(br#"{"name": "  "}"#).unwrap();
+        assert_eq!(position_create(raw).unwrap().name, "  ");
+    }
+
+    #[test]
+    fn a_negative_salary_is_rejected_on_create_and_update() {
+        let raw: RawPositionCreate = parse(br#"{"name": "x", "salary_min": -1}"#).unwrap();
+        assert!(position_create(raw).is_err());
+        let raw: RawPositionPatch = parse(br#"{"salary_max": -5}"#).unwrap();
+        assert!(position_patch(raw).is_err());
+    }
+
+    #[test]
+    fn message_content_must_not_be_empty() {
+        let raw: RawMessageCreate = parse(br#"{"candidate_id": "c-1", "content": ""}"#).unwrap();
+        assert!(message_create(raw).is_err());
+    }
+
+    #[test]
+    fn an_unknown_message_source_is_rejected() {
+        let raw: RawMessageCreate =
+            parse(br#"{"candidate_id": "c-1", "content": "hi", "source": "browser"}"#).unwrap();
+        assert!(message_create(raw).is_err());
+    }
+
+    #[test]
+    fn a_datetime_without_an_offset_is_utc() {
+        assert_eq!(
+            parse_datetime("2026-11-01T09:30:00").unwrap().to_rfc3339(),
+            "2026-11-01T09:30:00+00:00"
+        );
+        assert_eq!(
+            parse_datetime("2026-11-01 09:30:00").unwrap().to_rfc3339(),
+            "2026-11-01T09:30:00+00:00"
+        );
+        assert_eq!(
+            parse_datetime("2026-11-01T17:30:00+08:00")
+                .unwrap()
+                .to_rfc3339(),
+            "2026-11-01T09:30:00+00:00"
+        );
+    }
+
+    #[test]
+    fn a_send_record_without_a_status_is_rejected() {
+        let raw: RawSendRecordCreate = parse(br#"{"candidate_id": "c-1"}"#).unwrap();
+        assert!(send_record_create(raw).is_err());
+    }
+
+    #[test]
+    fn an_absent_key_stays_absent_even_next_to_a_null_one() {
+        let raw: RawCandidatePatch = parse(br#"{"notes": null}"#).unwrap();
+        let patch = candidate_patch(raw).unwrap();
+        assert_eq!(patch.notes, Field::Null);
+        assert_eq!(patch.name, Field::Absent);
+        assert_eq!(patch.position_id, Field::Absent);
+    }
+}

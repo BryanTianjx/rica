@@ -142,6 +142,64 @@ CANDIDATES: list[tuple] = [
     ("c0000000-0000-0000-0000-000000000006", "Frank", "77777777-7777-7777-7777-777777777777", 0),
 ]
 
+# ── W1 fixtures ────────────────────────────────────────────────────────────
+#
+# Rows that give the conversation / message / send-record / follow-up paths
+# something to read. Everything is deterministic, and the counts are load
+# bearing: `GET /api/messages?limit=2` must see exactly five matching rows so
+# IMP-1's `python total=2 / rust total=5` is a real measurement.
+
+ALICE = "c0000000-0000-0000-0000-000000000001"
+BOB = "c0000000-0000-0000-0000-000000000002"
+FRANK = "c0000000-0000-0000-0000-000000000006"
+
+# (id, candidate_id, channel, is_active, last_message_at)
+CONVERSATIONS: list[tuple] = [
+    ("aaaaaaaa-0000-0000-0000-000000000001", ALICE, "boss", 1, "2026-11-12 18:00:00.000000"),
+    # Bob's only conversation is inactive, so `POST /api/messages` must open a
+    # new one instead of reusing this row.
+    ("aaaaaaaa-0000-0000-0000-000000000002", BOB, "wx", 0, "2026-11-11 08:00:00.000000"),
+]
+
+# (id, candidate_id, conversation_id, sender_type, content, message_time)
+MESSAGES: list[tuple] = [
+    ("bbbbbbbb-0000-0000-0000-000000000001", ALICE, "aaaaaaaa-0000-0000-0000-000000000001",
+     "Candidate", "msg 0", "2026-11-10 10:00:00.000000"),
+    ("bbbbbbbb-0000-0000-0000-000000000002", ALICE, "aaaaaaaa-0000-0000-0000-000000000001",
+     "Recruiter", "msg 1", "2026-11-10 10:05:00.000000"),
+    ("bbbbbbbb-0000-0000-0000-000000000003", ALICE, "aaaaaaaa-0000-0000-0000-000000000001",
+     "Candidate", "msg 2", "2026-11-11 11:00:00.000000"),
+    # A message with no parsed time: it sorts last, not first.
+    ("bbbbbbbb-0000-0000-0000-000000000004", ALICE, "aaaaaaaa-0000-0000-0000-000000000001",
+     None, "msg 3", None),
+    ("bbbbbbbb-0000-0000-0000-000000000005", ALICE, "aaaaaaaa-0000-0000-0000-000000000001",
+     "Recruiter", "msg 4", "2026-11-12 18:00:00.000000"),
+]
+
+# (id, candidate_id, status, sent_at)
+SEND_RECORDS: list[tuple] = [
+    ("cccccccc-0000-0000-0000-000000000001", ALICE, "sent", "2026-11-10 10:00:00.000000"),
+    ("cccccccc-0000-0000-0000-000000000002", ALICE, "candidate_replied", "2026-11-11 10:00:00.000000"),
+    ("cccccccc-0000-0000-0000-000000000003", ALICE, "not_sent", "2026-11-12 10:00:00.000000"),
+    ("cccccccc-0000-0000-0000-000000000004", BOB, "sent", "2026-11-13 10:00:00.000000"),
+]
+
+# (id, candidate_id, status)
+FOLLOW_UP_TASKS: list[tuple] = [
+    # `Completed` counts as a contact; `Pending` does not.
+    ("dddddddd-0000-0000-0000-000000000001", ALICE, "Completed"),
+    ("dddddddd-0000-0000-0000-000000000002", ALICE, "Pending"),
+    ("dddddddd-0000-0000-0000-000000000003", BOB, "Completed"),
+]
+
+# (id, candidate_id, status)
+DRAFTS: list[tuple] = [
+    # `approved` is sendable; `generated` is not.
+    ("eeeeeeee-0000-0000-0000-000000000001", ALICE, "approved"),
+    ("eeeeeeee-0000-0000-0000-000000000002", ALICE, "generated"),
+    ("eeeeeeee-0000-0000-0000-000000000003", BOB, "approved"),
+]
+
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
@@ -167,9 +225,63 @@ def main(argv: list[str]) -> int:
         )
         connection.executemany(
             "INSERT INTO candidates (id, name, source, position_id, status, archived,"
-            " created_at, updated_at) VALUES (?, ?, 'boss', ?, 'New', ?,"
-            " '2026-11-10 09:05:00.000000', '2026-11-10 09:05:00.000000')",
-            [(row[0], row[1], row[2], row[3]) for row in CANDIDATES],
+            " created_at, updated_at) VALUES (?, ?, 'boss', ?, 'New', ?, ?, ?)",
+            # A distinct `updated_at` per candidate (one microsecond apart) so
+            # `ORDER BY updated_at DESC` is a total order: a tie would leave the
+            # listing order to SQLite's sort implementation, which is not
+            # something either implementation should be compared on.
+            [
+                (
+                    row[0],
+                    row[1],
+                    row[2],
+                    row[3],
+                    f"2026-11-10 09:05:00.{index:06d}",
+                    f"2026-11-10 09:05:00.{index:06d}",
+                )
+                for index, row in enumerate(CANDIDATES)
+            ],
+        )
+        connection.executemany(
+            "INSERT INTO conversations (id, candidate_id, channel, title, is_active,"
+            " last_message_at, created_at, updated_at)"
+            " VALUES (?, ?, ?, NULL, ?, ?, '2026-11-10 09:10:00.000000',"
+            " '2026-11-10 09:10:00.000000')",
+            CONVERSATIONS,
+        )
+        connection.executemany(
+            "INSERT INTO messages (id, candidate_id, conversation_id, sender_type, content,"
+            " message_time, channel, source, content_hash, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, 'boss', 'manual', NULL,"
+            " '2026-11-10 10:00:00.000000', '2026-11-10 10:00:00.000000')",
+            MESSAGES,
+        )
+        connection.executemany(
+            "INSERT INTO send_records (id, candidate_id, task_id, draft_id, channel, target,"
+            " content_summary, status, sent_at, note, actor, created_at, updated_at)"
+            " VALUES (?, ?, NULL, NULL, 'boss', 'target', 'summary', ?, ?, NULL,"
+            " 'local_user', ?, ?)",
+            [(row[0], row[1], row[2], row[3], row[3], row[3]) for row in SEND_RECORDS],
+        )
+        connection.executemany(
+            "INSERT INTO follow_up_tasks (id, candidate_id, position_id, status, objective,"
+            " reason, block_reason, recommended_at, expires_at, last_follow_up_at,"
+            " follow_up_count, completed_at, result_type, result_note, result_recorded_at,"
+            " idempotency_key, created_at, updated_at) VALUES (?, ?, NULL, ?, NULL, NULL, NULL,"
+            " NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL,"
+            " '2026-11-10 09:00:00.000000', '2026-11-10 09:00:00.000000')",
+            FOLLOW_UP_TASKS,
+        )
+        connection.executemany(
+            "INSERT INTO generated_drafts (id, candidate_id, task_id, message_type, tone,"
+            " status, objective, message_text, alternatives_json, context_references_json,"
+            " uncertainties_json, warnings_json, validation_status, validation_messages_json,"
+            " quality_status, provider, model, prompt_version, is_edited, approved_at,"
+            " copied_at, rejected_at, created_at, updated_at)"
+            " VALUES (?, ?, NULL, 'reply', 'friendly', ?, NULL, 'draft body', NULL, NULL,"
+            " NULL, NULL, 'Passed', NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL,"
+            " '2026-11-10 09:00:00.000000', '2026-11-10 09:00:00.000000')",
+            DRAFTS,
         )
         connection.commit()
 
@@ -179,12 +291,16 @@ def main(argv: list[str]) -> int:
         ).fetchone()[0]
         positions = connection.execute("SELECT COUNT(*) FROM positions").fetchone()[0]
         candidates = connection.execute("SELECT COUNT(*) FROM candidates").fetchone()[0]
+        conversations = connection.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        messages = connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        send_records = connection.execute("SELECT COUNT(*) FROM send_records").fetchone()[0]
     finally:
         connection.close()
 
     print(
         f"seeded {out}: {tables} tables, {positions} positions, "
-        f"{candidates} candidates"
+        f"{candidates} candidates, {conversations} conversations, "
+        f"{messages} messages, {send_records} send records"
     )
     return 0
 

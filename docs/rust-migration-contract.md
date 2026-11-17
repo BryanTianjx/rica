@@ -6,11 +6,19 @@ from Python (FastAPI + SQLAlchemy) to Rust (axum + sqlx), one wave at a time.
 - **Contract authority**: the Python baseline at `/mnt/o/ica` @ `d39e321`. Where
   this document and the Python code disagree, the Python code wins until a wave
   explicitly changes it.
-- **R0 (this milestone)**: the skeleton plus three read-only endpoints. Waves
-  W1–W7 below are *not* implemented yet.
-- **Evidence**: `docs/contract-baseline/positions-python.json` (captured from a
-  running Python server) and `positions-rust.json` (captured from the Rust
-  server against the same database). `scripts/contract_diff.py` compares them.
+- **R0 (done)**: the skeleton plus three read-only endpoints
+  (`GET /health`, `GET /api/positions`, `GET /api/positions/{id}`), 98 tests,
+  HEAD `b262c33`.
+- **W1 (this milestone)**: the 15 write/read routes of the positions-write,
+  candidate, conversation, message and send-record families. **18 routes are
+  served in total** (207 tests, R0's 98 included); the remaining 50 `/api`
+  routes stay mapped to W2–W6.
+- **Evidence**: `docs/contract-baseline/w1-python.json` (captured from a running
+  Python baseline) and `w1-rust.json` (captured from the Rust port against its
+  own copy of the same seed), compared by `scripts/contract_diff.py`, which also
+  compares every row of the eight business tables afterwards. The R0 pair
+  (`positions-python.json` / `positions-rust.json`) is kept as the earlier
+  read-only record.
 
 ## 1. Endpoint inventory and count
 
@@ -75,16 +83,16 @@ codebases by symbol.
 | 12 | POST | `/shares` | `create_share` | `ica-application/shares.rs` | W6 |
 | 13 | GET | `/shares` | `list_shares` | `ica-application/shares.rs` | W6 |
 | 14 | DELETE | `/shares/{share_id}` | `delete_share` | `ica-application/shares.rs` | W6 |
-| 15 | GET | `/candidates` | `list_candidates` | `ica-application/candidates.rs` | W1 |
-| 16 | POST | `/candidates` | `create_candidate` | `ica-application/candidates.rs` | W1 |
-| 17 | GET | `/candidates/{candidate_id}` | `get_candidate` | `ica-application/candidates.rs` | W1 |
-| 18 | PATCH | `/candidates/{candidate_id}` | `update_candidate` | `ica-application/candidates.rs` | W1 |
-| 19 | DELETE | `/candidates/{candidate_id}` | `delete_candidate` | `ica-application/candidates.rs` | W1 |
-| 20 | GET | `/conversations` | `list_conversations` | `ica-application/conversations.rs` | W1 |
-| 21 | POST | `/conversations` | `create_conversation` | `ica-application/conversations.rs` | W1 |
-| 22 | GET | `/messages` | `list_messages` | `ica-application/conversations.rs` | W1 |
-| 23 | POST | `/messages` | `create_message` | `ica-application/conversations.rs` | W1 |
-| 24 | GET | `/candidates/{candidate_id}/timeline` | `candidate_timeline` | `ica-application/conversations.rs` | W1 |
+| 15 | GET | `/candidates` | `list_candidates` | `ica-api/routes.rs` + `ica-application/candidates.rs` + `ica-infra/candidates.rs` | **W1 ✅** |
+| 16 | POST | `/candidates` | `create_candidate` | `ica-application/candidates.rs` + `ica-infra/candidates.rs` | **W1 ✅** |
+| 17 | GET | `/candidates/{candidate_id}` | `get_candidate` | `ica-application/candidates.rs` + `ica-infra/candidates.rs` | **W1 ✅** |
+| 18 | PATCH | `/candidates/{candidate_id}` | `update_candidate` | `ica-application/candidates.rs` + `ica-infra/candidates.rs` | **W1 ✅** |
+| 19 | DELETE | `/candidates/{candidate_id}` | `delete_candidate` | `ica-application/candidates.rs` + `ica-infra/candidates.rs` | **W1 ✅** |
+| 20 | GET | `/conversations` | `list_conversations` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
+| 21 | POST | `/conversations` | `create_conversation` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
+| 22 | GET | `/messages` | `list_messages` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
+| 23 | POST | `/messages` | `create_message` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
+| 24 | GET | `/candidates/{candidate_id}/timeline` | `candidate_timeline` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
 | 25 | GET | `/dashboard` | `dashboard` | `ica-application/dashboard.rs` | W2 |
 | 26 | GET | `/drafts` | `list_drafts` | `ica-application/drafts.rs` | W3 |
 | 27 | GET | `/drafts/{draft_id}` | `get_draft` | `ica-application/drafts.rs` | W3 |
@@ -114,12 +122,12 @@ codebases by symbol.
 | 51 | POST | `/import` | `import_data_endpoint` | `ica-application/sync.rs` | W4 |
 | 52 | POST | `/imports/ocr` | `ocr_screenshot` | `ica-infra/ocr.rs` + `ica-application/imports.rs` | W4 |
 | 53 | GET | `/positions` | `list_positions` | `ica-api/routes.rs` + `ica-application/positions.rs` + `ica-infra/repository.rs` | **R0 ✅** |
-| 54 | POST | `/positions` | `create_position` | `ica-application/positions.rs` | W1 |
+| 54 | POST | `/positions` | `create_position` | `ica-application/positions.rs` + `ica-infra/repository.rs` | **W1 ✅** |
 | 55 | GET | `/positions/{position_id}` | `get_position` | `ica-api/routes.rs` + `ica-application/positions.rs` + `ica-infra/repository.rs` | **R0 ✅** |
-| 56 | PATCH | `/positions/{position_id}` | `update_position` | `ica-application/positions.rs` | W1 |
-| 57 | DELETE | `/positions/{position_id}` | `delete_position` | `ica-application/positions.rs` | W1 |
-| 58 | POST | `/send-records` | `record_send` | `ica-application/send_records.rs` | W1 |
-| 59 | GET | `/send-records` | `list_send_records` | `ica-application/send_records.rs` | W1 |
+| 56 | PATCH | `/positions/{position_id}` | `update_position` | `ica-application/positions.rs` + `ica-infra/repository.rs` | **W1 ✅** |
+| 57 | DELETE | `/positions/{position_id}` | `delete_position` | `ica-application/positions.rs` + `ica-infra/repository.rs` | **W1 ✅** |
+| 58 | POST | `/send-records` | `record_send` | `ica-application/send_records.rs` + `ica-infra/send_records.rs` | **W1 ✅** |
+| 59 | GET | `/send-records` | `list_send_records` | `ica-application/send_records.rs` + `ica-infra/send_records.rs` | **W1 ✅** |
 | 60 | GET | `/settings` | `read_settings` | `ica-application/settings.rs` | W5 |
 | 61 | PUT | `/settings/ai-key` | `write_ai_key` | `ica-application/settings.rs` | W5 |
 | 62 | DELETE | `/settings/ai-key` | `clear_ai_key` | `ica-application/settings.rs` | W5 |
@@ -174,6 +182,19 @@ Every wave uses the same gate; only the endpoint set differs.
 | W6 | auth (register/login/refresh/logout/me), shares | Refresh-token rotation is single-use and concurrency-safe; local mode stays default |
 | W7 | cutover: dual-run, then Rust-only | Parity telemetry for a full week of real traffic; documented rollback to Python |
 
+### 3.1 W1 measured on the Python baseline
+
+The W1 rows above are only meaningful if the "Python behaviour" they are
+compared against is measured, not assumed. Three facts were re-measured against
+the running baseline (`/mnt/o/ica` @ `d39e321`) with the shared seed, and the
+captures in `docs/contract-baseline/` are the record:
+
+| Observation | Python (measured) | Why it matters |
+| --- | --- | --- |
+| `GET /api/messages?limit=2` | `total = 2` (5 rows exist) | `total = min(real_total, limit + offset)`, so the envelope's count cannot be used to compute page count and `has_more` is almost always `false`. Declared as **IMP-1**. |
+| `PATCH /api/positions/{id}` with `{"name": null}` or `{"archived": null}` | **500** `internal_error` | The pydantic schema allows `None`, the service assigns it, and SQLite rejects the NOT NULL constraint inside `commit()`; the client cannot tell a bad request from a server crash. Declared as **IMP-2**. |
+| `total` semantics across the five lists | positions / candidates / conversations / send-records = real count; messages truncated | One `Page` envelope with two different meanings. Declared as **IMP-3**. |
+
 ## 4. Layering rules (compile-enforced)
 
 ```
@@ -183,7 +204,7 @@ ica-server → ica-api + ica-infra → ica-application → ica-domain
 | Crate | May depend on | Must not depend on |
 | --- | --- | --- |
 | `ica-domain` | `chrono` | axum, sqlx, tokio, hyper, any I/O |
-| `ica-application` | `ica-domain`, `async-trait` | axum, sqlx, tokio, hyper |
+| `ica-application` | `ica-domain`, `async-trait`, `chrono` | axum, sqlx, tokio, hyper |
 | `ica-infra` | `ica-application`, `ica-domain`, `sqlx`, `tokio`, `async-trait` | axum |
 | `ica-api` | `ica-application`, `ica-domain`, `axum`, `serde` | sqlx (the HTTP layer never writes SQL) |
 | `ica-server` | `ica-api`, `ica-infra`, `axum`, `tokio` | — (composition root) |
@@ -219,14 +240,28 @@ R0–W6 run **both** services side by side:
 - **Retirement** (W7): Python is stopped only after a full week of Rust-only
   parity on real traffic.
 
-## 6. R0 scope boundaries (what this milestone does *not* do)
+## 6. R0/W1 scope boundaries (what these milestones do *not* do)
 
-- Only `GET /health`, `GET /api/positions`, `GET /api/positions/{id}`.
-- No write paths, no auth, no AI/OCR, no frontend change, no packaging.
+Served today (18 routes):
+
+- `GET /health`, `GET /api/positions`, `GET /api/positions/{id}` (R0);
+- `POST/PATCH/DELETE /api/positions/{id}`, `GET/POST /api/candidates`,
+  `GET/PATCH/DELETE /api/candidates/{id}`,
+  `GET/POST /api/conversations`, `GET/POST /api/messages`,
+  `GET /api/candidates/{id}/timeline`, `GET/POST /api/send-records` (W1).
+
+Not served yet, and deliberately out of scope for W1:
+
+- follow-ups and dashboard (W2), drafts and AI (W3), imports/OCR/export (W4),
+  settings/audit-events/backups (W5), auth and shares (W6), the `GET /` welcome
+  string, packaging, the desktop shell and any frontend change.
+- **No schema change, no new index.** W1 reads and writes the existing tables
+  exactly as exported in `crates/ica-infra/schema/ica-baseline.sql`.
 - **Tenant/owner scoping is not modelled.** In `local` mode (the default) the
-  Python `access.scope_position_query` returns the statement unchanged, so the
-  two services agree today. Multiuser scoping arrives with W6 auth; until then
-  the Rust service must not be run in `multiuser` mode.
+  Python `access.scope_*` helpers return the statement unchanged, and every row
+  W1 writes is stamped with the V1.0 local owner/tenant. Multiuser scoping
+  arrives with W6 auth; until then the Rust service must not be run in
+  `multiuser` mode.
 
 ## 7. Known deltas and how they are handled
 
@@ -238,30 +273,122 @@ R0–W6 run **both** services side by side:
 | Read-only opening | `?mode=ro` (without `immutable`) still updates the `-shm` sidecar's **mtime** of a WAL database — measured, and the cause is *any* such open, including `scripts/compare_baseline_schema.py`; the file's **content sha256 does not change**. The Rust service opens the baseline with `?mode=ro&immutable=true`, which leaves `ica.db`, `-wal` and `-shm` byte- and mtime-identical. |
 | Baseline emptiness | The current baseline database contains 0 positions, so the read-only proof is the startup self-check (20 tables) plus a 200 from `/api/positions`; contract parity is proven against the seeded database instead. |
 
+### 7.1 Declared improvements (W1)
+
+The user's instruction for W1 allows fixing defects in the baseline, provided
+every difference is declared here **and** asserted with its concrete value on
+both sides by `scripts/contract_diff.py` (section `improvements:`). A difference
+outside this table fails the comparison.
+
+| # | Endpoint | Python value (measured) | Rust value | Reason | Frontend impact |
+| --- | --- | --- | --- | --- | --- |
+| **IMP-1** | `GET /api/messages` → `total` | `total = min(real_total, limit + offset)`. With 5 matching rows: `?limit=2` → `total=2`, `has_more=false`; `?limit=2&offset=1` → `total=3` | `total` = the real number of matching rows, independent of the window (`?limit=2` → `total=5`, `has_more=true`) | `total` means "rows before paging"; a truncated value makes the page count uncomputable and `has_more` almost always false | **None.** No code under `frontend/src` reads `Page.total` / `Page.has_more` except the type definition in `types.ts` (verified by grep; only tests reference them) |
+| **IMP-2** | `PATCH /api/positions/{id}` with an explicit `null` on a NOT NULL column | `{"name": null}` → **500** `internal_error`; `{"archived": null}` → **500** `internal_error` | **422** `validation_error` with the same envelope as every other validation failure | A 500 means "unhandled exception": the client cannot tell a bad request from a server crash, and §3 already requires 422 for a rejected payload | **None positive, none negative.** The frontend never sends `null` for these fields; a bug that did would now show a validation message instead of a generic 500 |
+| **IMP-3** | The five list endpoints → `total` | positions / candidates / conversations / send-records report the real total; messages reports the truncated one | All five report the real total | One `Page` envelope must mean one thing, or a client cannot write generic paging code | **None** (same grep as IMP-1) |
+
+Deliberately **not** changed, to keep the wave's scope honest:
+
+- `GET /` keeps its Python behaviour (not implemented at all — it is not part of
+  the API surface);
+- no endpoint is added that Python does not have;
+- the per-field text inside `details.errors` is not reproduced verbatim (the
+  comparison compares `code`, `message` and the `details` key set, by design);
+- timestamps keep the `...T09:00:00Z` rendering from R0;
+- no existing field name, type or required-ness changes, and no sort order or
+  error-code enum changes.
+
+### 7.2 Implementation optimizations (W1)
+
+These change *how* a value is produced, never the value. Each is covered by the
+contract comparison (items, `total`, `offset`, `limit`, `has_more` and every
+stored row must still match Python exactly).
+
+| # | Optimization | Approach | Why the response is unchanged | Where |
+| --- | --- | --- | --- | --- |
+| **OPT-1** | N+1 on conversation `message_count` | One `GROUP BY conversation_id` aggregate joined into the list query, instead of one `list_messages(limit=1000)` per conversation | The number is identical, including the baseline's 1000-message cap, which the aggregate reproduces (`CASE WHEN cnt > 1000 …`) | `ica-infra/conversations.rs` |
+| **OPT-2** | List paging pushed into SQL | `COUNT(*)` for `total` plus `LIMIT ? OFFSET ?` for the window, instead of reading every matching row and slicing in memory | Same filter, same `ORDER BY`, so `items` (and their order), `total`, `offset`, `limit` and `has_more` are value-for-value identical; the diff compares `items[].id` order for all five lists | `ica-infra/repository.rs`, `candidates.rs`, `conversations.rs`, `send_records.rs` |
+
+`PATCH` is a read-modify-write of the whole row (the ORM's own shape), so a
+patch cannot silently write a column the request never mentioned — and it keeps
+the write path to two statements without dynamic SQL.
+
+### 7.3 How `contract_diff.py` normalises
+
+Normalisation is symmetric on both sides and never hides a value:
+
+- **UUIDs** are random per server, so every 36-character UUID is replaced by
+  `<uuid:N>`, numbered by first appearance (cases in sorted-name order, then the
+  row dump). A row seen in a response and in the table dump gets the same
+  placeholder, which is what makes `audit_events.entity_id` a real assertion.
+- **Timestamps at or after the capture's own `started_at`** (minus 60 s) become
+  `<now>`: they are "the moment this request ran" on both sides. Seeded
+  timestamps are in the past and stay literal, so they are compared exactly.
+- **422 bodies** collapse to `code` + `message` + the sorted `details` key set.
+
+Everything else — every field, every row of the eight business tables, the
+audit metadata (parsed), `messages.content_hash`, row counts — is compared
+exactly.
+
+### 7.4 Baseline side effect reproduced on purpose
+
+Deleting a position clears `candidates.position_id` (FK `ON DELETE SET NULL`).
+Python's ORM also nulls the child through the relationship, which fires the
+`updated_at` `onupdate` hook **once per row**; a bare SQLite FK action would
+leave `updated_at` untouched. The Rust delete therefore stamps the affected
+candidates in the same transaction, one microsecond apart, in rowid order.
+
+Without that, a candidate that lost its position would sort differently in the
+next `updated_at DESC` listing — a visible difference the comparison caught.
+The scenario deletes a position with a single candidate on purpose: Python's
+per-row `utcnow()` can land two rows in the same microsecond, which would make
+the *baseline itself* non-deterministic and the ordering untestable.
+
 ## 8. Re-running the comparison
 
-```bash
-# 1. Schema + seed (shared by both sides)
-python3 scripts/seed_contract_db.py --out /tmp/ica-contract/seed.db
+One command seeds, runs both services on **separate copies** of that seed
+(the scenario writes), captures both sides and diffs responses plus final rows:
 
-# 2. Python baseline (copy without .env/.venv; uses the baseline interpreter)
+```bash
+cd /mnt/o/ICA-RUST
+scripts/contract_verify.sh
+```
+
+Last run: **`102/102 cases matched, 0 failure(s)`**, including
+`PASS db.<table>` for all eight business tables (17 audit events, 6 positions,
+5 candidates, 3 conversations, 1 message, 2 send records, 1 follow-up task,
+1 draft — the post-scenario state of both databases, row for row).
+
+The steps it performs, if you need them individually:
+
+```bash
+# 1. Seed twice: the scenario writes, so each service gets its own copy.
+python3 scripts/seed_contract_db.py --out /tmp/ica-contract/seed.db
+cp /tmp/ica-contract/seed.db /tmp/ica-contract/python.db
+cp /tmp/ica-contract/seed.db /tmp/ica-contract/rust.db
+
+# 2. Python baseline from a copy without .env/.venv (no credentials move).
 rsync -a --exclude '.venv' --exclude '.env' --exclude '__pycache__' \
   --exclude 'ica.db*' /mnt/o/ica/backend/ /tmp/ica-py-baseline/
 cd /tmp/ica-py-baseline
-env -u PYTHONPATH -u AI_API_KEY PYTHONDONTWRITEBYTECODE=1 \
-  DATABASE_URL="sqlite:////tmp/ica-contract/seed.db" \
+env -u PYTHONPATH -u PYTHONHOME PYTHONDONTWRITEBYTECODE=1 \
+  DATABASE_URL="sqlite:////tmp/ica-contract/python.db" \
   /mnt/o/ica/backend/.venv/bin/python -m uvicorn app.main:app --port 8010 &
 
-# 3. Rust service on the same database, read-only
+# 3. Rust port on its own copy.
 cd /mnt/o/ICA-RUST
-DATABASE_URL="sqlite:////tmp/ica-contract/seed.db?mode=ro" PORT=8011 cargo run -p ica-server &
+DATABASE_URL="sqlite:////tmp/ica-contract/rust.db" PORT=8011 cargo run -p ica-server &
 
-# 4. Capture and diff
+# 4. Capture (responses + final rows) and diff.
 python3 scripts/contract_capture.py --base-url http://127.0.0.1:8010 \
-  --out docs/contract-baseline/positions-python.json
+  --db /tmp/ica-contract/python.db --out docs/contract-baseline/w1-python.json
 python3 scripts/contract_capture.py --base-url http://127.0.0.1:8011 \
-  --out docs/contract-baseline/positions-rust.json
+  --db /tmp/ica-contract/rust.db --out docs/contract-baseline/w1-rust.json
 python3 scripts/contract_diff.py \
-  --python docs/contract-baseline/positions-python.json \
-  --rust docs/contract-baseline/positions-rust.json
+  --python docs/contract-baseline/w1-python.json \
+  --rust docs/contract-baseline/w1-rust.json
 ```
+
+> Do not point a server at a *deleted* database file. If the port still answers
+> `/health` from an earlier run, kill that process first: the script refuses to
+> start when `:8010`/`:8011` is already serving, because the capture would
+> otherwise read a file nobody is writing.

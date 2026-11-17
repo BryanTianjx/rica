@@ -14,6 +14,8 @@ ica-application.workspace = true
 # sqlx SQLite driver.
 async-trait.workspace = true
 sqlx.workspace = true
+uuid.workspace = true
+serde_json.workspace = true
 chrono.workspace = true
 tokio.workspace = true
 tracing.workspace = true

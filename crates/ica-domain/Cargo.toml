@@ -10,3 +10,4 @@ description = "Pure domain model for the ICA backend: entities, enums, paginatio
 # the layering rule is enforced by this dependency list (see docs/rust-migration-contract.md).
 [dependencies]
 chrono.workspace = true
+sha2.workspace = true

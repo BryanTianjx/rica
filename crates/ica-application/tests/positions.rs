@@ -9,8 +9,8 @@ mod support;
 use async_trait::async_trait;
 use chrono::{TimeZone, Utc};
 use ica_application::{
-    get_position, list_positions, ApplicationError, ListPositions, PositionFilter,
-    PositionRepository, RepositoryError,
+    get_position, list_positions, ApplicationError, ListPositions, NewPosition, PositionFilter,
+    PositionPatch, PositionRepository, RepositoryError,
 };
 use ica_domain::{Position, PositionStatus};
 
@@ -68,6 +68,24 @@ impl PositionRepository for FakeRepo {
             return Err(RepositoryError::unavailable(message.clone()));
         }
         Ok(self.rows.iter().find(|row| row.id == id).cloned())
+    }
+
+    // Write methods are not exercised by these use-case tests; the SQLite
+    // adapter's own suite covers them.
+    async fn create(&self, _new: NewPosition) -> Result<Position, RepositoryError> {
+        Err(RepositoryError::unavailable("create is not used here"))
+    }
+
+    async fn update(
+        &self,
+        _id: &str,
+        _patch: PositionPatch,
+    ) -> Result<Option<Position>, RepositoryError> {
+        Err(RepositoryError::unavailable("update is not used here"))
+    }
+
+    async fn delete(&self, _id: &str) -> Result<bool, RepositoryError> {
+        Err(RepositoryError::unavailable("delete is not used here"))
     }
 }
 

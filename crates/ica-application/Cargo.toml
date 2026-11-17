@@ -12,6 +12,9 @@ description = "Use cases and repository ports for the ICA backend."
 [dependencies]
 ica-domain.workspace = true
 async-trait.workspace = true
+# Payloads carry parsed instants (`message_time`, `sent_at`); chrono is a pure
+# value type, not a runtime or a driver.
+chrono.workspace = true
 
 [dev-dependencies]
 # Test fixtures build Position values, whose timestamps are chrono types.

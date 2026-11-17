@@ -1,0 +1,4513 @@
+{
+  "base_url": "http://127.0.0.1:8010",
+  "cases": {
+    "candidate_create": {
+      "body": {
+        "active_follow_up_count": 0,
+        "archived": false,
+        "created_at": "2026-11-17T15:12:11.179274Z",
+        "expected_location": "Wuhan",
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "job_intention": null,
+        "message_count": 0,
+        "name": "Contract Candidate",
+        "notes": null,
+        "position_id": "33333333-3333-3333-3333-333333333333",
+        "position_name": "Data Analyst",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "Contacted",
+        "updated_at": "2026-11-17T15:12:11.179277Z"
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/candidates",
+      "status": 201
+    },
+    "candidate_delete": {
+      "body": null,
+      "content_type": "",
+      "method": "DELETE",
+      "path": "/api/candidates/f279db59-69ca-42af-93da-abdc5b3f6bd9",
+      "status": 204
+    },
+    "candidate_delete_with_children": {
+      "body": null,
+      "content_type": "",
+      "method": "DELETE",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000001",
+      "status": 204
+    },
+    "candidate_detail": {
+      "body": {
+        "active_follow_up_count": 1,
+        "archived": false,
+        "created_at": "2026-11-10T09:05:00Z",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000001",
+        "job_intention": null,
+        "message_count": 5,
+        "name": "Alice",
+        "notes": null,
+        "position": {
+          "archived": false,
+          "candidate_count": 3,
+          "created_at": "2026-11-10T09:00:00Z",
+          "description": "Own the Rust backend rewrite.",
+          "education_requirements": null,
+          "experience_requirements": null,
+          "id": "11111111-1111-1111-1111-111111111111",
+          "location": "Beijing",
+          "name": "Senior Rust Engineer",
+          "notes": "priority role",
+          "salary_max": 60000,
+          "salary_min": 40000,
+          "skill_requirements": "Rust, SQLx, Axum",
+          "status": "Open",
+          "updated_at": "2026-11-10T09:30:00Z"
+        },
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "position_name": "Senior Rust Engineer",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "updated_at": "2026-11-10T09:05:00Z"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000001",
+      "status": 200
+    },
+    "candidate_detail_after_delete": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Candidate 'f279db59-69ca-42af-93da-abdc5b3f6bd9' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/f279db59-69ca-42af-93da-abdc5b3f6bd9",
+      "status": 404
+    },
+    "candidate_detail_after_position_delete": {
+      "body": {
+        "active_follow_up_count": 0,
+        "archived": false,
+        "created_at": "2026-11-10T09:05:00.000005Z",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000006",
+        "job_intention": null,
+        "message_count": 0,
+        "name": "Frank",
+        "notes": null,
+        "position": null,
+        "position_id": null,
+        "position_name": null,
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "updated_at": "2026-11-17T15:12:11.360294Z"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000006",
+      "status": 200
+    },
+    "candidate_detail_created": {
+      "body": {
+        "active_follow_up_count": 0,
+        "archived": false,
+        "created_at": "2026-11-17T15:12:11.179274Z",
+        "expected_location": "Wuhan",
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "job_intention": null,
+        "message_count": 0,
+        "name": "Contract Candidate",
+        "notes": null,
+        "position": {
+          "archived": false,
+          "candidate_count": 1,
+          "created_at": "2026-11-12T11:45:00Z",
+          "description": null,
+          "education_requirements": null,
+          "experience_requirements": null,
+          "id": "33333333-3333-3333-3333-333333333333",
+          "location": null,
+          "name": "Data Analyst",
+          "notes": "location unknown yet",
+          "salary_max": null,
+          "salary_min": null,
+          "skill_requirements": null,
+          "status": "Draft",
+          "updated_at": "2026-11-12T11:45:00Z"
+        },
+        "position_id": "33333333-3333-3333-3333-333333333333",
+        "position_name": "Data Analyst",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "Contacted",
+        "updated_at": "2026-11-17T15:12:11.179277Z"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/f279db59-69ca-42af-93da-abdc5b3f6bd9",
+      "status": 200
+    },
+    "candidate_detail_missing": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Candidate 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/does-not-exist",
+      "status": 404
+    },
+    "candidate_detail_second": {
+      "body": {
+        "active_follow_up_count": 1,
+        "archived": false,
+        "created_at": "2026-11-10T09:05:00.000001Z",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000002",
+        "job_intention": null,
+        "message_count": 0,
+        "name": "Bob",
+        "notes": null,
+        "position": {
+          "archived": false,
+          "candidate_count": 3,
+          "created_at": "2026-11-10T09:00:00Z",
+          "description": "Own the Rust backend rewrite.",
+          "education_requirements": null,
+          "experience_requirements": null,
+          "id": "11111111-1111-1111-1111-111111111111",
+          "location": "Beijing",
+          "name": "Senior Rust Engineer",
+          "notes": "priority role",
+          "salary_max": 60000,
+          "salary_min": 40000,
+          "skill_requirements": "Rust, SQLx, Axum",
+          "status": "Open",
+          "updated_at": "2026-11-10T09:30:00Z"
+        },
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "position_name": "Senior Rust Engineer",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "updated_at": "2026-11-10T09:05:00.000001Z"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000002",
+      "status": 200
+    },
+    "candidate_patch": {
+      "body": {
+        "active_follow_up_count": 0,
+        "archived": false,
+        "created_at": "2026-11-17T15:12:11.179274Z",
+        "expected_location": "Wuhan",
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "job_intention": null,
+        "message_count": 0,
+        "name": "Contract Candidate",
+        "notes": "patched",
+        "position_id": "33333333-3333-3333-3333-333333333333",
+        "position_name": "Data Analyst",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "Replied",
+        "updated_at": "2026-11-17T15:12:11.199675Z"
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/candidates/f279db59-69ca-42af-93da-abdc5b3f6bd9",
+      "status": 200
+    },
+    "candidate_patch_missing": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Candidate 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/candidates/does-not-exist",
+      "status": 404
+    },
+    "candidate_patch_null_name": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "error": "name must not be null"
+                },
+                "input": null,
+                "loc": [
+                  "body",
+                  "name"
+                ],
+                "msg": "Value error, name must not be null",
+                "type": "value_error"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/candidates/f279db59-69ca-42af-93da-abdc5b3f6bd9",
+      "status": 422
+    },
+    "candidate_patch_null_position": {
+      "body": {
+        "active_follow_up_count": 0,
+        "archived": false,
+        "created_at": "2026-11-17T15:12:11.179274Z",
+        "expected_location": "Wuhan",
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "job_intention": null,
+        "message_count": 0,
+        "name": "Contract Candidate",
+        "notes": "patched",
+        "position_id": null,
+        "position_name": null,
+        "skill_summary": null,
+        "source": "boss",
+        "status": "Replied",
+        "updated_at": "2026-11-17T15:12:11.211553Z"
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/candidates/f279db59-69ca-42af-93da-abdc5b3f6bd9",
+      "status": 200
+    },
+    "candidates_bad_status": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "expected": "'New', 'Contacted', 'ReadNoReply', 'Replied', 'Active', 'Interview', 'Rejected', 'Withdrawn' or 'Closed'"
+                },
+                "input": "Nope",
+                "loc": [
+                  "query",
+                  "status"
+                ],
+                "msg": "Input should be 'New', 'Contacted', 'ReadNoReply', 'Replied', 'Active', 'Interview', 'Rejected', 'Withdrawn' or 'Closed'",
+                "type": "enum"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?status=Nope",
+      "status": 422
+    },
+    "candidates_default": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000005Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000006",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Frank",
+            "notes": null,
+            "position_id": "77777777-7777-7777-7777-777777777777",
+            "position_name": "ML Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000005Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000004Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000005",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Eve",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000004Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000003Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000004",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Dave",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000003Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000001Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000002",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Bob",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000001Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000001",
+            "job_intention": null,
+            "message_count": 5,
+            "name": "Alice",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates",
+      "status": 200
+    },
+    "candidates_final": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000005Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000006",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Frank",
+            "notes": null,
+            "position_id": null,
+            "position_name": null,
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-17T15:12:11.360294Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000004Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000005",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Eve",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000004Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000003Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000004",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Dave",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000003Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": true,
+            "created_at": "2026-11-10T09:05:00.000002Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000003",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Carol",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000002Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000001Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000002",
+            "job_intention": null,
+            "message_count": 1,
+            "name": "Bob",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000001Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?include_archived=true",
+      "status": 200
+    },
+    "candidates_include_archived": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000005Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000006",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Frank",
+            "notes": null,
+            "position_id": "77777777-7777-7777-7777-777777777777",
+            "position_name": "ML Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000005Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000004Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000005",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Eve",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000004Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000003Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000004",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Dave",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000003Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": true,
+            "created_at": "2026-11-10T09:05:00.000002Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000003",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Carol",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000002Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000001Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000002",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Bob",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000001Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000001",
+            "job_intention": null,
+            "message_count": 5,
+            "name": "Alice",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?include_archived=true",
+      "status": 200
+    },
+    "candidates_limit2": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000005Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000006",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Frank",
+            "notes": null,
+            "position_id": "77777777-7777-7777-7777-777777777777",
+            "position_name": "ML Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000005Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000004Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000005",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Eve",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000004Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 0,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?limit=2",
+      "status": 200
+    },
+    "candidates_limit_over_max": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "le": 500
+                },
+                "input": "501",
+                "loc": [
+                  "query",
+                  "limit"
+                ],
+                "msg": "Input should be less than or equal to 500",
+                "type": "less_than_equal"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?limit=501",
+      "status": 422
+    },
+    "candidates_page2": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000003Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000004",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Dave",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000003Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000001Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000002",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Bob",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000001Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 2,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?limit=2&offset=2",
+      "status": 200
+    },
+    "candidates_position_filter": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000001Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000002",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Bob",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000001Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000001",
+            "job_intention": null,
+            "message_count": 5,
+            "name": "Alice",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?position_id=11111111-1111-1111-1111-111111111111",
+      "status": 200
+    },
+    "candidates_search_case": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000001",
+            "job_intention": null,
+            "message_count": 5,
+            "name": "Alice",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 1
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?search=ALICE",
+      "status": 200
+    },
+    "candidates_search_miss": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 0,
+        "total": 0
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?search=zzz-nothing",
+      "status": 200
+    },
+    "candidates_search_name": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000001",
+            "job_intention": null,
+            "message_count": 5,
+            "name": "Alice",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 1
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?search=alice",
+      "status": 200
+    },
+    "candidates_status_empty": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 0,
+        "total": 0
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?status=Contacted",
+      "status": 200
+    },
+    "candidates_status_filter": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000005Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000006",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Frank",
+            "notes": null,
+            "position_id": "77777777-7777-7777-7777-777777777777",
+            "position_name": "ML Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000005Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000004Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000005",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Eve",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000004Z"
+          },
+          {
+            "active_follow_up_count": 0,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000003Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000004",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Dave",
+            "notes": null,
+            "position_id": "44444444-4444-4444-4444-444444444444",
+            "position_name": "Archived Recruiter",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000003Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00.000001Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000002",
+            "job_intention": null,
+            "message_count": 0,
+            "name": "Bob",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00.000001Z"
+          },
+          {
+            "active_follow_up_count": 1,
+            "archived": false,
+            "created_at": "2026-11-10T09:05:00Z",
+            "expected_location": null,
+            "expected_salary": null,
+            "experience_summary": null,
+            "id": "c0000000-0000-0000-0000-000000000001",
+            "job_intention": null,
+            "message_count": 5,
+            "name": "Alice",
+            "notes": null,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "skill_summary": null,
+            "source": "boss",
+            "status": "New",
+            "updated_at": "2026-11-10T09:05:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates?status=New",
+      "status": 200
+    },
+    "conversation_create": {
+      "body": {
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "channel": "boss",
+        "created_at": "2026-11-17T15:12:11.240475Z",
+        "id": "86cf6614-17fd-46c4-ba45-21e5d9fd3311",
+        "is_active": true,
+        "last_message_at": null,
+        "message_count": 0,
+        "position_id": "77777777-7777-7777-7777-777777777777",
+        "position_name": "ML Engineer",
+        "title": "Contract thread",
+        "updated_at": "2026-11-17T15:12:11.240478Z"
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/conversations",
+      "status": 201
+    },
+    "conversation_create_missing_candidate": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Candidate 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/conversations",
+      "status": 404
+    },
+    "conversations_after_cascade": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "created_at": "2026-11-17T15:12:11.267086Z",
+            "id": "d3443936-2a93-47fe-babe-62df3e9fef27",
+            "is_active": true,
+            "last_message_at": "2026-11-17T15:12:11.267419Z",
+            "message_count": 1,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-17T15:12:11.268160Z"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "wx",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000002",
+            "is_active": false,
+            "last_message_at": "2026-11-11T08:00:00Z",
+            "message_count": 0,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-10T09:10:00Z"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000006",
+            "channel": "boss",
+            "created_at": "2026-11-17T15:12:11.240475Z",
+            "id": "86cf6614-17fd-46c4-ba45-21e5d9fd3311",
+            "is_active": true,
+            "last_message_at": null,
+            "message_count": 0,
+            "position_id": null,
+            "position_name": null,
+            "title": "Contract thread",
+            "updated_at": "2026-11-17T15:12:11.240478Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 3
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    "conversations_after_writes": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "created_at": "2026-11-17T15:12:11.267086Z",
+            "id": "d3443936-2a93-47fe-babe-62df3e9fef27",
+            "is_active": true,
+            "last_message_at": "2026-11-17T15:12:11.267419Z",
+            "message_count": 1,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-17T15:12:11.268160Z"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "is_active": true,
+            "last_message_at": "2026-11-14T09:30:00Z",
+            "message_count": 6,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-17T15:12:11.257551Z"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "wx",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000002",
+            "is_active": false,
+            "last_message_at": "2026-11-11T08:00:00Z",
+            "message_count": 0,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-10T09:10:00Z"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000006",
+            "channel": "boss",
+            "created_at": "2026-11-17T15:12:11.240475Z",
+            "id": "86cf6614-17fd-46c4-ba45-21e5d9fd3311",
+            "is_active": true,
+            "last_message_at": null,
+            "message_count": 0,
+            "position_id": "77777777-7777-7777-7777-777777777777",
+            "position_name": "ML Engineer",
+            "title": "Contract thread",
+            "updated_at": "2026-11-17T15:12:11.240478Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 4
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    "conversations_by_candidate": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "wx",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000002",
+            "is_active": false,
+            "last_message_at": "2026-11-11T08:00:00Z",
+            "message_count": 0,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-10T09:10:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 1
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/conversations?candidate_id=c0000000-0000-0000-0000-000000000002",
+      "status": 200
+    },
+    "conversations_default": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "is_active": true,
+            "last_message_at": "2026-11-12T18:00:00Z",
+            "message_count": 5,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-10T09:10:00Z"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "wx",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000002",
+            "is_active": false,
+            "last_message_at": "2026-11-11T08:00:00Z",
+            "message_count": 0,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-10T09:10:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    "conversations_limit2": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "is_active": true,
+            "last_message_at": "2026-11-12T18:00:00Z",
+            "message_count": 5,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-10T09:10:00Z"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "wx",
+            "created_at": "2026-11-10T09:10:00Z",
+            "id": "aaaaaaaa-0000-0000-0000-000000000002",
+            "is_active": false,
+            "last_message_at": "2026-11-11T08:00:00Z",
+            "message_count": 0,
+            "position_id": "11111111-1111-1111-1111-111111111111",
+            "position_name": "Senior Rust Engineer",
+            "title": null,
+            "updated_at": "2026-11-10T09:10:00Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/conversations?limit=2",
+      "status": 200
+    },
+    "conversations_unknown_candidate": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 0,
+        "total": 0
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/conversations?candidate_id=does-not-exist",
+      "status": 200
+    },
+    "health": {
+      "body": {
+        "ai_enabled": false,
+        "app": "ICA Personal",
+        "status": "ok"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/health",
+      "status": 200
+    },
+    "message_create_auto_conversation": {
+      "body": {
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "boss",
+        "content": "auto thread",
+        "conversation_id": "d3443936-2a93-47fe-babe-62df3e9fef27",
+        "created_at": "2026-11-17T15:12:11.268387Z",
+        "id": "b3f5b160-3ede-44ff-8afa-1277bdaed519",
+        "message_time": null,
+        "sender_type": null,
+        "source": "manual"
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/messages",
+      "status": 201
+    },
+    "message_create_empty_content": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "min_length": 1
+                },
+                "input": "",
+                "loc": [
+                  "body",
+                  "content"
+                ],
+                "msg": "String should have at least 1 character",
+                "type": "string_too_short"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/messages",
+      "status": 422
+    },
+    "message_create_explicit_conversation": {
+      "body": {
+        "candidate_id": "c0000000-0000-0000-0000-000000000001",
+        "channel": "boss",
+        "content": "  Contract   Message  ",
+        "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+        "created_at": "2026-11-17T15:12:11.258174Z",
+        "id": "4e2758e2-b300-484d-a1ce-8b65a09800aa",
+        "message_time": "2026-11-14T09:30:00Z",
+        "sender_type": "Recruiter",
+        "source": "manual"
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/messages",
+      "status": 201
+    },
+    "message_create_missing_candidate": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Candidate 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/messages",
+      "status": 404
+    },
+    "message_create_missing_conversation": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Conversation 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/messages",
+      "status": 404
+    },
+    "message_create_wrong_conversation": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000002"
+          },
+          "message": "Conversation does not belong to the given candidate"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/messages",
+      "status": 422
+    },
+    "messages_after_cascade": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content": "auto thread",
+            "conversation_id": "d3443936-2a93-47fe-babe-62df3e9fef27",
+            "created_at": "2026-11-17T15:12:11.268387Z",
+            "id": "b3f5b160-3ede-44ff-8afa-1277bdaed519",
+            "message_time": null,
+            "sender_type": null,
+            "source": "manual"
+          }
+        ],
+        "limit": 200,
+        "offset": 0,
+        "total": 1
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages",
+      "status": 200
+    },
+    "messages_after_writes": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 0",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000001",
+            "message_time": "2026-11-10T10:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 1",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000002",
+            "message_time": "2026-11-10T10:05:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 2",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000003",
+            "message_time": "2026-11-11T11:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 4",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000005",
+            "message_time": "2026-11-12T18:00:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "  Contract   Message  ",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-17T15:12:11.258174Z",
+            "id": "4e2758e2-b300-484d-a1ce-8b65a09800aa",
+            "message_time": "2026-11-14T09:30:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 3",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000004",
+            "message_time": null,
+            "sender_type": null,
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content": "auto thread",
+            "conversation_id": "d3443936-2a93-47fe-babe-62df3e9fef27",
+            "created_at": "2026-11-17T15:12:11.268387Z",
+            "id": "b3f5b160-3ede-44ff-8afa-1277bdaed519",
+            "message_time": null,
+            "sender_type": null,
+            "source": "manual"
+          }
+        ],
+        "limit": 200,
+        "offset": 0,
+        "total": 7
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages",
+      "status": 200
+    },
+    "messages_by_candidate": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 0",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000001",
+            "message_time": "2026-11-10T10:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 1",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000002",
+            "message_time": "2026-11-10T10:05:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 2",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000003",
+            "message_time": "2026-11-11T11:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 4",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000005",
+            "message_time": "2026-11-12T18:00:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 3",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000004",
+            "message_time": null,
+            "sender_type": null,
+            "source": "manual"
+          }
+        ],
+        "limit": 200,
+        "offset": 0,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages?candidate_id=c0000000-0000-0000-0000-000000000001",
+      "status": 200
+    },
+    "messages_by_conversation": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 0",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000001",
+            "message_time": "2026-11-10T10:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 1",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000002",
+            "message_time": "2026-11-10T10:05:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 2",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000003",
+            "message_time": "2026-11-11T11:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 4",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000005",
+            "message_time": "2026-11-12T18:00:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 3",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000004",
+            "message_time": null,
+            "sender_type": null,
+            "source": "manual"
+          }
+        ],
+        "limit": 200,
+        "offset": 0,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages?conversation_id=aaaaaaaa-0000-0000-0000-000000000001",
+      "status": 200
+    },
+    "messages_by_empty_candidate": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 200,
+        "offset": 0,
+        "total": 0
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages?candidate_id=c0000000-0000-0000-0000-000000000006",
+      "status": 200
+    },
+    "messages_default": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 0",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000001",
+            "message_time": "2026-11-10T10:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 1",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000002",
+            "message_time": "2026-11-10T10:05:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 2",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000003",
+            "message_time": "2026-11-11T11:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 4",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000005",
+            "message_time": "2026-11-12T18:00:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 3",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000004",
+            "message_time": null,
+            "sender_type": null,
+            "source": "manual"
+          }
+        ],
+        "limit": 200,
+        "offset": 0,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages",
+      "status": 200
+    },
+    "messages_limit2": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 0",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000001",
+            "message_time": "2026-11-10T10:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 1",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000002",
+            "message_time": "2026-11-10T10:05:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          }
+        ],
+        "limit": 2,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages?limit=2",
+      "status": 200
+    },
+    "messages_limit2_offset1": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 1",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000002",
+            "message_time": "2026-11-10T10:05:00Z",
+            "sender_type": "Recruiter",
+            "source": "manual"
+          },
+          {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content": "msg 2",
+            "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "created_at": "2026-11-10T10:00:00Z",
+            "id": "bbbbbbbb-0000-0000-0000-000000000003",
+            "message_time": "2026-11-11T11:00:00Z",
+            "sender_type": "Candidate",
+            "source": "manual"
+          }
+        ],
+        "limit": 2,
+        "offset": 1,
+        "total": 3
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages?limit=2&offset=1",
+      "status": 200
+    },
+    "messages_limit_over_max": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "le": 1000
+                },
+                "input": "1001",
+                "loc": [
+                  "query",
+                  "limit"
+                ],
+                "msg": "Input should be less than or equal to 1000",
+                "type": "less_than_equal"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages?limit=1001",
+      "status": 422
+    },
+    "messages_offset_beyond_total": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 200,
+        "offset": 100,
+        "total": 5
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/messages?offset=100",
+      "status": 200
+    },
+    "position_create": {
+      "body": {
+        "archived": false,
+        "candidate_count": 0,
+        "created_at": "2026-11-17T15:12:11.131966Z",
+        "description": null,
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "location": "Wuhan",
+        "name": "Contract Created",
+        "notes": null,
+        "salary_max": null,
+        "salary_min": 10000,
+        "skill_requirements": null,
+        "status": "Draft",
+        "updated_at": "2026-11-17T15:12:11.131968Z"
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/positions",
+      "status": 201
+    },
+    "position_delete": {
+      "body": null,
+      "content_type": "",
+      "method": "DELETE",
+      "path": "/api/positions/241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+      "status": 204
+    },
+    "position_delete_missing": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Position 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "DELETE",
+      "path": "/api/positions/does-not-exist",
+      "status": 404
+    },
+    "position_delete_set_null": {
+      "body": null,
+      "content_type": "",
+      "method": "DELETE",
+      "path": "/api/positions/77777777-7777-7777-7777-777777777777",
+      "status": 204
+    },
+    "position_detail": {
+      "body": {
+        "archived": false,
+        "candidate_count": 3,
+        "created_at": "2026-11-10T09:00:00Z",
+        "description": "Own the Rust backend rewrite.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "11111111-1111-1111-1111-111111111111",
+        "location": "Beijing",
+        "name": "Senior Rust Engineer",
+        "notes": "priority role",
+        "salary_max": 60000,
+        "salary_min": 40000,
+        "skill_requirements": "Rust, SQLx, Axum",
+        "status": "Open",
+        "updated_at": "2026-11-10T09:30:00Z"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions/11111111-1111-1111-1111-111111111111",
+      "status": 200
+    },
+    "position_detail_after_delete": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Position '241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions/241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+      "status": 404
+    },
+    "position_detail_archived": {
+      "body": {
+        "archived": true,
+        "candidate_count": 2,
+        "created_at": "2026-11-13T12:00:00.500000Z",
+        "description": "Filled months ago.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "44444444-4444-4444-4444-444444444444",
+        "location": "beijing",
+        "name": "Archived Recruiter",
+        "notes": null,
+        "salary_max": 45000,
+        "salary_min": 30000,
+        "skill_requirements": "Sourcing",
+        "status": "Closed",
+        "updated_at": "2026-11-13T12:00:00.500000Z"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions/44444444-4444-4444-4444-444444444444",
+      "status": 200
+    },
+    "position_detail_created": {
+      "body": {
+        "archived": false,
+        "candidate_count": 0,
+        "created_at": "2026-11-17T15:12:11.131966Z",
+        "description": null,
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "location": "Wuhan",
+        "name": "Contract Created",
+        "notes": null,
+        "salary_max": null,
+        "salary_min": 10000,
+        "skill_requirements": null,
+        "status": "Draft",
+        "updated_at": "2026-11-17T15:12:11.131968Z"
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions/241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+      "status": 200
+    },
+    "position_detail_missing": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Position 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions/does-not-exist",
+      "status": 404
+    },
+    "position_patch": {
+      "body": {
+        "archived": false,
+        "candidate_count": 0,
+        "created_at": "2026-11-17T15:12:11.131966Z",
+        "description": null,
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "location": "Wuhan",
+        "name": "Contract Renamed",
+        "notes": null,
+        "salary_max": 20000,
+        "salary_min": 10000,
+        "skill_requirements": null,
+        "status": "Draft",
+        "updated_at": "2026-11-17T15:12:11.144929Z"
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/positions/241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+      "status": 200
+    },
+    "position_patch_archived": {
+      "body": {
+        "archived": true,
+        "candidate_count": 0,
+        "created_at": "2026-11-17T15:12:11.131966Z",
+        "description": null,
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "location": null,
+        "name": "Contract Renamed",
+        "notes": null,
+        "salary_max": 20000,
+        "salary_min": 10000,
+        "skill_requirements": null,
+        "status": "Draft",
+        "updated_at": "2026-11-17T15:12:11.161098Z"
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/positions/241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+      "status": 200
+    },
+    "position_patch_clear_nullable": {
+      "body": {
+        "archived": false,
+        "candidate_count": 0,
+        "created_at": "2026-11-17T15:12:11.131966Z",
+        "description": null,
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "location": null,
+        "name": "Contract Renamed",
+        "notes": null,
+        "salary_max": 20000,
+        "salary_min": 10000,
+        "skill_requirements": null,
+        "status": "Draft",
+        "updated_at": "2026-11-17T15:12:11.155608Z"
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/positions/241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+      "status": 200
+    },
+    "position_patch_missing": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Position 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/positions/does-not-exist",
+      "status": 404
+    },
+    "position_patch_null_archived": {
+      "body": {
+        "error": {
+          "code": "internal_error",
+          "details": {},
+          "message": "An unexpected error occurred"
+        }
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/positions/33333333-3333-3333-3333-333333333333",
+      "status": 500
+    },
+    "position_patch_null_name": {
+      "body": {
+        "error": {
+          "code": "internal_error",
+          "details": {},
+          "message": "An unexpected error occurred"
+        }
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/positions/33333333-3333-3333-3333-333333333333",
+      "status": 500
+    },
+    "position_patch_status_null": {
+      "body": {
+        "archived": false,
+        "candidate_count": 0,
+        "created_at": "2026-11-17T15:12:11.131966Z",
+        "description": null,
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "location": "Wuhan",
+        "name": "Contract Renamed",
+        "notes": null,
+        "salary_max": 20000,
+        "salary_min": 10000,
+        "skill_requirements": null,
+        "status": "Draft",
+        "updated_at": "2026-11-17T15:12:11.144929Z"
+      },
+      "content_type": "application/json",
+      "method": "PATCH",
+      "path": "/api/positions/241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+      "status": 200
+    },
+    "positions_default": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions",
+      "status": 200
+    },
+    "positions_final": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": true,
+            "candidate_count": 2,
+            "created_at": "2026-11-13T12:00:00.500000Z",
+            "description": "Filled months ago.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "44444444-4444-4444-4444-444444444444",
+            "location": "beijing",
+            "name": "Archived Recruiter",
+            "notes": null,
+            "salary_max": 45000,
+            "salary_min": 30000,
+            "skill_requirements": "Sourcing",
+            "status": "Closed",
+            "updated_at": "2026-11-13T12:00:00.500000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 2,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?include_archived=true",
+      "status": 200
+    },
+    "positions_include_archived": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": true,
+            "candidate_count": 2,
+            "created_at": "2026-11-13T12:00:00.500000Z",
+            "description": "Filled months ago.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "44444444-4444-4444-4444-444444444444",
+            "location": "beijing",
+            "name": "Archived Recruiter",
+            "notes": null,
+            "salary_max": 45000,
+            "salary_min": 30000,
+            "skill_requirements": "Sourcing",
+            "status": "Closed",
+            "updated_at": "2026-11-13T12:00:00.500000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 7
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?include_archived=true",
+      "status": 200
+    },
+    "positions_include_archived_bool1": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": true,
+            "candidate_count": 2,
+            "created_at": "2026-11-13T12:00:00.500000Z",
+            "description": "Filled months ago.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "44444444-4444-4444-4444-444444444444",
+            "location": "beijing",
+            "name": "Archived Recruiter",
+            "notes": null,
+            "salary_max": 45000,
+            "salary_min": 30000,
+            "skill_requirements": "Sourcing",
+            "status": "Closed",
+            "updated_at": "2026-11-13T12:00:00.500000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 7
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?include_archived=1",
+      "status": 200
+    },
+    "positions_limit2": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?limit=2",
+      "status": 200
+    },
+    "positions_limit_max": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-11T10:30:00.123456Z",
+            "description": "Keep the React app in step with the API.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "22222222-2222-2222-2222-222222222222",
+            "location": "Shanghai",
+            "name": "Frontend Developer",
+            "notes": null,
+            "salary_max": 35000,
+            "salary_min": 25000,
+            "skill_requirements": "TypeScript, React",
+            "status": "OnHold",
+            "updated_at": "2026-11-11T10:30:00.123456Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 500,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?limit=500",
+      "status": 200
+    },
+    "positions_limit_over_max": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "le": 500
+                },
+                "input": "501",
+                "loc": [
+                  "query",
+                  "limit"
+                ],
+                "msg": "Input should be less than or equal to 500",
+                "type": "less_than_equal"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?limit=501",
+      "status": 422
+    },
+    "positions_limit_zero": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "gt": 0
+                },
+                "input": "0",
+                "loc": [
+                  "query",
+                  "limit"
+                ],
+                "msg": "Input should be greater than 0",
+                "type": "greater_than"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?limit=0",
+      "status": 422
+    },
+    "positions_offset_beyond_total": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 100,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?offset=100",
+      "status": 200
+    },
+    "positions_offset_negative": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "ge": 0
+                },
+                "input": "-1",
+                "loc": [
+                  "query",
+                  "offset"
+                ],
+                "msg": "Input should be greater than or equal to 0",
+                "type": "greater_than_equal"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?offset=-1",
+      "status": 422
+    },
+    "positions_page2": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-12T11:45:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "33333333-3333-3333-3333-333333333333",
+            "location": null,
+            "name": "Data Analyst",
+            "notes": "location unknown yet",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": null,
+            "status": "Draft",
+            "updated_at": "2026-11-12T11:45:00Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 2,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?limit=2&offset=2",
+      "status": 200
+    },
+    "positions_search_case_insensitive": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-14T08:15:30.250000Z",
+            "description": "Second Rust role, different team.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "location": "Shenzhen",
+            "name": "Backend Engineer (Rust)",
+            "notes": null,
+            "salary_max": 55000,
+            "salary_min": null,
+            "skill_requirements": "Rust, gRPC",
+            "status": "Open",
+            "updated_at": "2026-11-14T08:15:30.250000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?search=RUST",
+      "status": 200
+    },
+    "positions_search_hit": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?search=beijing",
+      "status": 200
+    },
+    "positions_search_hit_with_archived": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": true,
+            "candidate_count": 2,
+            "created_at": "2026-11-13T12:00:00.500000Z",
+            "description": "Filled months ago.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "44444444-4444-4444-4444-444444444444",
+            "location": "beijing",
+            "name": "Archived Recruiter",
+            "notes": null,
+            "salary_max": 45000,
+            "salary_min": 30000,
+            "skill_requirements": "Sourcing",
+            "status": "Closed",
+            "updated_at": "2026-11-13T12:00:00.500000Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 3
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?search=beijing&include_archived=true",
+      "status": 200
+    },
+    "positions_search_miss": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 0,
+        "total": 0
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?search=zzz-nothing",
+      "status": 200
+    },
+    "positions_search_padded": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 3,
+            "created_at": "2026-11-10T09:00:00Z",
+            "description": "Own the Rust backend rewrite.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "11111111-1111-1111-1111-111111111111",
+            "location": "Beijing",
+            "name": "Senior Rust Engineer",
+            "notes": "priority role",
+            "salary_max": 60000,
+            "salary_min": 40000,
+            "skill_requirements": "Rust, SQLx, Axum",
+            "status": "Open",
+            "updated_at": "2026-11-10T09:30:00Z"
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?search=%20beijing%20",
+      "status": 200
+    },
+    "positions_search_too_long": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "max_length": 200
+                },
+                "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "loc": [
+                  "query",
+                  "search"
+                ],
+                "msg": "String should have at most 200 characters",
+                "type": "string_too_long"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/positions?search=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 422
+    },
+    "send_record_bad_status": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "expected": "'sent', 'not_sent', 'candidate_replied', 'candidate_no_reply', 'candidate_declined', 'interview' or 'other'"
+                },
+                "input": "delivered",
+                "loc": [
+                  "body",
+                  "status"
+                ],
+                "msg": "Input should be 'sent', 'not_sent', 'candidate_replied', 'candidate_no_reply', 'candidate_declined', 'interview' or 'other'",
+                "type": "enum"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/send-records",
+      "status": 422
+    },
+    "send_record_create": {
+      "body": {
+        "actor": "local_user",
+        "candidate_id": "c0000000-0000-0000-0000-000000000001",
+        "channel": "boss",
+        "content_summary": "contract send",
+        "created_at": "2026-11-17T15:12:11.319227Z",
+        "draft_id": null,
+        "id": "94599152-9b4f-459e-94b0-8ba02661c5af",
+        "note": null,
+        "sent_at": "2026-11-17T15:12:11.318566Z",
+        "status": "sent",
+        "target": "boss-42",
+        "task_id": null
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/send-records",
+      "status": 201
+    },
+    "send_record_create_explicit_time": {
+      "body": {
+        "actor": "local_user",
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "wx",
+        "content_summary": null,
+        "created_at": "2026-11-17T15:12:11.326882Z",
+        "draft_id": null,
+        "id": "a29696ea-7b56-44de-b9ef-6e05a30c61ca",
+        "note": null,
+        "sent_at": "2026-11-14T08:15:00Z",
+        "status": "candidate_replied",
+        "target": null,
+        "task_id": null
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/send-records",
+      "status": 201
+    },
+    "send_record_draft_not_sendable": {
+      "body": {
+        "error": {
+          "code": "business_rule_violation",
+          "details": {
+            "draft_id": "eeeeeeee-0000-0000-0000-000000000002",
+            "draft_status": "generated"
+          },
+          "message": "Only an approved or copied draft can be recorded as sent"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/send-records",
+      "status": 409
+    },
+    "send_record_missing_task": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Follow-up task 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/send-records",
+      "status": 404
+    },
+    "send_record_task_conflict": {
+      "body": {
+        "error": {
+          "code": "business_rule_violation",
+          "details": {
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "task_id": "dddddddd-0000-0000-0000-000000000003"
+          },
+          "message": "The follow-up task belongs to a different candidate"
+        }
+      },
+      "content_type": "application/json",
+      "method": "POST",
+      "path": "/api/send-records",
+      "status": 409
+    },
+    "send_records_after_cascade": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "wx",
+            "content_summary": null,
+            "created_at": "2026-11-17T15:12:11.326882Z",
+            "draft_id": null,
+            "id": "a29696ea-7b56-44de-b9ef-6e05a30c61ca",
+            "note": null,
+            "sent_at": "2026-11-14T08:15:00Z",
+            "status": "candidate_replied",
+            "target": null,
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-13T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000004",
+            "note": null,
+            "sent_at": "2026-11-13T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/send-records",
+      "status": 200
+    },
+    "send_records_after_writes": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "contract send",
+            "created_at": "2026-11-17T15:12:11.319227Z",
+            "draft_id": null,
+            "id": "94599152-9b4f-459e-94b0-8ba02661c5af",
+            "note": null,
+            "sent_at": "2026-11-17T15:12:11.318566Z",
+            "status": "sent",
+            "target": "boss-42",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "wx",
+            "content_summary": null,
+            "created_at": "2026-11-17T15:12:11.326882Z",
+            "draft_id": null,
+            "id": "a29696ea-7b56-44de-b9ef-6e05a30c61ca",
+            "note": null,
+            "sent_at": "2026-11-14T08:15:00Z",
+            "status": "candidate_replied",
+            "target": null,
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-13T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000004",
+            "note": null,
+            "sent_at": "2026-11-13T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-12T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000003",
+            "note": null,
+            "sent_at": "2026-11-12T10:00:00Z",
+            "status": "not_sent",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-11T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000002",
+            "note": null,
+            "sent_at": "2026-11-11T10:00:00Z",
+            "status": "candidate_replied",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-10T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000001",
+            "note": null,
+            "sent_at": "2026-11-10T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/send-records",
+      "status": 200
+    },
+    "send_records_bad_status": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "ctx": {
+                  "expected": "'sent', 'not_sent', 'candidate_replied', 'candidate_no_reply', 'candidate_declined', 'interview' or 'other'"
+                },
+                "input": "maybe",
+                "loc": [
+                  "query",
+                  "status"
+                ],
+                "msg": "Input should be 'sent', 'not_sent', 'candidate_replied', 'candidate_no_reply', 'candidate_declined', 'interview' or 'other'",
+                "type": "enum"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/send-records?status=maybe",
+      "status": 422
+    },
+    "send_records_by_candidate": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-12T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000003",
+            "note": null,
+            "sent_at": "2026-11-12T10:00:00Z",
+            "status": "not_sent",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-11T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000002",
+            "note": null,
+            "sent_at": "2026-11-11T10:00:00Z",
+            "status": "candidate_replied",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-10T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000001",
+            "note": null,
+            "sent_at": "2026-11-10T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 3
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/send-records?candidate_id=c0000000-0000-0000-0000-000000000001",
+      "status": 200
+    },
+    "send_records_by_status": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-13T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000004",
+            "note": null,
+            "sent_at": "2026-11-13T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-10T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000001",
+            "note": null,
+            "sent_at": "2026-11-10T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 2
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/send-records?status=sent",
+      "status": 200
+    },
+    "send_records_default": {
+      "body": {
+        "has_more": false,
+        "items": [
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-13T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000004",
+            "note": null,
+            "sent_at": "2026-11-13T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-12T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000003",
+            "note": null,
+            "sent_at": "2026-11-12T10:00:00Z",
+            "status": "not_sent",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-11T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000002",
+            "note": null,
+            "sent_at": "2026-11-11T10:00:00Z",
+            "status": "candidate_replied",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-10T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000001",
+            "note": null,
+            "sent_at": "2026-11-10T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          }
+        ],
+        "limit": 50,
+        "offset": 0,
+        "total": 4
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/send-records",
+      "status": 200
+    },
+    "send_records_limit2": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000002",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-13T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000004",
+            "note": null,
+            "sent_at": "2026-11-13T10:00:00Z",
+            "status": "sent",
+            "target": "target",
+            "task_id": null
+          },
+          {
+            "actor": "local_user",
+            "candidate_id": "c0000000-0000-0000-0000-000000000001",
+            "channel": "boss",
+            "content_summary": "summary",
+            "created_at": "2026-11-12T10:00:00Z",
+            "draft_id": null,
+            "id": "cccccccc-0000-0000-0000-000000000003",
+            "note": null,
+            "sent_at": "2026-11-12T10:00:00Z",
+            "status": "not_sent",
+            "target": "target",
+            "task_id": null
+          }
+        ],
+        "limit": 2,
+        "offset": 0,
+        "total": 4
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/send-records?limit=2",
+      "status": 200
+    },
+    "timeline_after_cascade": {
+      "body": [
+        {
+          "content": "auto thread",
+          "created_at": "2026-11-17T15:12:11.268387Z",
+          "id": "b3f5b160-3ede-44ff-8afa-1277bdaed519",
+          "kind": "message",
+          "message_time": null,
+          "sender_type": null,
+          "source": "manual",
+          "status": null
+        }
+      ],
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000002/timeline",
+      "status": 200
+    },
+    "timeline_after_writes": {
+      "body": [
+        {
+          "content": "msg 0",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000001",
+          "kind": "message",
+          "message_time": "2026-11-10T10:00:00Z",
+          "sender_type": "Candidate",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 1",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000002",
+          "kind": "message",
+          "message_time": "2026-11-10T10:05:00Z",
+          "sender_type": "Recruiter",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 2",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000003",
+          "kind": "message",
+          "message_time": "2026-11-11T11:00:00Z",
+          "sender_type": "Candidate",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 4",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000005",
+          "kind": "message",
+          "message_time": "2026-11-12T18:00:00Z",
+          "sender_type": "Recruiter",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "  Contract   Message  ",
+          "created_at": "2026-11-17T15:12:11.258174Z",
+          "id": "4e2758e2-b300-484d-a1ce-8b65a09800aa",
+          "kind": "message",
+          "message_time": "2026-11-14T09:30:00Z",
+          "sender_type": "Recruiter",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 3",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000004",
+          "kind": "message",
+          "message_time": null,
+          "sender_type": null,
+          "source": "manual",
+          "status": null
+        }
+      ],
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000001/timeline",
+      "status": 200
+    },
+    "timeline_default": {
+      "body": [
+        {
+          "content": "msg 0",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000001",
+          "kind": "message",
+          "message_time": "2026-11-10T10:00:00Z",
+          "sender_type": "Candidate",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 1",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000002",
+          "kind": "message",
+          "message_time": "2026-11-10T10:05:00Z",
+          "sender_type": "Recruiter",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 2",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000003",
+          "kind": "message",
+          "message_time": "2026-11-11T11:00:00Z",
+          "sender_type": "Candidate",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 4",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000005",
+          "kind": "message",
+          "message_time": "2026-11-12T18:00:00Z",
+          "sender_type": "Recruiter",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 3",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000004",
+          "kind": "message",
+          "message_time": null,
+          "sender_type": null,
+          "source": "manual",
+          "status": null
+        }
+      ],
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000001/timeline",
+      "status": 200
+    },
+    "timeline_limit2": {
+      "body": [
+        {
+          "content": "msg 0",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000001",
+          "kind": "message",
+          "message_time": "2026-11-10T10:00:00Z",
+          "sender_type": "Candidate",
+          "source": "manual",
+          "status": null
+        },
+        {
+          "content": "msg 1",
+          "created_at": "2026-11-10T10:00:00Z",
+          "id": "bbbbbbbb-0000-0000-0000-000000000002",
+          "kind": "message",
+          "message_time": "2026-11-10T10:05:00Z",
+          "sender_type": "Recruiter",
+          "source": "manual",
+          "status": null
+        }
+      ],
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/c0000000-0000-0000-0000-000000000001/timeline?limit=2",
+      "status": 200
+    },
+    "timeline_missing_candidate": {
+      "body": {
+        "error": {
+          "code": "not_found",
+          "details": {},
+          "message": "Candidate 'does-not-exist' was not found"
+        }
+      },
+      "content_type": "application/json",
+      "method": "GET",
+      "path": "/api/candidates/does-not-exist/timeline",
+      "status": 404
+    }
+  },
+  "db_state": {
+    "audit_events": [
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.132556",
+        "entity_id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "entity_type": "position",
+        "event_type": "position.created",
+        "id": "8811d3c7-77cd-4f49-b23f-13d5920eb237",
+        "metadata_json": null,
+        "summary": "Created position 'Contract Created'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.132557"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.144556",
+        "entity_id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "entity_type": "position",
+        "event_type": "position.updated",
+        "id": "c86941f4-a9a8-42f6-bd3d-b211d5d05f8f",
+        "metadata_json": null,
+        "summary": "Updated position 'Contract Renamed'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.144558"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.149971",
+        "entity_id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "entity_type": "position",
+        "event_type": "position.updated",
+        "id": "d2807dac-8886-401a-8cf8-b5e0d20fe7a4",
+        "metadata_json": null,
+        "summary": "Updated position 'Contract Renamed'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.149974"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.155210",
+        "entity_id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "entity_type": "position",
+        "event_type": "position.updated",
+        "id": "d0df6f30-195d-4721-9f26-419b54b1f441",
+        "metadata_json": null,
+        "summary": "Updated position 'Contract Renamed'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.155212"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.160918",
+        "entity_id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "entity_type": "position",
+        "event_type": "position.updated",
+        "id": "aaf4e129-506a-4472-8c40-bc5c76e721a7",
+        "metadata_json": null,
+        "summary": "Updated position 'Contract Renamed'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.160920"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.169040",
+        "entity_id": "241a5fa3-ecdc-41cb-b27d-5c00a00ae9f8",
+        "entity_type": "position",
+        "event_type": "position.deleted",
+        "id": "ad9c2498-f596-41a3-ab9e-ff30bb5e2894",
+        "metadata_json": null,
+        "summary": "Deleted position 'Contract Renamed'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.169043"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.179771",
+        "entity_id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "entity_type": "candidate",
+        "event_type": "candidate.created",
+        "id": "9ce71abd-cb19-460f-9b7d-387957600b9a",
+        "metadata_json": null,
+        "summary": "Created candidate",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.179772"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.199218",
+        "entity_id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "entity_type": "candidate",
+        "event_type": "candidate.updated",
+        "id": "00194d45-d41a-4b64-8914-a364020540ae",
+        "metadata_json": null,
+        "summary": "Updated candidate",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.199221"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.210770",
+        "entity_id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "entity_type": "candidate",
+        "event_type": "candidate.updated",
+        "id": "00970462-dc68-40cb-95ae-b9e139a4700d",
+        "metadata_json": null,
+        "summary": "Updated candidate",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.210774"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.230566",
+        "entity_id": "f279db59-69ca-42af-93da-abdc5b3f6bd9",
+        "entity_type": "candidate",
+        "event_type": "candidate.deleted",
+        "id": "e41d00ae-78bb-406c-a639-8a1feb8575a1",
+        "metadata_json": null,
+        "summary": "Deleted candidate and all dependent records",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.230569"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.241022",
+        "entity_id": "86cf6614-17fd-46c4-ba45-21e5d9fd3311",
+        "entity_type": "conversation",
+        "event_type": "conversation.created",
+        "id": "4609faee-d45c-407c-8cc4-ab885a0ca63c",
+        "metadata_json": null,
+        "summary": "Opened conversation",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.241024"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.258764",
+        "entity_id": "4e2758e2-b300-484d-a1ce-8b65a09800aa",
+        "entity_type": "message",
+        "event_type": "message.created",
+        "id": "f795bff8-3804-4767-a5b1-2233da1ba3ae",
+        "metadata_json": {
+          "source": "manual"
+        },
+        "summary": "Recorded a message",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.258765"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.268824",
+        "entity_id": "b3f5b160-3ede-44ff-8afa-1277bdaed519",
+        "entity_type": "message",
+        "event_type": "message.created",
+        "id": "cb43b0fd-df4f-4cfa-8b45-d982344b5cbb",
+        "metadata_json": {
+          "source": "manual"
+        },
+        "summary": "Recorded a message",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.268825"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.319734",
+        "entity_id": "94599152-9b4f-459e-94b0-8ba02661c5af",
+        "entity_type": "send_record",
+        "event_type": "send.recorded",
+        "id": "e7f5b32c-78b8-4c62-a1c7-1f11cab7b100",
+        "metadata_json": {
+          "candidate_id": "c0000000-0000-0000-0000-000000000001",
+          "channel": "boss",
+          "draft_id": null,
+          "indicates_contact": true,
+          "status": "sent",
+          "task_id": null
+        },
+        "summary": "Recorded manual send with status 'sent'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.319736"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.327243",
+        "entity_id": "a29696ea-7b56-44de-b9ef-6e05a30c61ca",
+        "entity_type": "send_record",
+        "event_type": "send.recorded",
+        "id": "89a1c367-7057-44da-9ba5-cdbfbf7216ad",
+        "metadata_json": {
+          "candidate_id": "c0000000-0000-0000-0000-000000000002",
+          "channel": "wx",
+          "draft_id": null,
+          "indicates_contact": true,
+          "status": "candidate_replied",
+          "task_id": null
+        },
+        "summary": "Recorded manual send with status 'candidate_replied'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.327245"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.360092",
+        "entity_id": "77777777-7777-7777-7777-777777777777",
+        "entity_type": "position",
+        "event_type": "position.deleted",
+        "id": "2c72b25f-1b18-4e93-80de-8a77fd633741",
+        "metadata_json": null,
+        "summary": "Deleted position 'ML Engineer'",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.360095"
+      },
+      {
+        "actor": "local_user",
+        "actor_id": null,
+        "created_at": "2026-11-17 15:12:11.373066",
+        "entity_id": "c0000000-0000-0000-0000-000000000001",
+        "entity_type": "candidate",
+        "event_type": "candidate.deleted",
+        "id": "5f404749-e1d7-4261-a94d-e4816131b70e",
+        "metadata_json": null,
+        "summary": "Deleted candidate and all dependent records",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.373068"
+      }
+    ],
+    "candidates": [
+      {
+        "archived": 0,
+        "created_at": "2026-11-10 09:05:00.000001",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000002",
+        "job_intention": null,
+        "name": "Bob",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-10 09:05:00.000001"
+      },
+      {
+        "archived": 0,
+        "created_at": "2026-11-10 09:05:00.000003",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000004",
+        "job_intention": null,
+        "name": "Dave",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": "44444444-4444-4444-4444-444444444444",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-10 09:05:00.000003"
+      },
+      {
+        "archived": 0,
+        "created_at": "2026-11-10 09:05:00.000004",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000005",
+        "job_intention": null,
+        "name": "Eve",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": "44444444-4444-4444-4444-444444444444",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-10 09:05:00.000004"
+      },
+      {
+        "archived": 0,
+        "created_at": "2026-11-10 09:05:00.000005",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000006",
+        "job_intention": null,
+        "name": "Frank",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": null,
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.360294"
+      },
+      {
+        "archived": 1,
+        "created_at": "2026-11-10 09:05:00.000002",
+        "expected_location": null,
+        "expected_salary": null,
+        "experience_summary": null,
+        "id": "c0000000-0000-0000-0000-000000000003",
+        "job_intention": null,
+        "name": "Carol",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": "11111111-1111-1111-1111-111111111111",
+        "skill_summary": null,
+        "source": "boss",
+        "status": "New",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-10 09:05:00.000002"
+      }
+    ],
+    "conversations": [
+      {
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "boss",
+        "created_at": "2026-11-17 15:12:11.267086",
+        "id": "d3443936-2a93-47fe-babe-62df3e9fef27",
+        "is_active": 1,
+        "last_message_at": "2026-11-17 15:12:11.267419",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "title": null,
+        "updated_at": "2026-11-17 15:12:11.268160"
+      },
+      {
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "wx",
+        "created_at": "2026-11-10 09:10:00.000000",
+        "id": "aaaaaaaa-0000-0000-0000-000000000002",
+        "is_active": 0,
+        "last_message_at": "2026-11-11 08:00:00.000000",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "title": null,
+        "updated_at": "2026-11-10 09:10:00.000000"
+      },
+      {
+        "candidate_id": "c0000000-0000-0000-0000-000000000006",
+        "channel": "boss",
+        "created_at": "2026-11-17 15:12:11.240475",
+        "id": "86cf6614-17fd-46c4-ba45-21e5d9fd3311",
+        "is_active": 1,
+        "last_message_at": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "title": "Contract thread",
+        "updated_at": "2026-11-17 15:12:11.240478"
+      }
+    ],
+    "follow_up_tasks": [
+      {
+        "block_reason": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "completed_at": null,
+        "created_at": "2026-11-10 09:00:00.000000",
+        "expires_at": null,
+        "follow_up_count": 0,
+        "id": "dddddddd-0000-0000-0000-000000000003",
+        "idempotency_key": null,
+        "last_follow_up_at": null,
+        "objective": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "position_id": null,
+        "reason": null,
+        "recommended_at": null,
+        "result_note": null,
+        "result_recorded_at": null,
+        "result_type": null,
+        "status": "Completed",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-10 09:00:00.000000"
+      }
+    ],
+    "generated_drafts": [
+      {
+        "alternatives_json": null,
+        "approved_at": null,
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "completion_tokens": null,
+        "context_references_json": null,
+        "copied_at": null,
+        "cost_cents": null,
+        "created_at": "2026-11-10 09:00:00.000000",
+        "draft_group_id": null,
+        "id": "eeeeeeee-0000-0000-0000-000000000003",
+        "is_edited": 0,
+        "message_text": "draft body",
+        "message_type": "reply",
+        "model": null,
+        "objective": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "prompt_tokens": null,
+        "prompt_version": null,
+        "provider": null,
+        "quality_status": null,
+        "rejected_at": null,
+        "routing_decision_json": null,
+        "status": "approved",
+        "task_id": null,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "tone": "friendly",
+        "uncertainties_json": null,
+        "updated_at": "2026-11-10 09:00:00.000000",
+        "validation_messages_json": null,
+        "validation_status": "Passed",
+        "warnings_json": null
+      }
+    ],
+    "messages": [
+      {
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "boss",
+        "content": "auto thread",
+        "content_hash": "324e0d9a9edc406cfe94d5de8584b0784cb9fc899bec84d587f862651480ee41",
+        "conversation_id": "d3443936-2a93-47fe-babe-62df3e9fef27",
+        "created_at": "2026-11-17 15:12:11.268387",
+        "id": "b3f5b160-3ede-44ff-8afa-1277bdaed519",
+        "import_record_id": null,
+        "message_time": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "sender_type": null,
+        "source": "manual",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.268389"
+      }
+    ],
+    "positions": [
+      {
+        "archived": 0,
+        "created_at": "2026-11-10 09:00:00.000000",
+        "description": "Own the Rust backend rewrite.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "11111111-1111-1111-1111-111111111111",
+        "location": "Beijing",
+        "name": "Senior Rust Engineer",
+        "notes": "priority role",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "salary_max": 60000,
+        "salary_min": 40000,
+        "skill_requirements": "Rust, SQLx, Axum",
+        "status": "Open",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-10 09:30:00.000000"
+      },
+      {
+        "archived": 0,
+        "created_at": "2026-11-11 10:30:00.123456",
+        "description": "Keep the React app in step with the API.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "22222222-2222-2222-2222-222222222222",
+        "location": "Shanghai",
+        "name": "Frontend Developer",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "salary_max": 35000,
+        "salary_min": 25000,
+        "skill_requirements": "TypeScript, React",
+        "status": "OnHold",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-11 10:30:00.123456"
+      },
+      {
+        "archived": 0,
+        "created_at": "2026-11-12 11:45:00.000000",
+        "description": null,
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "33333333-3333-3333-3333-333333333333",
+        "location": null,
+        "name": "Data Analyst",
+        "notes": "location unknown yet",
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "salary_max": null,
+        "salary_min": null,
+        "skill_requirements": null,
+        "status": "Draft",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-12 11:45:00.000000"
+      },
+      {
+        "archived": 0,
+        "created_at": "2026-11-14 08:15:30.250000",
+        "description": "Second Rust role, different team.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "55555555-5555-5555-5555-555555555555",
+        "location": "Shenzhen",
+        "name": "Backend Engineer (Rust)",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "salary_max": 55000,
+        "salary_min": null,
+        "skill_requirements": "Rust, gRPC",
+        "status": "Open",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-14 08:15:30.250000"
+      },
+      {
+        "archived": 0,
+        "created_at": "2026-11-15 09:00:00.000000",
+        "description": "Empty-string location, not NULL.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "66666666-6666-6666-6666-666666666666",
+        "location": "",
+        "name": "Product Manager",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "salary_max": 40000,
+        "salary_min": 20000,
+        "skill_requirements": null,
+        "status": "Open",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-15 10:00:00.000000"
+      },
+      {
+        "archived": 1,
+        "created_at": "2026-11-13 12:00:00.500000",
+        "description": "Filled months ago.",
+        "education_requirements": null,
+        "experience_requirements": null,
+        "id": "44444444-4444-4444-4444-444444444444",
+        "location": "beijing",
+        "name": "Archived Recruiter",
+        "notes": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "salary_max": 45000,
+        "salary_min": 30000,
+        "skill_requirements": "Sourcing",
+        "status": "Closed",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-13 12:00:00.500000"
+      }
+    ],
+    "send_records": [
+      {
+        "actor": "local_user",
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "boss",
+        "content_summary": "summary",
+        "created_at": "2026-11-13 10:00:00.000000",
+        "draft_id": null,
+        "id": "cccccccc-0000-0000-0000-000000000004",
+        "note": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "sent_at": "2026-11-13 10:00:00.000000",
+        "status": "sent",
+        "target": "target",
+        "task_id": null,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-13 10:00:00.000000"
+      },
+      {
+        "actor": "local_user",
+        "candidate_id": "c0000000-0000-0000-0000-000000000002",
+        "channel": "wx",
+        "content_summary": null,
+        "created_at": "2026-11-17 15:12:11.326882",
+        "draft_id": null,
+        "id": "a29696ea-7b56-44de-b9ef-6e05a30c61ca",
+        "note": null,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+        "sent_at": "2026-11-14 08:15:00.000000",
+        "status": "candidate_replied",
+        "target": null,
+        "task_id": null,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2026-11-17 15:12:11.326884"
+      }
+    ]
+  },
+  "started_at": "2026-11-17T15:12:10.511569+00:00"
+}

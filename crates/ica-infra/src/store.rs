@@ -1,0 +1,72 @@
+//! The single SQLite adapter object and the helpers every repository shares.
+//!
+//! One struct implements every application port. It owns one connection pool,
+//! so a write and the audit event it produces can share a transaction, and the
+//! HTTP layer never sees two adapters pointing at the same file.
+//!
+//! ## Conventions that exist for parity with Python, not for taste
+//!
+//! * **Timestamps** are stored as the text SQLAlchemy writes:
+//!   `YYYY-MM-DD HH:MM:SS.ffffff`, UTC, no offset. A value that arrives with a
+//!   different shape is still readable (`parse_sqlite_datetime`), but everything
+//!   written here uses that one shape so the rows compare byte-for-byte.
+//! * **Booleans** are `INTEGER` 0/1.
+//! * **Ownership columns** are stamped with the local-mode defaults
+//!   (`owner_id` = the V1.0 local user, `tenant_id` = the default tenant), the
+//!   same values the Python `_owner_tenant()` helper returns for a local caller.
+//! * **Audit rows** carry `actor='local_user'` and `actor_id=NULL` in local
+//!   mode, and use one shared writer so the column list cannot drift.
+
+use chrono::{DateTime, Utc};
+use sqlx::SqlitePool;
+
+/// `settings.default_user_id` — the V1.0 local user every row belongs to.
+pub const LOCAL_OWNER_ID: &str = "00000000-0000-0000-0000-000000000001";
+/// `settings.tenant_id_default` — the V1.0 default tenant.
+pub const DEFAULT_TENANT_ID: &str = "00000000-0000-0000-0000-000000000000";
+/// `send_record_service.LOCAL_ACTOR` — the actor label for local callers.
+pub const LOCAL_ACTOR: &str = "local_user";
+
+/// A fresh UUID4 string, like `app.models.mixins.new_uuid`.
+pub fn new_uuid() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+/// Render an instant the way SQLAlchemy stores a naive UTC datetime.
+pub fn to_sql_timestamp(value: &DateTime<Utc>) -> String {
+    value.format("%Y-%m-%d %H:%M:%S%.6f").to_string()
+}
+
+/// Every port in one adapter over one pool.
+#[derive(Debug, Clone)]
+pub struct SqliteStore {
+    pool: SqlitePool,
+}
+
+impl SqliteStore {
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    /// The pool this adapter uses.
+    ///
+    /// Exposed so the binary's startup self-check can reuse the same handle
+    /// instead of opening a second one to the same file.
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+}
+
+/// Wrap an adapter error into the application's opaque error.
+pub(crate) fn repo_error(error: sqlx::Error) -> ica_application::RepositoryError {
+    ica_application::RepositoryError::unavailable(error.to_string())
+}
+
+/// Run `SELECT COUNT(*)`-style queries over an optional `WHERE` clause.
+pub(crate) fn where_clause(conditions: &[&str]) -> String {
+    if conditions.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", conditions.join(" AND "))
+    }
+}

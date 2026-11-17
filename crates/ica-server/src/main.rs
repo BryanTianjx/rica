@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use ica_api::{AppConfig, AppState};
-use ica_infra::{connect, table_names, DatabaseUrl, SqlitePool, SqlitePositionRepository};
+use ica_infra::{connect, table_names, DatabaseUrl, SqlitePool, SqliteStore};
 use tracing_subscriber::EnvFilter;
 
 /// Tables the served endpoints read. A database without them is not "empty",
@@ -66,8 +66,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(|url| url.path)
         .unwrap_or_else(|_| database_url.clone());
 
-    let repository = SqlitePositionRepository::new(pool);
+    let repository = SqliteStore::new(pool);
+    // One adapter, five port views: the HTTP layer sees only the traits, and a
+    // write plus its audit event always share the same pool/transaction.
     let state = AppState::new(
+        Arc::new(repository.clone()),
+        Arc::new(repository.clone()),
+        Arc::new(repository.clone()),
+        Arc::new(repository.clone()),
         Arc::new(repository),
         AppConfig {
             app_name,

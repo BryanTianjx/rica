@@ -2,17 +2,35 @@
 
 Rust port of the ICA Personal backend (axum + sqlx + SQLite).
 
-**Status: R0 — skeleton.** Three read-only endpoints are implemented and
-contract-verified against the Python baseline; the remaining 66 `/api` routes
-are mapped to waves W1–W7 in [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md)
-and are **not** implemented yet. There are no write paths, no auth and no AI
-calls.
+**Status: R0 + W1 — 18 endpoints.** R0 shipped the skeleton and three read-only
+routes; W1 adds the 15 remaining positions/candidate/conversation/message/
+send-record routes, including the write paths (`POST`/`PATCH`/`DELETE`). All 18
+are contract-verified against the Python baseline — responses **and** the rows
+they leave behind — and 207 tests pass. The remaining 50 `/api` routes are
+mapped to waves W2–W6 in
+[`docs/rust-migration-contract.md`](docs/rust-migration-contract.md) and are
+**not** implemented yet. No auth, no AI calls, no frontend change.
 
-| Implemented | Path | Notes |
+| Method | Path | Notes |
 | --- | --- | --- |
 | `GET` | `/health` | `{"status":"ok","app":…,"ai_enabled":…}` |
 | `GET` | `/api/positions` | `Page<PositionRead>`; `include_archived`, `search`, `offset`, `limit` |
+| `POST` | `/api/positions` | create → `201 PositionRead`; `name` required, `status` defaults to `Open` |
 | `GET` | `/api/positions/{id}` | single `PositionRead`; 404 with the project envelope |
+| `PATCH` | `/api/positions/{id}` | partial update; an explicit `null` on `name`/`archived` is **422** (IMP-2) |
+| `DELETE` | `/api/positions/{id}` | `204`; linked candidates keep their row and lose the link |
+| `GET` | `/api/candidates` | `search`/`status`/`position_id`/`include_archived`; `updated_at DESC` |
+| `POST` | `/api/candidates` | create → `201`; name trimmed, blank rejected, position must exist |
+| `GET` | `/api/candidates/{id}` | detail with the nested position and the two counters |
+| `PATCH` | `/api/candidates/{id}` | partial update; `position_id: null` detaches |
+| `DELETE` | `/api/candidates/{id}` | `204`; conversations/messages/send-records cascade |
+| `GET` | `/api/candidates/{id}/timeline` | a bare array of `TimelineEntry` (not a `Page`) |
+| `GET` | `/api/conversations` | `last_message_at DESC NULLS LAST`, with `message_count` |
+| `POST` | `/api/conversations` | open a thread → `201`, audit `conversation.created` |
+| `GET` | `/api/messages` | time order; `total` is the real count (IMP-1/IMP-3) |
+| `POST` | `/api/messages` | reuse/open the candidate's active conversation; `content_hash` |
+| `POST` | `/api/send-records` | append one manual send → `201`, audit `send.recorded` |
+| `GET` | `/api/send-records` | `candidate_id`/`task_id`/`draft_id`/`status`; newest send first |
 
 The Python service (`/mnt/o/ica`, @ `d39e321`) is the **contract authority**:
 where this repository and the Python code disagree, Python wins until a wave
@@ -22,17 +40,24 @@ for why the migration was reinstated despite ADM-001.
 ## Layout
 
 ```
-crates/ica-domain/        pure model: entities, enums, pagination maths, search rules
+crates/ica-domain/        pure model: entities, enums, pagination maths, search rules, content hash
 crates/ica-application/   use cases + repository ports   (no axum/sqlx/tokio/hyper)
-crates/ica-infra/         sqlx + SQLite: connect, pragmas, repository, schema snapshot
-crates/ica-api/           axum routes, DTOs, error mapping
+crates/ica-infra/         sqlx + SQLite: connect, pragmas, one store implementing every port
+crates/ica-api/           axum routes, DTOs, body/query validation, error mapping
 crates/ica-server/        binary: env config, tracing, startup self-check, shutdown
 crates/ica-infra/schema/ica-baseline.sql   exported DDL of the real baseline database
 scripts/check.sh          fmt + clippy + tests (+ layering check) in one command
+scripts/contract_verify.sh                       seed → run both services → capture → diff
 scripts/contract_capture.py / contract_diff.py   contract capture and comparison
 scripts/seed_contract_db.py                      the seed both sides are compared on
 scripts/check_endpoint_map.py                    doc table vs. live FastAPI routes
 ```
+
+Within `ica-infra`, `store.rs` holds the one adapter object (one connection
+pool) and each aggregate has its own file — `repository.rs` (positions),
+`candidates.rs`, `conversations.rs` (conversations + messages),
+`send_records.rs` — plus `audit.rs`, the single audit writer every write path
+calls inside its own transaction.
 
 Dependency direction: `ica-server → ica-api + ica-infra → ica-application →
 ica-domain`. It is compile-enforced: the inner crates simply do not list a web
@@ -111,43 +136,27 @@ drain in-flight requests before exit.
 
 ## Contract comparison (re-run)
 
-The Rust service must answer exactly like Python. Both sides read the *same*
-seeded database, so a difference can only come from code.
+The Rust service must answer exactly like Python — same responses **and** the
+same rows afterwards. `scripts/contract_verify.sh` does the whole thing:
 
 ```bash
 cd /mnt/o/ICA-RUST
-
-# 1. Schema (from the exported baseline DDL) + deterministic seed
-python3 scripts/seed_contract_db.py --out /tmp/ica-contract/seed.db
-python3 scripts/peek_seed.py /tmp/ica-contract/seed.db      # optional: what is in it
-
-# 2. Python baseline: a copy WITHOUT .env / .venv (no credentials leave the baseline)
-mkdir -p /tmp/ica-py-baseline
-rsync -a --exclude '.venv' --exclude '.env' --exclude '__pycache__' \
-  --exclude 'ica.db*' /mnt/o/ica/backend/ /tmp/ica-py-baseline/
-cd /tmp/ica-py-baseline
-env -u PYTHONPATH -u AI_API_KEY PYTHONDONTWRITEBYTECODE=1 \
-  DATABASE_URL="sqlite:////tmp/ica-contract/seed.db" \
-  /mnt/o/ica/backend/.venv/bin/python -m uvicorn app.main:app --port 8010 &
-
-# 3. Rust service on the same file, read-only
-cd /mnt/o/ICA-RUST
-DATABASE_URL="sqlite:////tmp/ica-contract/seed.db?mode=ro" PORT=8011 cargo run -p ica-server &
-
-# 4. Capture both and diff
-python3 scripts/contract_capture.py --base-url http://127.0.0.1:8010 \
-  --out docs/contract-baseline/positions-python.json
-python3 scripts/contract_capture.py --base-url http://127.0.0.1:8011 \
-  --out docs/contract-baseline/positions-rust.json
-python3 scripts/contract_diff.py \
-  --python docs/contract-baseline/positions-python.json \
-  --rust docs/contract-baseline/positions-rust.json
+scripts/contract_verify.sh
 ```
 
-Last run: **20/20 cases matched, 0 failure(s)** (20 cases covering default list,
-pagination boundaries, `offset` past the end, `include_archived`, search
-hit/miss/case/whitespace/NULL-location, detail, archived detail, 404, and the
-422s for `limit=0`, `limit=501`, `offset=-1`, `search` over 200 characters).
+It seeds the database twice (the scenario writes, so each service needs its own
+copy), starts the Python baseline from a `/tmp` copy of its tree, builds and
+starts the Rust port, captures both sides, and diffs responses plus the final
+state of all eight business tables. It finishes by proving the baseline is
+untouched (`git status` empty, HEAD `d39e321`, `ica.db` sha256 unchanged).
+
+Last run: **`102/102 cases matched, 0 failure(s)`**, with `PASS db.<table>` for
+`positions`, `candidates`, `conversations`, `messages`, `send_records`,
+`follow_up_tasks`, `generated_drafts` and `audit_events` (17 audit events), and
+the `improvements:` section asserting IMP-1 (`python total=2 / rust total=5`),
+IMP-2 (`python 500 / rust 422` for both NULL cases) and IMP-3 (five lists, one
+`total` meaning). The individual steps are in
+[`docs/rust-migration-contract.md`](docs/rust-migration-contract.md) §8.
 
 ## Proving the baseline database was not modified
 
@@ -175,15 +184,20 @@ PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH \
 # live /api routes: 68 / documented rows: 68 / RESULT: table matches
 ```
 
-## Known limitations (R0)
+## Known limitations (R0 + W1)
 
-- Read-only endpoints only; every write endpoint is scheduled (W1+).
+- Routes for W2–W6 are not served: follow-ups, dashboard, drafts/AI,
+  imports/OCR/export, settings/audit-events/backups, auth and shares.
 - **Tenant/owner scoping is not modelled.** It is a no-op in Python's default
-  `local` mode, so both services agree today; do not run the Rust service in
-  `multiuser` mode before W6 ships auth.
+  `local` mode, so both services agree today and every written row carries the
+  V1.0 local owner/tenant; do not run the Rust service in `multiuser` mode
+  before W6 ships auth.
 - `GET /` (the welcome string) is not implemented — it is not part of the API
   surface.
 - `422` bodies carry a structurally similar but not identical `details.errors`
   list to pydantic's; `contract_diff.py` compares status, `error.code`,
   `error.message` and the `details` key set (see contract doc §7).
+- The three declared improvements in contract doc §7.1 are the **only**
+  intentional differences from Python (IMP-1/IMP-2/IMP-3); the comparison fails
+  on anything else.
 - No packaging, Docker or desktop-shell changes.

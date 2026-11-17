@@ -5,7 +5,7 @@
 //! a naive timestamp (no `Z`) makes every browser read the value as local time.
 
 use chrono::{DateTime, SecondsFormat, Utc};
-use ica_domain::Position;
+use ica_domain::{Candidate, Conversation, Message, Position, SendRecord, TimelineEntry};
 use serde::{Serialize, Serializer};
 
 /// Render a UTC instant the way the Python baseline does.
@@ -27,6 +27,17 @@ where
     S: Serializer,
 {
     serializer.serialize_str(&format_utc(value))
+}
+
+/// `null` stays `null`; a present instant is rendered like [`format_utc`].
+fn serialize_utc_opt<S>(value: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(instant) => serializer.serialize_some(&format_utc(instant)),
+        None => serializer.serialize_none(),
+    }
 }
 
 /// `GET /health` body.
@@ -77,6 +88,206 @@ impl From<Position> for PositionRead {
             created_at: position.created_at,
             updated_at: position.updated_at,
             candidate_count: position.candidate_count,
+        }
+    }
+}
+
+/// One candidate, field-for-field identical to `CandidateRead`.
+///
+/// `position_name`, `message_count` and `active_follow_up_count` are derived at
+/// read time; the wire shape is the Python schema's, not the table's.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CandidateRead {
+    pub id: String,
+    pub name: String,
+    pub source: String,
+    pub position_id: Option<String>,
+    pub experience_summary: Option<String>,
+    pub skill_summary: Option<String>,
+    pub expected_salary: Option<String>,
+    pub expected_location: Option<String>,
+    pub job_intention: Option<String>,
+    pub notes: Option<String>,
+    pub status: &'static str,
+    pub archived: bool,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub updated_at: DateTime<Utc>,
+    pub position_name: Option<String>,
+    pub message_count: i64,
+    pub active_follow_up_count: i64,
+}
+
+impl From<Candidate> for CandidateRead {
+    fn from(candidate: Candidate) -> Self {
+        Self {
+            id: candidate.id,
+            name: candidate.name,
+            source: candidate.source,
+            position_id: candidate.position_id,
+            experience_summary: candidate.experience_summary,
+            skill_summary: candidate.skill_summary,
+            expected_salary: candidate.expected_salary,
+            expected_location: candidate.expected_location,
+            job_intention: candidate.job_intention,
+            notes: candidate.notes,
+            status: candidate.status.as_str(),
+            archived: candidate.archived,
+            created_at: candidate.created_at,
+            updated_at: candidate.updated_at,
+            position_name: candidate.position_name,
+            message_count: candidate.message_count,
+            active_follow_up_count: candidate.active_follow_up_count,
+        }
+    }
+}
+
+/// `CandidateDetail`: the candidate plus its position object.
+///
+/// The position is mapped through `PositionRead`, so its `candidate_count` is
+/// the real count (mapping the ORM object directly is what left it at 0 in the
+/// baseline's first draft).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CandidateDetailRead {
+    #[serde(flatten)]
+    pub candidate: CandidateRead,
+    pub position: Option<PositionRead>,
+}
+
+/// One conversation (`ConversationRead`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ConversationRead {
+    pub id: String,
+    pub candidate_id: String,
+    pub channel: String,
+    pub title: Option<String>,
+    pub is_active: bool,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub last_message_at: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub updated_at: DateTime<Utc>,
+    pub message_count: i64,
+    pub position_id: Option<String>,
+    pub position_name: Option<String>,
+}
+
+impl From<Conversation> for ConversationRead {
+    fn from(conversation: Conversation) -> Self {
+        Self {
+            id: conversation.id,
+            candidate_id: conversation.candidate_id,
+            channel: conversation.channel,
+            title: conversation.title,
+            is_active: conversation.is_active,
+            last_message_at: conversation.last_message_at,
+            created_at: conversation.created_at,
+            updated_at: conversation.updated_at,
+            message_count: conversation.message_count,
+            position_id: conversation.position_id,
+            position_name: conversation.position_name,
+        }
+    }
+}
+
+/// One message (`MessageRead`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct MessageRead {
+    pub id: String,
+    pub candidate_id: String,
+    pub conversation_id: String,
+    pub sender_type: Option<String>,
+    pub content: String,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub message_time: Option<DateTime<Utc>>,
+    pub channel: String,
+    pub source: String,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<Message> for MessageRead {
+    fn from(message: Message) -> Self {
+        Self {
+            id: message.id,
+            candidate_id: message.candidate_id,
+            conversation_id: message.conversation_id,
+            sender_type: message.sender_type,
+            content: message.content,
+            message_time: message.message_time,
+            channel: message.channel,
+            source: message.source,
+            created_at: message.created_at,
+        }
+    }
+}
+
+/// One timeline row (`TimelineEntry`): a message tagged with its kind.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TimelineEntryRead {
+    pub id: String,
+    pub kind: &'static str,
+    pub sender_type: Option<String>,
+    pub content: String,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub message_time: Option<DateTime<Utc>>,
+    pub source: Option<String>,
+    pub status: Option<String>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+impl From<TimelineEntry> for TimelineEntryRead {
+    fn from(entry: TimelineEntry) -> Self {
+        Self {
+            id: entry.id,
+            kind: entry.kind,
+            sender_type: entry.sender_type,
+            content: entry.content,
+            message_time: entry.message_time,
+            source: entry.source,
+            status: entry.status,
+            created_at: entry.created_at,
+        }
+    }
+}
+
+/// One manual send record (`SendRecordRead`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SendRecordRead {
+    pub id: String,
+    pub candidate_id: String,
+    pub task_id: Option<String>,
+    pub draft_id: Option<String>,
+    pub channel: String,
+    pub target: Option<String>,
+    pub content_summary: Option<String>,
+    pub status: String,
+    #[serde(serialize_with = "serialize_utc")]
+    pub sent_at: DateTime<Utc>,
+    pub note: Option<String>,
+    pub actor: String,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<SendRecord> for SendRecordRead {
+    fn from(record: SendRecord) -> Self {
+        Self {
+            id: record.id,
+            candidate_id: record.candidate_id,
+            task_id: record.task_id,
+            draft_id: record.draft_id,
+            channel: record.channel,
+            target: record.target,
+            content_summary: record.content_summary,
+            status: record.status,
+            sent_at: record.sent_at,
+            note: record.note,
+            actor: record.actor,
+            created_at: record.created_at,
         }
     }
 }
