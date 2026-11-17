@@ -1,5 +1,14 @@
-[build]
-# D2: /mnt/o is a 20 GB Windows volume with ~7 GB free and 9p semantics;
-# a Rust debug target dir (4-8 GB) would fill it and cargo's incremental
-# compilation over 9p is unreliable. Keep every build artefact on ext4.
-target-dir = "/home/bryan/.cache/ica-rust-target"
+# Build-artefact location: NOT pinned here, on purpose (Tauri-architecture
+# audit R0.1 finding G-5 — an absolute `/home/bryan/...` path committed to git
+# breaks every other platform: Windows resolves it under the current drive,
+# macOS usually cannot write `/home`).
+#
+# The repo volume (`/mnt/o`) is small with 9p semantics, so a debug target dir
+# inside the repo would fill it — point cargo at a fast LOCAL disk instead:
+#
+#   export CARGO_TARGET_DIR="$HOME/.cache/ica-rust-target"
+#
+# `scripts/check.py` (the quality gate) and `scripts/contract_verify.sh`
+# already export that fallback when the variable is unset; an explicit
+# `CARGO_TARGET_DIR` always wins. Ad-hoc `cargo build` without it lands in
+# `./target` — fine on a native checkout, risky on `/mnt/o`.

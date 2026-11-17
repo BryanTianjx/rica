@@ -59,10 +59,16 @@ HEALTH_INTERVAL = 0.5
 
 
 def clean_env() -> dict[str, str]:
-    """The environment with the host's Python paths and AI key removed."""
+    """The environment with the host's Python paths and AI key removed, plus
+    the build-artefact location on a fast local disk (Tauri-audit finding
+    G-5: the repo volume is small and the committed config no longer pins an
+    absolute path; an explicit `CARGO_TARGET_DIR` always wins)."""
     env = dict(os.environ)
     for name in ("PYTHONPATH", "PYTHONHOME", "AI_API_KEY"):
         env.pop(name, None)
+    env.setdefault(
+        "CARGO_TARGET_DIR", str(Path.home() / ".cache" / "ica-rust-target")
+    )
     return env
 
 

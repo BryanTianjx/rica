@@ -54,15 +54,25 @@ TEST_RESULT = re.compile(r"test result:\s+\w+\.\s+(\d+)\s+passed;\s+(\d+)\s+fail
 
 
 def clean_env() -> dict[str, str]:
-    """The environment with the host's Python paths removed.
+    """The environment with the host's Python paths removed, plus the
+    build-artefact location pinned to a fast local disk.
 
     Hermes (and other hosts) may export PYTHONPATH/PYTHONHOME pointing at
     another interpreter's site-packages. Cargo does not care, but a polluted
     environment makes the numbers printed here unreproducible elsewhere.
+
+    The target-dir fallback exists because the repo lives on a small Windows
+    volume with 9p semantics (Tauri-audit finding G-5): a debug target dir
+    would fill it, and the committed `.cargo/config.toml` therefore no longer
+    pins an absolute path that only exists on one machine. An explicit
+    `CARGO_TARGET_DIR` always wins.
     """
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
     env.pop("PYTHONHOME", None)
+    env.setdefault(
+        "CARGO_TARGET_DIR", str(Path.home() / ".cache" / "ica-rust-target")
+    )
     return env
 
 
