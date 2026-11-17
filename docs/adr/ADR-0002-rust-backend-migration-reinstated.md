@@ -18,9 +18,9 @@ audited against the source:
 
 | Clause | File:line | Text (verbatim) |
 | --- | --- | --- |
-| §1.7 | `local-admin-cloud-management-architecture-r1.md:30` | 「当前继续使用 Tauri 2 + React/TypeScript + Python/FastAPI + SQLite 模块化单体；不实施 Python → Rust 后端迁移，不提前拆分微服务。」 |
-| §3.2 | `local-admin-cloud-management-architecture-r1.md:99` | 「Python 后端迁移到 Rust。」（列为 R1.0 非目标之一） |
-| §20.3 | `local-admin-cloud-management-architecture-r1.md:689` | 「继续采用 Tauri 2 + React/TypeScript + Python/FastAPI + SQLite 本地核心。云端管理服务是未来新增部署面，不要求替换桌面后端，也不构成 Python → Rust 迁移理由。」 |
+| §1.7 | `local-admin-cloud-management-architecture-r1.md:31` | 「当前继续使用 Tauri 2 + React/TypeScript + Python/FastAPI + SQLite 模块化单体；不实施 Python → Rust 后端迁移，不提前拆分微服务。」 |
+| §3.2 | `local-admin-cloud-management-architecture-r1.md:100` | 「Python 后端迁移到 Rust。」（列为 R1.0 非目标之一） |
+| §20.3 | `local-admin-cloud-management-architecture-r1.md:690` | 「继续采用 Tauri 2 + React/TypeScript + Python/FastAPI + SQLite 本地核心。云端管理服务是未来新增部署面，不要求替换桌面后端，也不构成 Python → Rust 迁移理由。」 |
 
 Those clauses were written to stop an *unplanned* rewrite: they protect the
 V1.0 freeze, they do not argue that the Python backend is a better technical
