@@ -303,10 +303,15 @@ These change *how* a value is produced, never the value. Each is covered by the
 contract comparison (items, `total`, `offset`, `limit`, `has_more` and every
 stored row must still match Python exactly).
 
-| # | Optimization | Approach | Why the response is unchanged | Where |
-| --- | --- | --- | --- | --- |
-| **OPT-1** | N+1 on conversation `message_count` | One `GROUP BY conversation_id` aggregate joined into the list query, instead of one `list_messages(limit=1000)` per conversation | The number is identical, including the baseline's 1000-message cap, which the aggregate reproduces (`CASE WHEN cnt > 1000 …`) | `ica-infra/conversations.rs` |
-| **OPT-2** | List paging pushed into SQL | `COUNT(*)` for `total` plus `LIMIT ? OFFSET ?` for the window, instead of reading every matching row and slicing in memory | Same filter, same `ORDER BY`, so `items` (and their order), `total`, `offset`, `limit` and `has_more` are value-for-value identical; the diff compares `items[].id` order for all five lists | `ica-infra/repository.rs`, `candidates.rs`, `conversations.rs`, `send_records.rs` |
+| # | Optimization | Python value | Rust value | Reason | Frontend impact |
+| --- | --- | --- | --- | --- | --- |
+| **OPT-1** | Conversation `message_count`: N+1 read per conversation | One `list_messages(conversation_id=…, limit=1000)` per conversation; the value is `min(real_count, 1000)` | One `GROUP BY conversation_id` aggregate joined into the list query; the value is `min(real_count, 1000)` (the 1000 cap is reproduced with `CASE WHEN cnt > 1000 …`) | The number is identical, but the baseline issues one extra query per row on the page (`ica-infra/conversations.rs`) | **None** — same integers in the same fields |
+| **OPT-2** | List paging pushed into SQL | Reads every matching row, then slices `[offset : offset + limit]`; `items` / `total` / `has_more` as computed from that slice | `SELECT COUNT(*)` for `total` plus `LIMIT ? OFFSET ?` for the window, same filter and `ORDER BY`; same `items` / `total` / `has_more` | A page no longer reads the whole table; the diff compares `items[].id` order for all five lists (`ica-infra/repository.rs`, `candidates.rs`, `conversations.rs`, `send_records.rs`) | **None** — identical items in identical order, identical envelope |
+
+`positions` gets the same treatment: `PositionRepository` has a default `page()`
+that slices in memory (so a test double only implements `list` + `find`), and
+the SQLite adapter overrides it with `COUNT(*)` + `LIMIT/OFFSET` — which is what
+the running service calls.
 
 `PATCH` is a read-modify-write of the whole row (the ORM's own shape), so a
 patch cannot silently write a column the request never mentioned — and it keeps
