@@ -29,6 +29,12 @@ if cargo metadata --no-deps --format-version 1 \
     | python3 -c '
 import json, sys
 forbidden = {"axum", "sqlx", "tokio", "hyper"}
+# Adapter crates: the inner layers must never depend on them, directly or via a
+# new wrapper — `ica-application -> ica-infra` would drag sqlx in without this
+# gate ever seeing the framework name (audit finding F-08). The reverse edge,
+# ica-infra depending on ica-application, is the intended direction and is not
+# checked here.
+outer_crates = {"ica-infra", "ica-api", "ica-server"}
 # Crates whose dependency list must stay clean.
 guarded = {"ica-domain", "ica-application"}
 meta = json.load(sys.stdin)
@@ -37,14 +43,14 @@ for package in meta["packages"]:
     if package["name"] not in guarded:
         continue
     names = {dependency["name"] for dependency in package["dependencies"]}
-    bad = sorted(names & forbidden)
+    bad = sorted((names & forbidden) | (names & outer_crates))
     if bad:
         failures.append((package["name"], bad))
 for name, bad in failures:
     print(f"  LAYERING VIOLATION: {name} depends on {bad}")
 sys.exit(1 if failures else 0)
 '; then
-  echo "   ok: no framework, database driver or async runtime in the inner layers"
+  echo "   ok: no framework, database driver, async runtime or adapter crate in the inner layers"
 else
   echo "   FAILED: see the layering violation above"
   exit 1

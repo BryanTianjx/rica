@@ -13,6 +13,15 @@
 //!
 //! Writes keep the row and its audit event in one transaction and stamp the
 //! local-mode ownership defaults (`app/application/recruiting.py::_owner_tenant`).
+//!
+//! There is deliberately no tenant/owner filtering on any read: this adapter
+//! mirrors the Python baseline's **local mode**, where
+//! `app/application/access.py::scope_position_query` adds no filter when
+//! `current_user.is_local` — so "no scoping here" is behaviour parity, not an
+//! omission. That equivalence ends at cloud mode: when auth arrives (W6), every
+//! read path must be scoped by tenant/owner/share like the Python `scope_*`
+//! helpers, or it is a cross-tenant read. Treat that as a hard requirement for
+//! the W6 card, not a refactor.
 
 use async_trait::async_trait;
 use chrono::Utc;
@@ -24,7 +33,8 @@ use sqlx::{FromRow, SqliteConnection};
 
 use crate::audit::{insert_audit, AuditEntry};
 use crate::store::{
-    repo_error, to_sql_timestamp, where_clause, SqliteStore, DEFAULT_TENANT_ID, LOCAL_OWNER_ID,
+    offset_bind, repo_error, to_sql_timestamp, where_clause, SqliteStore, DEFAULT_TENANT_ID,
+    LOCAL_OWNER_ID,
 };
 
 /// Columns the adapter reads, plus the derived candidate count.
@@ -198,7 +208,7 @@ impl PositionRepository for SqliteStore {
         }
         let rows = page_query
             .bind(limit as i64)
-            .bind(offset as i64)
+            .bind(offset_bind(offset))
             .fetch_all(self.pool())
             .await
             .map_err(repo_error)?;

@@ -5,9 +5,18 @@
 //! and the rejection codes, because the frontend and the desktop shell send
 //! `0`/`1` for booleans and rely on `limit` being clamped, not silently fixed.
 //!
+//! Extraction goes through [`ApiQuery`], not axum's `Query`: Starlette keeps
+//! the **last** occurrence of a repeated key where axum rejects with a
+//! plain-text 400, and pydantic's number grammar (underscores, `+` sign, no
+//! upper bound) differs from what `str::parse::<i64>` accepts.
+//!
 //! Every validator collects *all* problems before failing, the way pydantic
 //! reports one 422 with a list of errors instead of stopping at the first one.
 
+use std::collections::HashSet;
+
+use axum::extract::FromRequestParts;
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 use ica_application::{
@@ -28,6 +37,64 @@ pub const MAX_MESSAGE_LIMIT: usize = 1000;
 
 // ── Shared parsing helpers ─────────────────────────────────────────────────
 
+/// A query extractor that mirrors the Python baseline's `QueryParams`.
+///
+/// axum's built-in `Query<T>` rejects a repeated key (`?limit=1&limit=2`) with
+/// a plain-text 400 — a format the frontend's single error path cannot parse,
+/// and a semantic divergence too: Starlette answers that request 200 with the
+/// **last** value. This extractor decodes with the same rules as Python's
+/// `urllib.parse.parse_qsl` (form decoding: `+` is a space, `%XX` decoded,
+/// invalid UTF-8 replaced, a bare key becomes an empty value) and keeps the
+/// last occurrence of every key before deserialising.
+pub struct ApiQuery<T>(pub T);
+
+impl<S, T> FromRequestParts<S> for ApiQuery<T>
+where
+    S: Send + Sync,
+    T: DeserializeOwned,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let raw = parts.uri.query().unwrap_or("");
+        let pairs = last_value_wins(raw);
+        let encoded = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(
+                pairs
+                    .iter()
+                    .map(|(key, value)| (key.as_str(), value.as_str())),
+            )
+            .finish();
+        let value = serde_urlencoded::from_str(&encoded).map_err(|error| {
+            // Unreachable for the current query structs: every field is an
+            // `Option<String>` and keys are unique after the merge. Mapped to
+            // the envelope anyway, so a future field can never reintroduce
+            // axum's plain-text rejection here.
+            ApiError::Http {
+                status: 400,
+                message: format!("Failed to deserialize query string: {error}"),
+            }
+        })?;
+        Ok(ApiQuery(value))
+    }
+}
+
+/// Decode a raw query string into pairs, keeping only the **last** occurrence
+/// of every key, in the order those last occurrences appear.
+fn last_value_wins(raw: &str) -> Vec<(String, String)> {
+    let mut pairs: Vec<(String, String)> = form_urlencoded::parse(raw.as_bytes())
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect();
+    let mut seen = HashSet::new();
+    pairs.reverse();
+    pairs.retain(|(key, _)| seen.insert(key.clone()));
+    pairs.reverse();
+    pairs
+}
+
 /// Raw query values, exactly as they arrived: no coercion has happened yet.
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct RawListPositionsQuery {
@@ -37,13 +104,78 @@ pub struct RawListPositionsQuery {
     pub limit: Option<String>,
 }
 
+/// A query integer parsed with Python's grammar, classified for the validators.
+///
+/// Python `int` has no upper bound, so a "too big" spelling is still an
+/// integer to pydantic — but the page envelope echoes `offset` as a JSON
+/// number, and nothing wider than `u64` can be echoed, hence [`PyInt::Overflow`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PyInt {
+    /// Fits the envelope's echo width.
+    Value(u64),
+    /// A positive integer beyond `u64` (accepted by Python, unechoable here).
+    Overflow,
+    /// Any negative value: only the sign matters for `offset`/`limit`.
+    Negative,
+}
+
+/// Parse a decimal integer the way Python's `int()` — and therefore pydantic's
+/// lax int parsing — does: surrounding whitespace stripped, an optional sign,
+/// ASCII digits with `_` allowed *between* digits only (`1_0` → 10; `_1`, `1_`,
+/// `1__0` and `1 0` all fail). Plain `parse::<i64>()` would reject inputs the
+/// baseline accepts (`1_0`, `+5`, anything past `i64::MAX`).
+fn parse_python_int(raw: &str) -> Option<PyInt> {
+    let body = raw.trim();
+    let digits = body
+        .strip_prefix('-')
+        .or_else(|| body.strip_prefix('+'))
+        .unwrap_or(body);
+    if digits.is_empty() {
+        return None; // a bare sign: `+` / `-`
+    }
+    let negative = body.starts_with('-');
+
+    let mut compact = String::with_capacity(digits.len());
+    let mut previous = '_';
+    for (index, character) in digits.chars().enumerate() {
+        match character {
+            '0'..='9' => compact.push(character),
+            // An underscore is legal only *between* two digits.
+            '_' if index > 0 && previous != '_' => {}
+            _ => return None,
+        }
+        previous = character;
+    }
+    if previous == '_' {
+        return None; // a trailing underscore: `1_`
+    }
+    if negative {
+        return Some(PyInt::Negative);
+    }
+    // Leading zeros do not carry magnitude: `007` is seven, not a 3-digit value.
+    let digits = compact.trim_start_matches('0');
+    if digits.is_empty() {
+        return Some(PyInt::Value(0));
+    }
+    if digits.len() > 20 {
+        return Some(PyInt::Overflow);
+    }
+    match digits.parse::<u64>() {
+        Ok(value) => Some(PyInt::Value(value)),
+        // 20 digits can still exceed u64::MAX (`18446744073709551616`).
+        Err(_) => Some(PyInt::Overflow),
+    }
+}
+
 /// Interpret a boolean the way pydantic does.
 ///
 /// The accepted spellings matter: `include_archived=1` is what a browser form
 /// and the packaged shell send, and rejecting it would be a silent behaviour
-/// change from the Python service.
+/// change from the Python service. No trimming: pydantic rejects `" true "`
+/// with `bool_parsing`, so the port must too — int values, by contrast, *are*
+/// stripped by pydantic, and [`parse_python_int`] keeps that.
 fn parse_bool(raw: &str) -> Option<bool> {
-    match raw.trim().to_ascii_lowercase().as_str() {
+    match raw.to_ascii_lowercase().as_str() {
         "1" | "true" | "t" | "yes" | "y" | "on" => Some(true),
         "0" | "false" | "f" | "no" | "n" | "off" => Some(false),
         _ => None,
@@ -52,15 +184,24 @@ fn parse_bool(raw: &str) -> Option<bool> {
 
 /// Parse a non-negative integer query value.
 fn parse_non_negative(raw: &str, field: &str) -> Result<usize, ValidationIssue> {
-    match raw.trim().parse::<i64>() {
-        Ok(value) if value >= 0 => Ok(value as usize),
-        Ok(_) => Err(ValidationIssue::new(
+    match parse_python_int(raw) {
+        Some(PyInt::Value(value)) => Ok(usize::try_from(value).unwrap_or(usize::MAX)),
+        Some(PyInt::Negative) => Err(ValidationIssue::new(
             "greater_than_equal",
             vec!["query", field],
             "Input should be greater than or equal to 0",
             raw,
         )),
-        Err(_) => Err(ValidationIssue::new(
+        // Python answers 200 here with an empty page and the huge offset
+        // echoed; echoing needs a JSON number wider than `u64`, so the port
+        // rejects instead — registered as IMP-4 in the migration contract §7.
+        Some(PyInt::Overflow) => Err(ValidationIssue::new(
+            "int_parsing",
+            vec!["query", field],
+            "Input should be a valid integer, unable to parse string as an integer",
+            raw,
+        )),
+        None => Err(ValidationIssue::new(
             "int_parsing",
             vec!["query", field],
             "Input should be a valid integer, unable to parse string as an integer",
@@ -71,21 +212,33 @@ fn parse_non_negative(raw: &str, field: &str) -> Result<usize, ValidationIssue> 
 
 /// Parse `limit`: `1..=max`.
 fn parse_limit(raw: &str, max: usize, field: &str) -> Result<usize, ValidationIssue> {
-    match raw.trim().parse::<i64>() {
-        Ok(value) if value <= 0 => Err(ValidationIssue::new(
+    match parse_python_int(raw) {
+        // `0` fails the *lower* bound on both sides (`greater_than`), not the
+        // upper one — pydantic's constraint is `ge=1`.
+        Some(PyInt::Value(0)) => Err(ValidationIssue::new(
             "greater_than",
             vec!["query", field],
             "Input should be greater than 0",
             raw,
         )),
-        Ok(value) if value > max as i64 => Err(ValidationIssue::new(
+        Some(PyInt::Value(value)) if value <= max as u64 => {
+            Ok(usize::try_from(value).unwrap_or(usize::MAX))
+        }
+        // Every magnitude beyond `u64` is also beyond `max`, so the port gives
+        // the same `less_than_equal` the baseline does for huge limits.
+        Some(PyInt::Value(_)) | Some(PyInt::Overflow) => Err(ValidationIssue::new(
             "less_than_equal",
             vec!["query", field],
             &format!("Input should be less than or equal to {max}"),
             raw,
         )),
-        Ok(value) => Ok(value as usize),
-        Err(_) => Err(ValidationIssue::new(
+        Some(PyInt::Negative) => Err(ValidationIssue::new(
+            "greater_than",
+            vec!["query", field],
+            "Input should be greater than 0",
+            raw,
+        )),
+        None => Err(ValidationIssue::new(
             "int_parsing",
             vec!["query", field],
             "Input should be a valid integer, unable to parse string as an integer",
@@ -418,6 +571,102 @@ mod tests {
             assert_eq!(parse_bool(value), Some(false), "{value}");
         }
         assert_eq!(parse_bool("maybe"), None);
+    }
+
+    #[test]
+    fn a_padded_boolean_is_not_trimmed_like_pydantic() {
+        // pydantic strips whitespace for ints but *not* for bools, so the port
+        // must reject `" true "` with `bool_parsing` instead of answering 200.
+        for value in [" true ", " true", "true ", "\t1"] {
+            assert_eq!(parse_bool(value), None, "{value:?}");
+        }
+    }
+
+    #[test]
+    fn integers_use_the_python_grammar() {
+        // Underscores between digits, an optional sign, leading zeros.
+        assert_eq!(parse_python_int("1_0"), Some(PyInt::Value(10)));
+        assert_eq!(parse_python_int("+5"), Some(PyInt::Value(5)));
+        assert_eq!(parse_python_int("007"), Some(PyInt::Value(7)));
+        assert_eq!(parse_python_int("-1"), Some(PyInt::Negative));
+        assert_eq!(parse_python_int("-1_000"), Some(PyInt::Negative));
+        // Spellings pydantic rejects (verified against the baseline's own
+        // pydantic, including Unicode digits: `TypeAdapter(int)` rejects `١٢`
+        // even though raw `int()` would accept it).
+        for raw in ["_1", "1_", "1__0", "1 0", "+", "-", "", "1.0", "0x10", "١٢"] {
+            assert_eq!(parse_python_int(raw), None, "{raw:?}");
+        }
+    }
+
+    #[test]
+    fn integers_beyond_i64_are_accepted_like_python() {
+        // Just past i64::MAX: the baseline echoes it, so the port must too.
+        assert_eq!(
+            parse_python_int("9223372036854775808"),
+            Some(PyInt::Value(9223372036854775808))
+        );
+        // u64::MAX itself still echoes.
+        assert_eq!(
+            parse_python_int("18446744073709551615"),
+            Some(PyInt::Value(u64::MAX))
+        );
+        // One past u64::MAX: an integer to Python, unechoable for the envelope.
+        assert_eq!(
+            parse_python_int("18446744073709551616"),
+            Some(PyInt::Overflow)
+        );
+        // Any 40-digit spelling is the same classification.
+        assert_eq!(
+            parse_python_int("1234567890123456789012345678901234567890"),
+            Some(PyInt::Overflow)
+        );
+        // ...but only magnitude counts: leading zeros do not inflate it.
+        assert_eq!(
+            parse_python_int("000000000000000000000000000001"),
+            Some(PyInt::Value(1))
+        );
+    }
+
+    #[test]
+    fn an_offset_beyond_u64_is_an_int_parsing_error_imp4() {
+        let error = validate(raw(None, Some("18446744073709551616"), None)).unwrap_err();
+        let ApiError::ValidationIssues { issues } = error else {
+            panic!("expected a validation error");
+        };
+        assert_eq!(issues[0].kind, "int_parsing");
+    }
+
+    #[test]
+    fn a_limit_beyond_u64_is_less_than_equal_like_python() {
+        let error = validate(raw(None, None, Some("18446744073709551616"))).unwrap_err();
+        let ApiError::ValidationIssues { issues } = error else {
+            panic!("expected a validation error");
+        };
+        assert_eq!(issues[0].kind, "less_than_equal");
+    }
+
+    #[test]
+    fn underscored_and_signed_numbers_are_accepted() {
+        assert_eq!(validate(raw(None, Some("1_0"), None)).unwrap().offset, 10);
+        assert_eq!(validate(raw(None, Some("+5"), None)).unwrap().offset, 5);
+        assert_eq!(validate(raw(None, None, Some("2_0"))).unwrap().limit, 20);
+    }
+
+    #[test]
+    fn the_last_occurrence_of_a_repeated_key_wins() {
+        let pairs = last_value_wins("limit=1&limit=2&search=x&search=");
+        assert_eq!(
+            pairs,
+            vec![
+                ("limit".to_string(), "2".to_string()),
+                ("search".to_string(), String::new()),
+            ]
+        );
+        // A bare key arrives as an empty value, like `parse_qsl(keep_blank_values=True)`.
+        assert_eq!(
+            last_value_wins("limit"),
+            vec![("limit".to_string(), String::new())]
+        );
     }
 
     #[test]

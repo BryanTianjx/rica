@@ -5,7 +5,7 @@
 //! a naive timestamp (no `Z`) makes every browser read the value as local time.
 
 use chrono::{DateTime, SecondsFormat, Utc};
-use ica_domain::{Candidate, Conversation, Message, Position, SendRecord, TimelineEntry};
+use ica_domain::{Candidate, Conversation, Message, Page, Position, SendRecord, TimelineEntry};
 use serde::{Serialize, Serializer};
 
 /// Render a UTC instant the way the Python baseline does.
@@ -303,15 +303,23 @@ pub struct PageResponse<T> {
 }
 
 impl<T> PageResponse<T> {
-    /// Wrap an already-sliced page.
+    /// Wrap a domain page, mapping its items to the wire shape.
     ///
-    /// `has_more` counts the rows actually returned, not `limit`, so a short
-    /// last page reports `false` — the same arithmetic as the Python
-    /// `Page.has_more` computed field.
-    pub fn new(items: Vec<T>, total: usize, offset: usize, limit: usize) -> Self {
-        let has_more = offset + items.len() < total;
-        Self {
+    /// `has_more` comes from [`Page::has_more`], the single implementation of
+    /// that arithmetic: counting the rows actually returned, not `limit`, so a
+    /// short last page reports `false` — the same result as the Python
+    /// `Page.has_more` computed field. Recomputing it here would be a second
+    /// truth to keep in sync (R0 audit finding F-07).
+    pub fn from_page<U, F: FnMut(U) -> T>(page: Page<U>, map: F) -> Self {
+        let has_more = page.has_more();
+        let Page {
             items,
+            total,
+            offset,
+            limit,
+        } = page;
+        Self {
+            items: items.into_iter().map(map).collect(),
             total,
             offset,
             limit,
@@ -340,13 +348,24 @@ mod tests {
 
     #[test]
     fn a_short_page_reports_no_more_rows() {
-        let page: PageResponse<u8> = PageResponse::new(vec![1, 2], 2, 0, 50);
+        let page: PageResponse<u8> =
+            PageResponse::from_page(Page::from_items(vec![1, 2], 0, 50), |value| value);
         assert!(!page.has_more);
     }
 
     #[test]
     fn a_full_page_reports_more_rows() {
-        let page: PageResponse<u8> = PageResponse::new(vec![1, 2], 4, 0, 2);
+        // A full window of a *larger* match set: `from_items` cannot express
+        // this (its `total` is the slice length), so build the `Page` directly.
+        let page: PageResponse<u8> = PageResponse::from_page(
+            Page {
+                items: vec![1, 2],
+                total: 4,
+                offset: 0,
+                limit: 2,
+            },
+            |value| value,
+        );
         assert!(page.has_more);
     }
 
@@ -354,7 +373,8 @@ mod tests {
     fn the_last_partial_page_reports_no_more_rows() {
         // offset + returned < total would be true if `limit` were used here,
         // but the page itself is exhausted.
-        let page: PageResponse<u8> = PageResponse::new(vec![3], 3, 2, 2);
+        let page: PageResponse<u8> =
+            PageResponse::from_page(Page::from_items(vec![1, 2, 3], 2, 2), |value| value);
         assert!(!page.has_more);
     }
 }

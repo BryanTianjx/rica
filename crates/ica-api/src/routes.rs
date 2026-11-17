@@ -6,13 +6,17 @@
 //!
 //! Request bodies are taken as `Bytes` and parsed by `body::parse` so a
 //! malformed body produces the project's JSON 422 envelope instead of axum's
-//! plain-text extractor error.
+//! plain-text extractor error. Queries go through [`ApiQuery`](crate::query::ApiQuery)
+//! for the same reason, and the parity middlewares in `http_parity` keep the
+//! 405/HEAD/trailing-slash answers on Starlette's side of the line.
+
+use std::sync::Arc;
 
 use axum::body::Bytes;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::get;
-use axum::{Json, Router};
+use axum::{middleware, Json, Router};
 
 use crate::body;
 use crate::dto::{
@@ -20,14 +24,36 @@ use crate::dto::{
     PageResponse, PositionRead, SendRecordRead, TimelineEntryRead,
 };
 use crate::error::ApiError;
+use crate::http_parity::RoutePatterns;
 use crate::query::{
-    self, RawListCandidatesQuery, RawListConversationsQuery, RawListMessagesQuery,
+    self, ApiQuery, RawListCandidatesQuery, RawListConversationsQuery, RawListMessagesQuery,
     RawListPositionsQuery, RawListSendRecordsQuery, RawTimelineQuery,
 };
 use crate::state::AppState;
 
+/// Every path the router serves, as axum 0.8 patterns.
+///
+/// The parity middlewares (`http_parity::reject_head`,
+/// `http_parity::redirect_trailing_slash`) test against this list instead of
+/// inspecting the router, which axum does not expose. Keep it in sync with
+/// `router` below: every entry must be registered, and every registration must
+/// appear here.
+const ROUTE_PATTERNS: &[&str] = &[
+    "/health",
+    "/api/positions",
+    "/api/positions/{position_id}",
+    "/api/candidates",
+    "/api/candidates/{candidate_id}",
+    "/api/candidates/{candidate_id}/timeline",
+    "/api/conversations",
+    "/api/messages",
+    "/api/send-records",
+];
+
 /// Build the router for `state`.
 pub fn router(state: AppState) -> Router {
+    let patterns: RoutePatterns = Arc::from(ROUTE_PATTERNS);
+    let head_patterns = patterns.clone();
     Router::new()
         .route("/health", get(health))
         .route("/api/positions", get(list_positions).post(create_position))
@@ -61,6 +87,16 @@ pub fn router(state: AppState) -> Router {
             get(list_send_records).post(record_send),
         )
         .fallback(unknown_path)
+        .method_not_allowed_fallback(|| async { crate::http_parity::method_not_allowed() })
+        // `reject_head` must sit *inside* the redirect (added first = run last):
+        // Starlette redirects `/api/positions/` before it ever considers the
+        // method, so a `HEAD` with a trailing slash is a 307, not a 405.
+        .layer(middleware::from_fn(move |request, next| {
+            crate::http_parity::reject_head(head_patterns.clone(), request, next)
+        }))
+        .layer(middleware::from_fn(move |request, next| {
+            crate::http_parity::redirect_trailing_slash(patterns.clone(), request, next)
+        }))
         .with_state(state)
 }
 
@@ -81,17 +117,13 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
 /// UI can render "1-50 of 213" and decide whether to show a next-page control.
 async fn list_positions(
     State(state): State<AppState>,
-    Query(raw): Query<RawListPositionsQuery>,
+    ApiQuery(raw): ApiQuery<RawListPositionsQuery>,
 ) -> Result<Json<PageResponse<PositionRead>>, ApiError> {
     let query = query::validate(raw)?;
     let page = ica_application::list_positions(state.positions(), query).await?;
-    let items = page.items.into_iter().map(PositionRead::from).collect();
-    Ok(Json(PageResponse::new(
-        items,
-        page.total,
-        page.offset,
-        page.limit,
-    )))
+    Ok(Json(PageResponse::from_page(page, |position| {
+        PositionRead::from(position)
+    })))
 }
 
 /// `POST /api/positions` — create one, 201 with the stored row.
@@ -144,17 +176,13 @@ async fn delete_position(
 /// `GET /api/candidates` — one page, `updated_at DESC`, with the real total.
 async fn list_candidates(
     State(state): State<AppState>,
-    Query(raw): Query<RawListCandidatesQuery>,
+    ApiQuery(raw): ApiQuery<RawListCandidatesQuery>,
 ) -> Result<Json<PageResponse<CandidateRead>>, ApiError> {
     let query = query::validate_candidates(raw)?;
     let page = ica_application::candidates::list_candidates(state.candidates(), query).await?;
-    let items = page.items.into_iter().map(CandidateRead::from).collect();
-    Ok(Json(PageResponse::new(
-        items,
-        page.total,
-        page.offset,
-        page.limit,
-    )))
+    Ok(Json(PageResponse::from_page(page, |candidate| {
+        CandidateRead::from(candidate)
+    })))
 }
 
 /// `POST /api/candidates` — create one; a missing position is a 404.
@@ -216,18 +244,14 @@ async fn delete_candidate(
 /// `GET /api/conversations` — `last_message_at DESC NULLS LAST`.
 async fn list_conversations(
     State(state): State<AppState>,
-    Query(raw): Query<RawListConversationsQuery>,
+    ApiQuery(raw): ApiQuery<RawListConversationsQuery>,
 ) -> Result<Json<PageResponse<ConversationRead>>, ApiError> {
     let query = query::validate_conversations(raw)?;
     let page =
         ica_application::conversations::list_conversations(state.conversations(), query).await?;
-    let items = page.items.into_iter().map(ConversationRead::from).collect();
-    Ok(Json(PageResponse::new(
-        items,
-        page.total,
-        page.offset,
-        page.limit,
-    )))
+    Ok(Json(PageResponse::from_page(page, |conversation| {
+        ConversationRead::from(conversation)
+    })))
 }
 
 /// `POST /api/conversations` — open a thread and audit `conversation.created`.
@@ -252,17 +276,13 @@ async fn create_conversation(
 /// `GET /api/messages` — time order, real `total` (IMP-1).
 async fn list_messages(
     State(state): State<AppState>,
-    Query(raw): Query<RawListMessagesQuery>,
+    ApiQuery(raw): ApiQuery<RawListMessagesQuery>,
 ) -> Result<Json<PageResponse<MessageRead>>, ApiError> {
     let query = query::validate_messages(raw)?;
     let page = ica_application::conversations::list_messages(state.messages(), query).await?;
-    let items = page.items.into_iter().map(MessageRead::from).collect();
-    Ok(Json(PageResponse::new(
-        items,
-        page.total,
-        page.offset,
-        page.limit,
-    )))
+    Ok(Json(PageResponse::from_page(page, |message| {
+        MessageRead::from(message)
+    })))
 }
 
 /// `POST /api/messages` — record one, opening or reusing the conversation.
@@ -286,7 +306,7 @@ async fn create_message(
 async fn candidate_timeline(
     State(state): State<AppState>,
     Path(candidate_id): Path<String>,
-    Query(raw): Query<RawTimelineQuery>,
+    ApiQuery(raw): ApiQuery<RawTimelineQuery>,
 ) -> Result<Json<Vec<TimelineEntryRead>>, ApiError> {
     let limit = query::validate_timeline(raw)?;
     let entries = ica_application::conversations::candidate_timeline(
@@ -319,18 +339,14 @@ async fn record_send(
 /// `GET /api/send-records` — newest send first, four filters.
 async fn list_send_records(
     State(state): State<AppState>,
-    Query(raw): Query<RawListSendRecordsQuery>,
+    ApiQuery(raw): ApiQuery<RawListSendRecordsQuery>,
 ) -> Result<Json<PageResponse<SendRecordRead>>, ApiError> {
     let query = query::validate_send_records(raw)?;
     let page =
         ica_application::send_records::list_send_records(state.send_records(), query).await?;
-    let items = page.items.into_iter().map(SendRecordRead::from).collect();
-    Ok(Json(PageResponse::new(
-        items,
-        page.total,
-        page.offset,
-        page.limit,
-    )))
+    Ok(Json(PageResponse::from_page(page, |record| {
+        SendRecordRead::from(record)
+    })))
 }
 
 /// Unknown path: keep the project's error envelope instead of axum's plain

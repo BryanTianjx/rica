@@ -14,6 +14,8 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 tracing.workspace = true
+form_urlencoded.workspace = true
+serde_urlencoded.workspace = true
 
 [dev-dependencies]
 ica-infra.workspace = true

@@ -13,8 +13,8 @@ use sqlx::FromRow;
 
 use crate::audit::{insert_audit, AuditEntry};
 use crate::store::{
-    repo_error, to_sql_timestamp, where_clause, SqliteStore, DEFAULT_TENANT_ID, LOCAL_ACTOR,
-    LOCAL_OWNER_ID,
+    offset_bind, repo_error, to_sql_timestamp, where_clause, SqliteStore, DEFAULT_TENANT_ID,
+    LOCAL_ACTOR, LOCAL_OWNER_ID,
 };
 
 const SELECT_COLUMNS: &str = concat!(
@@ -118,7 +118,7 @@ impl SendRecordRepository for SqliteStore {
         }
         let rows = query
             .bind(limit as i64)
-            .bind(offset as i64)
+            .bind(offset_bind(offset))
             .fetch_all(self.pool())
             .await
             .map_err(repo_error)?;

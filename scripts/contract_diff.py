@@ -49,11 +49,14 @@ TOTAL_DECLARED_CASES = {
     "messages_limit2_offset1",
 }
 
-#: Cases whose whole response is declared to differ: the Python baseline answers
-#: 500 where the port answers 422 (IMP-2). Asserted in `check_improvements`.
+#: Cases whose whole response is declared to differ. IMP-2: the Python baseline
+#: answers 500 where the port answers 422. IMP-4: `offset` beyond `u64::MAX` is
+#: echoed by Python with an empty page, but the port's envelope cannot carry a
+#: wider JSON number and answers 422. Asserted in `check_improvements`.
 STATUS_DECLARED_CASES = {
     "position_patch_null_name",
     "position_patch_null_archived",
+    "positions_offset_beyond_u64",
 }
 
 UUID_PATTERN = re.compile(
@@ -184,6 +187,19 @@ def diff_case(name: str, left: dict, right: dict, norm) -> list[str]:
     problems: list[str] = []
     if left["status"] != right["status"]:
         problems.append(f"status: python={left['status']} rust={right['status']}")
+    # The envelope's media type is part of the frontend's single error path: a
+    # plain-text rejection is exactly the F-02 failure mode, so pin it.
+    if left.get("content_type") != right.get("content_type"):
+        problems.append(
+            f"content_type: python={left.get('content_type')!r} "
+            f"rust={right.get('content_type')!r}"
+        )
+    # Redirect targets, already reduced to `path?query` at capture time (the
+    # absolute URL embeds each side's own port).
+    if left.get("location") != right.get("location"):
+        problems.append(
+            f"location: python={left.get('location')!r} rust={right.get('location')!r}"
+        )
 
     left_body = normalise_envelope(norm(left.get("body")), left["status"])
     right_body = normalise_envelope(norm(right.get("body")), right["status"])
@@ -303,6 +319,33 @@ def check_improvements(py_cases: dict, rs_cases: dict) -> tuple[list[str], list[
             )
         elif py_ids != rs_ids:
             problems.append(f"IMP-3: {case} item order differs: {py_ids} vs {rs_ids}")
+
+    # IMP-4: `offset` beyond `u64::MAX`. Python parses unbounded integers and
+    # echoes the value back with an empty page; the port's envelope types the
+    # offset as `usize` (a JSON number up to u64::MAX), so the echo is
+    # impossible and it answers 422 `int_parsing` instead. Everything up to
+    # u64::MAX is matched by `positions_offset_beyond_i64` above.
+    case = "positions_offset_beyond_u64"
+    py, rs = py_cases.get(case), rs_cases.get(case)
+    if py is None or rs is None:
+        problems.append(f"IMP-4: case {case} missing from a capture")
+    else:
+        py_offset = (py.get("body") or {}).get("offset")
+        rs_code = (rs.get("body") or {}).get("error", {}).get("code")
+        lines.append(
+            f"  IMP-4 {case}: python status={py['status']} offset={py_offset}, "
+            f"rust status={rs['status']} code={rs_code}"
+        )
+        if py["status"] != 200 or py_offset != 18446744073709551616:
+            problems.append(
+                f"IMP-4: expected python 200 with offset=18446744073709551616, "
+                f"measured status={py['status']} offset={py_offset}"
+            )
+        if (rs["status"], rs_code) != (422, "validation_error"):
+            problems.append(
+                f"IMP-4: expected rust 422/validation_error, "
+                f"measured {rs['status']}/{rs_code}"
+            )
 
     return lines, problems
 

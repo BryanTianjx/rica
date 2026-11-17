@@ -37,6 +37,7 @@ import json
 import sqlite3
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
@@ -88,6 +89,42 @@ CASES: list[dict] = [
     {"name": "position_detail_archived", "method": "GET",
      "path": f"/api/positions/{POSITION_ARCHIVED}"},
     {"name": "position_detail_missing", "method": "GET", "path": "/api/positions/does-not-exist"},
+
+    # ── Router and parser boundaries (R0 audit F-02..F-05, F-12) ───────────
+    # A repeated key must not break the envelope: Starlette keeps the LAST
+    # occurrence (`?limit=1&limit=2` means limit=2, answered 200).
+    {"name": "positions_duplicate_limit", "method": "GET",
+     "path": "/api/positions?limit=1&limit=2"},
+    # Integers past i64::MAX are still integers to pydantic; the envelope can
+    # echo anything up to u64::MAX (`has_more=false`, empty page).
+    {"name": "positions_offset_beyond_i64", "method": "GET",
+     "path": "/api/positions?offset=9223372036854775808"},
+    # Python's int grammar accepts underscores between digits (`1_0` == 10).
+    {"name": "positions_offset_underscore", "method": "GET",
+     "path": "/api/positions?offset=1_0"},
+    # Past u64::MAX the port cannot echo the offset — declared IMP-4 below.
+    {"name": "positions_offset_beyond_u64", "method": "GET",
+     "path": "/api/positions?offset=18446744073709551616"},
+    # pydantic strips whitespace for ints but NOT for bools: `" true "` is a
+    # 422 `bool_parsing` on both sides.
+    {"name": "positions_include_archived_padded", "method": "GET",
+     "path": "/api/positions?include_archived=%20true%20"},
+    # Trailing slashes are 307-redirected with method and query preserved —
+    # they must not be a hard 404 (a browser or hand-built link would break).
+    # Three shapes: bare path, query string, parameterised path — the `Location`
+    # differs in each, so one case cannot cover the others.
+    {"name": "positions_trailing_slash", "method": "GET", "path": "/api/positions/"},
+    {"name": "positions_trailing_slash_query", "method": "GET",
+     "path": "/api/positions/?limit=2&search=abc"},
+    {"name": "position_detail_trailing_slash", "method": "GET",
+     "path": f"/api/positions/{POSITION_WITH_CANDIDATES}/"},
+    # No endpoint declares HEAD, so Starlette answers 405 (envelope headers,
+    # body suppressed) where axum would serve a body-stripped 200.
+    {"name": "positions_head_not_allowed", "method": "HEAD", "path": "/api/positions"},
+    # Same for any other unserved method on a served path: 405 envelope.
+    {"name": "positions_put_not_allowed", "method": "PUT", "path": "/api/positions",
+     "json": {"name": "wrong collection"}},
+    {"name": "positions_options_not_allowed", "method": "OPTIONS", "path": "/api/positions"},
 
     # ── Candidates (reads) ─────────────────────────────────────────────────
     {"name": "candidates_default", "method": "GET", "path": "/api/candidates"},
@@ -284,6 +321,34 @@ JSON_COLUMNS = {
 BASE_URL_DEFAULT = "http://127.0.0.1:8010"
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Record a redirect instead of following it.
+
+    A redirect *is* contract behaviour (the trailing-slash 307), so the capture
+    must show what the server answered, not where a well-behaved client chose
+    to go next.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+#: One opener for the whole run, with redirect chasing disabled.
+OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _location_path(location: str | None) -> str | None:
+    """Reduce an absolute `Location` to `path?query`.
+
+    The server renders its own scheme/host/port into the header, and the two
+    sides run on different ports, so only the path and query are comparable.
+    """
+    if not location:
+        return None
+    parts = urllib.parse.urlsplit(location)
+    return parts.path + (f"?{parts.query}" if parts.query else "")
+
+
 def fetch(base_url: str, method: str, path: str, payload: dict | None,
           timeout: float = 20.0) -> dict[str, object]:
     """Issue one request and return status + decoded body (or raw text)."""
@@ -294,14 +359,17 @@ def fetch(base_url: str, method: str, path: str, payload: dict | None,
         headers["content-type"] = "application/json"
     request = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with OPENER.open(request, timeout=timeout) as response:
             status = response.status
             raw = response.read().decode("utf-8")
-            content_type = response.headers.get("content-type", "")
-    except urllib.error.HTTPError as exc:  # 4xx/5xx still carries a body
+            response_headers = response.headers
+    except urllib.error.HTTPError as exc:  # 4xx/5xx — and, with redirect
+        # chasing disabled, every 3xx too — still carries headers
         status = exc.code
         raw = exc.read().decode("utf-8")
-        content_type = exc.headers.get("content-type", "") if exc.headers else ""
+        response_headers = exc.headers or {}
+    content_type = response_headers.get("content-type", "") if response_headers else ""
+    location = response_headers.get("location") if response_headers else None
 
     if not raw:
         body: object = None
@@ -315,6 +383,7 @@ def fetch(base_url: str, method: str, path: str, payload: dict | None,
         "path": path,
         "status": status,
         "content_type": content_type.split(";")[0],
+        "location": _location_path(location),
         "body": body,
     }
 

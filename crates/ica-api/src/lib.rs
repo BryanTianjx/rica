@@ -7,6 +7,7 @@
 pub mod body;
 pub mod dto;
 pub mod error;
+pub mod http_parity;
 pub mod query;
 pub mod routes;
 pub mod state;

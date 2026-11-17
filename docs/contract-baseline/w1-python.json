@@ -5,11 +5,11 @@
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T15:16:38.067834Z",
+        "created_at": "2026-11-17T16:24:02.264381Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -19,9 +19,10 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Contacted",
-        "updated_at": "2026-11-17T15:16:38.067836Z"
+        "updated_at": "2026-11-17T16:24:02.264384Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/candidates",
       "status": 201
@@ -29,13 +30,15 @@
     "candidate_delete": {
       "body": null,
       "content_type": "",
+      "location": null,
       "method": "DELETE",
-      "path": "/api/candidates/5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
       "status": 204
     },
     "candidate_delete_with_children": {
       "body": null,
       "content_type": "",
+      "location": null,
       "method": "DELETE",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000001",
       "status": 204
@@ -78,6 +81,7 @@
         "updated_at": "2026-11-10T09:05:00Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000001",
       "status": 200
@@ -87,12 +91,13 @@
         "error": {
           "code": "not_found",
           "details": {},
-          "message": "Candidate '5bbaf44b-8a92-40f2-bb4f-eb3f252df130' was not found"
+          "message": "Candidate 'e344ba5b-4af9-4bee-9194-2f19bc6dcdae' was not found"
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
-      "path": "/api/candidates/5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
       "status": 404
     },
     "candidate_detail_after_position_delete": {
@@ -114,9 +119,10 @@
         "skill_summary": null,
         "source": "boss",
         "status": "New",
-        "updated_at": "2026-11-17T15:16:38.265587Z"
+        "updated_at": "2026-11-17T16:24:02.520755Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000006",
       "status": 200
@@ -125,11 +131,11 @@
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T15:16:38.067834Z",
+        "created_at": "2026-11-17T16:24:02.264381Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -156,11 +162,12 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Contacted",
-        "updated_at": "2026-11-17T15:16:38.067836Z"
+        "updated_at": "2026-11-17T16:24:02.264384Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
-      "path": "/api/candidates/5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
       "status": 200
     },
     "candidate_detail_missing": {
@@ -172,6 +179,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/does-not-exist",
       "status": 404
@@ -214,6 +222,7 @@
         "updated_at": "2026-11-10T09:05:00.000001Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000002",
       "status": 200
@@ -222,11 +231,11 @@
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T15:16:38.067834Z",
+        "created_at": "2026-11-17T16:24:02.264381Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -236,11 +245,12 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Replied",
-        "updated_at": "2026-11-17T15:16:38.093141Z"
+        "updated_at": "2026-11-17T16:24:02.293922Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
-      "path": "/api/candidates/5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
       "status": 200
     },
     "candidate_patch_missing": {
@@ -252,6 +262,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
       "path": "/api/candidates/does-not-exist",
       "status": 404
@@ -280,19 +291,20 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
-      "path": "/api/candidates/5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
       "status": 422
     },
     "candidate_patch_null_position": {
       "body": {
         "active_follow_up_count": 0,
         "archived": false,
-        "created_at": "2026-11-17T15:16:38.067834Z",
+        "created_at": "2026-11-17T16:24:02.264381Z",
         "expected_location": "Wuhan",
         "expected_salary": null,
         "experience_summary": null,
-        "id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "job_intention": null,
         "message_count": 0,
         "name": "Contract Candidate",
@@ -302,11 +314,12 @@
         "skill_summary": null,
         "source": "boss",
         "status": "Replied",
-        "updated_at": "2026-11-17T15:16:38.104094Z"
+        "updated_at": "2026-11-17T16:24:02.306501Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
-      "path": "/api/candidates/5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+      "path": "/api/candidates/e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
       "status": 200
     },
     "candidates_bad_status": {
@@ -333,6 +346,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?status=Nope",
       "status": 422
@@ -442,6 +456,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates",
       "status": 200
@@ -467,7 +482,7 @@
             "skill_summary": null,
             "source": "boss",
             "status": "New",
-            "updated_at": "2026-11-17T15:16:38.265587Z"
+            "updated_at": "2026-11-17T16:24:02.520755Z"
           },
           {
             "active_follow_up_count": 0,
@@ -551,6 +566,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?include_archived=true",
       "status": 200
@@ -679,6 +695,7 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?include_archived=true",
       "status": 200
@@ -731,6 +748,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?limit=2",
       "status": 200
@@ -759,6 +777,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?limit=501",
       "status": 422
@@ -811,6 +830,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?limit=2&offset=2",
       "status": 200
@@ -863,6 +883,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?position_id=11111111-1111-1111-1111-111111111111",
       "status": 200
@@ -896,6 +917,7 @@
         "total": 1
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?search=ALICE",
       "status": 200
@@ -909,6 +931,7 @@
         "total": 0
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?search=zzz-nothing",
       "status": 200
@@ -942,6 +965,7 @@
         "total": 1
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?search=alice",
       "status": 200
@@ -955,6 +979,7 @@
         "total": 0
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?status=Contacted",
       "status": 200
@@ -1064,6 +1089,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates?status=New",
       "status": 200
@@ -1072,17 +1098,18 @@
       "body": {
         "candidate_id": "c0000000-0000-0000-0000-000000000006",
         "channel": "boss",
-        "created_at": "2026-11-17T15:16:38.129824Z",
-        "id": "e0a763e3-d5f2-4b0f-8732-e6e4eda804d7",
+        "created_at": "2026-11-17T16:24:02.343628Z",
+        "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
         "is_active": true,
         "last_message_at": null,
         "message_count": 0,
         "position_id": "77777777-7777-7777-7777-777777777777",
         "position_name": "ML Engineer",
         "title": "Contract thread",
-        "updated_at": "2026-11-17T15:16:38.129826Z"
+        "updated_at": "2026-11-17T16:24:02.343631Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/conversations",
       "status": 201
@@ -1096,6 +1123,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/conversations",
       "status": 404
@@ -1107,15 +1135,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
-            "created_at": "2026-11-17T15:16:38.161331Z",
-            "id": "839f0aa1-0cda-4a8e-8ad5-461b8df82809",
+            "created_at": "2026-11-17T16:24:02.380869Z",
+            "id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
             "is_active": true,
-            "last_message_at": "2026-11-17T15:16:38.161606Z",
+            "last_message_at": "2026-11-17T16:24:02.381254Z",
             "message_count": 1,
             "position_id": "11111111-1111-1111-1111-111111111111",
             "position_name": "Senior Rust Engineer",
             "title": null,
-            "updated_at": "2026-11-17T15:16:38.162214Z"
+            "updated_at": "2026-11-17T16:24:02.381556Z"
           },
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
@@ -1133,15 +1161,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000006",
             "channel": "boss",
-            "created_at": "2026-11-17T15:16:38.129824Z",
-            "id": "e0a763e3-d5f2-4b0f-8732-e6e4eda804d7",
+            "created_at": "2026-11-17T16:24:02.343628Z",
+            "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
             "is_active": true,
             "last_message_at": null,
             "message_count": 0,
             "position_id": null,
             "position_name": null,
             "title": "Contract thread",
-            "updated_at": "2026-11-17T15:16:38.129826Z"
+            "updated_at": "2026-11-17T16:24:02.343631Z"
           }
         ],
         "limit": 50,
@@ -1149,6 +1177,7 @@
         "total": 3
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/conversations",
       "status": 200
@@ -1160,15 +1189,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
-            "created_at": "2026-11-17T15:16:38.161331Z",
-            "id": "839f0aa1-0cda-4a8e-8ad5-461b8df82809",
+            "created_at": "2026-11-17T16:24:02.380869Z",
+            "id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
             "is_active": true,
-            "last_message_at": "2026-11-17T15:16:38.161606Z",
+            "last_message_at": "2026-11-17T16:24:02.381254Z",
             "message_count": 1,
             "position_id": "11111111-1111-1111-1111-111111111111",
             "position_name": "Senior Rust Engineer",
             "title": null,
-            "updated_at": "2026-11-17T15:16:38.162214Z"
+            "updated_at": "2026-11-17T16:24:02.381556Z"
           },
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000001",
@@ -1181,7 +1210,7 @@
             "position_id": "11111111-1111-1111-1111-111111111111",
             "position_name": "Senior Rust Engineer",
             "title": null,
-            "updated_at": "2026-11-17T15:16:38.150540Z"
+            "updated_at": "2026-11-17T16:24:02.366355Z"
           },
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
@@ -1199,15 +1228,15 @@
           {
             "candidate_id": "c0000000-0000-0000-0000-000000000006",
             "channel": "boss",
-            "created_at": "2026-11-17T15:16:38.129824Z",
-            "id": "e0a763e3-d5f2-4b0f-8732-e6e4eda804d7",
+            "created_at": "2026-11-17T16:24:02.343628Z",
+            "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
             "is_active": true,
             "last_message_at": null,
             "message_count": 0,
             "position_id": "77777777-7777-7777-7777-777777777777",
             "position_name": "ML Engineer",
             "title": "Contract thread",
-            "updated_at": "2026-11-17T15:16:38.129826Z"
+            "updated_at": "2026-11-17T16:24:02.343631Z"
           }
         ],
         "limit": 50,
@@ -1215,6 +1244,7 @@
         "total": 4
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/conversations",
       "status": 200
@@ -1242,6 +1272,7 @@
         "total": 1
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/conversations?candidate_id=c0000000-0000-0000-0000-000000000002",
       "status": 200
@@ -1282,6 +1313,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/conversations",
       "status": 200
@@ -1322,6 +1354,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/conversations?limit=2",
       "status": 200
@@ -1335,6 +1368,7 @@
         "total": 0
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/conversations?candidate_id=does-not-exist",
       "status": 200
@@ -1346,6 +1380,7 @@
         "status": "ok"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/health",
       "status": 200
@@ -1355,14 +1390,15 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "boss",
         "content": "auto thread",
-        "conversation_id": "839f0aa1-0cda-4a8e-8ad5-461b8df82809",
-        "created_at": "2026-11-17T15:16:38.162433Z",
-        "id": "dfd2734f-1625-4a8a-8f35-0176986e17b2",
+        "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
+        "created_at": "2026-11-17T16:24:02.381774Z",
+        "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
         "message_time": null,
         "sender_type": null,
         "source": "manual"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/messages",
       "status": 201
@@ -1391,6 +1427,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/messages",
       "status": 422
@@ -1401,13 +1438,14 @@
         "channel": "boss",
         "content": "  Contract   Message  ",
         "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
-        "created_at": "2026-11-17T15:16:38.151278Z",
-        "id": "e85e1436-a9bf-49c6-bd63-9954c22b6501",
+        "created_at": "2026-11-17T16:24:02.367041Z",
+        "id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
         "message_time": "2026-11-14T09:30:00Z",
         "sender_type": "Recruiter",
         "source": "manual"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/messages",
       "status": 201
@@ -1421,6 +1459,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/messages",
       "status": 404
@@ -1434,6 +1473,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/messages",
       "status": 404
@@ -1450,6 +1490,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/messages",
       "status": 422
@@ -1462,9 +1503,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
             "content": "auto thread",
-            "conversation_id": "839f0aa1-0cda-4a8e-8ad5-461b8df82809",
-            "created_at": "2026-11-17T15:16:38.162433Z",
-            "id": "dfd2734f-1625-4a8a-8f35-0176986e17b2",
+            "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
+            "created_at": "2026-11-17T16:24:02.381774Z",
+            "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
             "message_time": null,
             "sender_type": null,
             "source": "manual"
@@ -1475,6 +1516,7 @@
         "total": 1
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages",
       "status": 200
@@ -1532,8 +1574,8 @@
             "channel": "boss",
             "content": "  Contract   Message  ",
             "conversation_id": "aaaaaaaa-0000-0000-0000-000000000001",
-            "created_at": "2026-11-17T15:16:38.151278Z",
-            "id": "e85e1436-a9bf-49c6-bd63-9954c22b6501",
+            "created_at": "2026-11-17T16:24:02.367041Z",
+            "id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
             "message_time": "2026-11-14T09:30:00Z",
             "sender_type": "Recruiter",
             "source": "manual"
@@ -1553,9 +1595,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "boss",
             "content": "auto thread",
-            "conversation_id": "839f0aa1-0cda-4a8e-8ad5-461b8df82809",
-            "created_at": "2026-11-17T15:16:38.162433Z",
-            "id": "dfd2734f-1625-4a8a-8f35-0176986e17b2",
+            "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
+            "created_at": "2026-11-17T16:24:02.381774Z",
+            "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
             "message_time": null,
             "sender_type": null,
             "source": "manual"
@@ -1566,6 +1608,7 @@
         "total": 7
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages",
       "status": 200
@@ -1635,6 +1678,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages?candidate_id=c0000000-0000-0000-0000-000000000001",
       "status": 200
@@ -1704,6 +1748,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages?conversation_id=aaaaaaaa-0000-0000-0000-000000000001",
       "status": 200
@@ -1717,6 +1762,7 @@
         "total": 0
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages?candidate_id=c0000000-0000-0000-0000-000000000006",
       "status": 200
@@ -1786,6 +1832,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages",
       "status": 200
@@ -1822,6 +1869,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages?limit=2",
       "status": 200
@@ -1858,6 +1906,7 @@
         "total": 3
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages?limit=2&offset=1",
       "status": 200
@@ -1886,6 +1935,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages?limit=1001",
       "status": 422
@@ -1899,6 +1949,7 @@
         "total": 5
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/messages?offset=100",
       "status": 200
@@ -1907,11 +1958,11 @@
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T15:16:38.014035Z",
+        "created_at": "2026-11-17T16:24:02.186047Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "location": "Wuhan",
         "name": "Contract Created",
         "notes": null,
@@ -1919,9 +1970,10 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T15:16:38.014038Z"
+        "updated_at": "2026-11-17T16:24:02.186051Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/positions",
       "status": 201
@@ -1929,8 +1981,9 @@
     "position_delete": {
       "body": null,
       "content_type": "",
+      "location": null,
       "method": "DELETE",
-      "path": "/api/positions/660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
       "status": 204
     },
     "position_delete_missing": {
@@ -1942,6 +1995,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "DELETE",
       "path": "/api/positions/does-not-exist",
       "status": 404
@@ -1949,6 +2003,7 @@
     "position_delete_set_null": {
       "body": null,
       "content_type": "",
+      "location": null,
       "method": "DELETE",
       "path": "/api/positions/77777777-7777-7777-7777-777777777777",
       "status": 204
@@ -1972,6 +2027,7 @@
         "updated_at": "2026-11-10T09:30:00Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions/11111111-1111-1111-1111-111111111111",
       "status": 200
@@ -1981,12 +2037,13 @@
         "error": {
           "code": "not_found",
           "details": {},
-          "message": "Position '660ecd40-91ec-4e77-8f47-28b52eb9f02c' was not found"
+          "message": "Position 'b8560ed2-806a-4fad-8c5a-70f0ca8034f7' was not found"
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
-      "path": "/api/positions/660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
       "status": 404
     },
     "position_detail_archived": {
@@ -2008,6 +2065,7 @@
         "updated_at": "2026-11-13T12:00:00.500000Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions/44444444-4444-4444-4444-444444444444",
       "status": 200
@@ -2016,11 +2074,11 @@
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T15:16:38.014035Z",
+        "created_at": "2026-11-17T16:24:02.186047Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "location": "Wuhan",
         "name": "Contract Created",
         "notes": null,
@@ -2028,11 +2086,12 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T15:16:38.014038Z"
+        "updated_at": "2026-11-17T16:24:02.186051Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
-      "path": "/api/positions/660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
       "status": 200
     },
     "position_detail_missing": {
@@ -2044,19 +2103,28 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions/does-not-exist",
       "status": 404
+    },
+    "position_detail_trailing_slash": {
+      "body": null,
+      "content_type": "",
+      "location": "/api/positions/11111111-1111-1111-1111-111111111111",
+      "method": "GET",
+      "path": "/api/positions/11111111-1111-1111-1111-111111111111/",
+      "status": 307
     },
     "position_patch": {
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T15:16:38.014035Z",
+        "created_at": "2026-11-17T16:24:02.186047Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "location": "Wuhan",
         "name": "Contract Renamed",
         "notes": null,
@@ -2064,22 +2132,23 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T15:16:38.029040Z"
+        "updated_at": "2026-11-17T16:24:02.203951Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
-      "path": "/api/positions/660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
       "status": 200
     },
     "position_patch_archived": {
       "body": {
         "archived": true,
         "candidate_count": 0,
-        "created_at": "2026-11-17T15:16:38.014035Z",
+        "created_at": "2026-11-17T16:24:02.186047Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "location": null,
         "name": "Contract Renamed",
         "notes": null,
@@ -2087,22 +2156,23 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T15:16:38.047213Z"
+        "updated_at": "2026-11-17T16:24:02.229853Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
-      "path": "/api/positions/660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
       "status": 200
     },
     "position_patch_clear_nullable": {
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T15:16:38.014035Z",
+        "created_at": "2026-11-17T16:24:02.186047Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "location": null,
         "name": "Contract Renamed",
         "notes": null,
@@ -2110,11 +2180,12 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T15:16:38.041160Z"
+        "updated_at": "2026-11-17T16:24:02.221393Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
-      "path": "/api/positions/660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
       "status": 200
     },
     "position_patch_missing": {
@@ -2126,6 +2197,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
       "path": "/api/positions/does-not-exist",
       "status": 404
@@ -2139,6 +2211,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
       "path": "/api/positions/33333333-3333-3333-3333-333333333333",
       "status": 500
@@ -2152,6 +2225,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
       "path": "/api/positions/33333333-3333-3333-3333-333333333333",
       "status": 500
@@ -2160,11 +2234,11 @@
       "body": {
         "archived": false,
         "candidate_count": 0,
-        "created_at": "2026-11-17T15:16:38.014035Z",
+        "created_at": "2026-11-17T16:24:02.186047Z",
         "description": null,
         "education_requirements": null,
         "experience_requirements": null,
-        "id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "location": "Wuhan",
         "name": "Contract Renamed",
         "notes": null,
@@ -2172,11 +2246,12 @@
         "salary_min": 10000,
         "skill_requirements": null,
         "status": "Draft",
-        "updated_at": "2026-11-17T15:16:38.029040Z"
+        "updated_at": "2026-11-17T16:24:02.203951Z"
       },
       "content_type": "application/json",
+      "location": null,
       "method": "PATCH",
-      "path": "/api/positions/660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+      "path": "/api/positions/b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
       "status": 200
     },
     "positions_default": {
@@ -2291,8 +2366,58 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions",
+      "status": 200
+    },
+    "positions_duplicate_limit": {
+      "body": {
+        "has_more": true,
+        "items": [
+          {
+            "archived": false,
+            "candidate_count": 1,
+            "created_at": "2026-11-16T07:05:00Z",
+            "description": null,
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "77777777-7777-7777-7777-777777777777",
+            "location": "Beijing",
+            "name": "ML Engineer",
+            "notes": "new headcount",
+            "salary_max": null,
+            "salary_min": null,
+            "skill_requirements": "PyTorch",
+            "status": "Open",
+            "updated_at": "2026-11-16T07:05:00Z"
+          },
+          {
+            "archived": false,
+            "candidate_count": 0,
+            "created_at": "2026-11-15T09:00:00Z",
+            "description": "Empty-string location, not NULL.",
+            "education_requirements": null,
+            "experience_requirements": null,
+            "id": "66666666-6666-6666-6666-666666666666",
+            "location": "",
+            "name": "Product Manager",
+            "notes": null,
+            "salary_max": 40000,
+            "salary_min": 20000,
+            "skill_requirements": null,
+            "status": "Open",
+            "updated_at": "2026-11-15T10:00:00Z"
+          }
+        ],
+        "limit": 2,
+        "offset": 0,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/positions?limit=1&limit=2",
       "status": 200
     },
     "positions_final": {
@@ -2407,9 +2532,18 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?include_archived=true",
       "status": 200
+    },
+    "positions_head_not_allowed": {
+      "body": null,
+      "content_type": "application/json",
+      "location": null,
+      "method": "HEAD",
+      "path": "/api/positions",
+      "status": 405
     },
     "positions_include_archived": {
       "body": {
@@ -2540,6 +2674,7 @@
         "total": 7
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?include_archived=true",
       "status": 200
@@ -2673,9 +2808,36 @@
         "total": 7
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?include_archived=1",
       "status": 200
+    },
+    "positions_include_archived_padded": {
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "details": {
+            "errors": [
+              {
+                "input": " true ",
+                "loc": [
+                  "query",
+                  "include_archived"
+                ],
+                "msg": "Input should be a valid boolean, unable to interpret input",
+                "type": "bool_parsing"
+              }
+            ]
+          },
+          "message": "Request payload failed validation"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/positions?include_archived=%20true%20",
+      "status": 422
     },
     "positions_limit2": {
       "body": {
@@ -2721,6 +2883,7 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?limit=2",
       "status": 200
@@ -2837,6 +3000,7 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?limit=500",
       "status": 200
@@ -2865,6 +3029,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?limit=501",
       "status": 422
@@ -2893,9 +3058,24 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?limit=0",
       "status": 422
+    },
+    "positions_offset_beyond_i64": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 9223372036854775808,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/positions?offset=9223372036854775808",
+      "status": 200
     },
     "positions_offset_beyond_total": {
       "body": {
@@ -2906,8 +3086,23 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?offset=100",
+      "status": 200
+    },
+    "positions_offset_beyond_u64": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 18446744073709551616,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/positions?offset=18446744073709551616",
       "status": 200
     },
     "positions_offset_negative": {
@@ -2934,9 +3129,38 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?offset=-1",
       "status": 422
+    },
+    "positions_offset_underscore": {
+      "body": {
+        "has_more": false,
+        "items": [],
+        "limit": 50,
+        "offset": 10,
+        "total": 6
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "GET",
+      "path": "/api/positions?offset=1_0",
+      "status": 200
+    },
+    "positions_options_not_allowed": {
+      "body": {
+        "error": {
+          "code": "http_error",
+          "details": {},
+          "message": "Method Not Allowed"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "OPTIONS",
+      "path": "/api/positions",
+      "status": 405
     },
     "positions_page2": {
       "body": {
@@ -2982,9 +3206,24 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?limit=2&offset=2",
       "status": 200
+    },
+    "positions_put_not_allowed": {
+      "body": {
+        "error": {
+          "code": "http_error",
+          "details": {},
+          "message": "Method Not Allowed"
+        }
+      },
+      "content_type": "application/json",
+      "location": null,
+      "method": "PUT",
+      "path": "/api/positions",
+      "status": 405
     },
     "positions_search_case_insensitive": {
       "body": {
@@ -3030,6 +3269,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?search=RUST",
       "status": 200
@@ -3078,6 +3318,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?search=beijing",
       "status": 200
@@ -3143,6 +3384,7 @@
         "total": 3
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?search=beijing&include_archived=true",
       "status": 200
@@ -3156,6 +3398,7 @@
         "total": 0
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?search=zzz-nothing",
       "status": 200
@@ -3204,6 +3447,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?search=%20beijing%20",
       "status": 200
@@ -3232,9 +3476,26 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/positions?search=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "status": 422
+    },
+    "positions_trailing_slash": {
+      "body": null,
+      "content_type": "",
+      "location": "/api/positions",
+      "method": "GET",
+      "path": "/api/positions/",
+      "status": 307
+    },
+    "positions_trailing_slash_query": {
+      "body": null,
+      "content_type": "",
+      "location": "/api/positions?limit=2&search=abc",
+      "method": "GET",
+      "path": "/api/positions/?limit=2&search=abc",
+      "status": 307
     },
     "send_record_bad_status": {
       "body": {
@@ -3260,6 +3521,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/send-records",
       "status": 422
@@ -3270,16 +3532,17 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000001",
         "channel": "boss",
         "content_summary": "contract send",
-        "created_at": "2026-11-17T15:16:38.218123Z",
+        "created_at": "2026-11-17T16:24:02.456582Z",
         "draft_id": null,
-        "id": "d1d6c23b-59ed-485f-ba56-31bd12887d27",
+        "id": "4d6efdcf-7981-46a0-bdb9-4f3214034225",
         "note": null,
-        "sent_at": "2026-11-17T15:16:38.217431Z",
+        "sent_at": "2026-11-17T16:24:02.455823Z",
         "status": "sent",
         "target": "boss-42",
         "task_id": null
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/send-records",
       "status": 201
@@ -3290,9 +3553,9 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "wx",
         "content_summary": null,
-        "created_at": "2026-11-17T15:16:38.227249Z",
+        "created_at": "2026-11-17T16:24:02.467609Z",
         "draft_id": null,
-        "id": "55a8730d-ce2c-4a68-9e3c-e1d3be9c0f5d",
+        "id": "c878f502-137c-4f2b-b03e-84536d721a66",
         "note": null,
         "sent_at": "2026-11-14T08:15:00Z",
         "status": "candidate_replied",
@@ -3300,6 +3563,7 @@
         "task_id": null
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/send-records",
       "status": 201
@@ -3316,6 +3580,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/send-records",
       "status": 409
@@ -3329,6 +3594,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/send-records",
       "status": 404
@@ -3345,6 +3611,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "POST",
       "path": "/api/send-records",
       "status": 409
@@ -3358,9 +3625,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "wx",
             "content_summary": null,
-            "created_at": "2026-11-17T15:16:38.227249Z",
+            "created_at": "2026-11-17T16:24:02.467609Z",
             "draft_id": null,
-            "id": "55a8730d-ce2c-4a68-9e3c-e1d3be9c0f5d",
+            "id": "c878f502-137c-4f2b-b03e-84536d721a66",
             "note": null,
             "sent_at": "2026-11-14T08:15:00Z",
             "status": "candidate_replied",
@@ -3387,6 +3654,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/send-records",
       "status": 200
@@ -3400,11 +3668,11 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000001",
             "channel": "boss",
             "content_summary": "contract send",
-            "created_at": "2026-11-17T15:16:38.218123Z",
+            "created_at": "2026-11-17T16:24:02.456582Z",
             "draft_id": null,
-            "id": "d1d6c23b-59ed-485f-ba56-31bd12887d27",
+            "id": "4d6efdcf-7981-46a0-bdb9-4f3214034225",
             "note": null,
-            "sent_at": "2026-11-17T15:16:38.217431Z",
+            "sent_at": "2026-11-17T16:24:02.455823Z",
             "status": "sent",
             "target": "boss-42",
             "task_id": null
@@ -3414,9 +3682,9 @@
             "candidate_id": "c0000000-0000-0000-0000-000000000002",
             "channel": "wx",
             "content_summary": null,
-            "created_at": "2026-11-17T15:16:38.227249Z",
+            "created_at": "2026-11-17T16:24:02.467609Z",
             "draft_id": null,
-            "id": "55a8730d-ce2c-4a68-9e3c-e1d3be9c0f5d",
+            "id": "c878f502-137c-4f2b-b03e-84536d721a66",
             "note": null,
             "sent_at": "2026-11-14T08:15:00Z",
             "status": "candidate_replied",
@@ -3485,6 +3753,7 @@
         "total": 6
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/send-records",
       "status": 200
@@ -3513,6 +3782,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/send-records?status=maybe",
       "status": 422
@@ -3569,6 +3839,7 @@
         "total": 3
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/send-records?candidate_id=c0000000-0000-0000-0000-000000000001",
       "status": 200
@@ -3611,6 +3882,7 @@
         "total": 2
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/send-records?status=sent",
       "status": 200
@@ -3681,6 +3953,7 @@
         "total": 4
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/send-records",
       "status": 200
@@ -3723,6 +3996,7 @@
         "total": 4
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/send-records?limit=2",
       "status": 200
@@ -3731,8 +4005,8 @@
       "body": [
         {
           "content": "auto thread",
-          "created_at": "2026-11-17T15:16:38.162433Z",
-          "id": "dfd2734f-1625-4a8a-8f35-0176986e17b2",
+          "created_at": "2026-11-17T16:24:02.381774Z",
+          "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
           "kind": "message",
           "message_time": null,
           "sender_type": null,
@@ -3741,6 +4015,7 @@
         }
       ],
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000002/timeline",
       "status": 200
@@ -3789,8 +4064,8 @@
         },
         {
           "content": "  Contract   Message  ",
-          "created_at": "2026-11-17T15:16:38.151278Z",
-          "id": "e85e1436-a9bf-49c6-bd63-9954c22b6501",
+          "created_at": "2026-11-17T16:24:02.367041Z",
+          "id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
           "kind": "message",
           "message_time": "2026-11-14T09:30:00Z",
           "sender_type": "Recruiter",
@@ -3809,6 +4084,7 @@
         }
       ],
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000001/timeline",
       "status": 200
@@ -3867,6 +4143,7 @@
         }
       ],
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000001/timeline",
       "status": 200
@@ -3895,6 +4172,7 @@
         }
       ],
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/c0000000-0000-0000-0000-000000000001/timeline?limit=2",
       "status": 200
@@ -3908,6 +4186,7 @@
         }
       },
       "content_type": "application/json",
+      "location": null,
       "method": "GET",
       "path": "/api/candidates/does-not-exist/timeline",
       "status": 404
@@ -3918,184 +4197,184 @@
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.014647",
-        "entity_id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "created_at": "2026-11-17 16:24:02.186718",
+        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "entity_type": "position",
         "event_type": "position.created",
-        "id": "7ebbed1c-6324-4453-9105-4f4b4d89894e",
+        "id": "74f30c1f-de28-4871-8236-3708b646a657",
         "metadata_json": null,
         "summary": "Created position 'Contract Created'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.014648"
+        "updated_at": "2026-11-17 16:24:02.186721"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.028414",
-        "entity_id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "created_at": "2026-11-17 16:24:02.203329",
+        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "f591382f-3b8f-4b19-850a-55048e9c070f",
+        "id": "4f104696-acea-4fcf-b43f-aade96266f08",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.028417"
+        "updated_at": "2026-11-17 16:24:02.203334"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.034949",
-        "entity_id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "created_at": "2026-11-17 16:24:02.212967",
+        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "f34b0152-b6c3-4f61-9890-ae3a42cb0e98",
+        "id": "37ff9d5f-0d9d-41be-807a-25515459e384",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.034952"
+        "updated_at": "2026-11-17 16:24:02.212970"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.040793",
-        "entity_id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "created_at": "2026-11-17 16:24:02.220971",
+        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "5aced65b-bdf0-4d78-ba4e-466d5e91a769",
+        "id": "641385ea-6889-4d01-a4a7-d8ce3cb450c1",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.040796"
+        "updated_at": "2026-11-17 16:24:02.220974"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.047061",
-        "entity_id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "created_at": "2026-11-17 16:24:02.229700",
+        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "entity_type": "position",
         "event_type": "position.updated",
-        "id": "4eaadcf7-597f-4add-a2d6-58e82df7b343",
+        "id": "ed5c5ded-5503-4505-b7b1-5eb22833fcc2",
         "metadata_json": null,
         "summary": "Updated position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.047064"
+        "updated_at": "2026-11-17 16:24:02.229703"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.056091",
-        "entity_id": "660ecd40-91ec-4e77-8f47-28b52eb9f02c",
+        "created_at": "2026-11-17 16:24:02.244432",
+        "entity_id": "b8560ed2-806a-4fad-8c5a-70f0ca8034f7",
         "entity_type": "position",
         "event_type": "position.deleted",
-        "id": "fa0f2bfe-a882-422c-ab75-400dcd0497f8",
+        "id": "a1e60bb5-643e-4c2a-9286-d17077c32e0e",
         "metadata_json": null,
         "summary": "Deleted position 'Contract Renamed'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.056094"
+        "updated_at": "2026-11-17 16:24:02.244435"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.068339",
-        "entity_id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "created_at": "2026-11-17 16:24:02.264997",
+        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "entity_type": "candidate",
         "event_type": "candidate.created",
-        "id": "a97c4c74-a58f-4b75-9480-9f9a2d0b01d6",
+        "id": "258784b6-e7ad-44f3-8ff1-b92112381a7d",
         "metadata_json": null,
         "summary": "Created candidate",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.068340"
+        "updated_at": "2026-11-17 16:24:02.264999"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.092557",
-        "entity_id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "created_at": "2026-11-17 16:24:02.293445",
+        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "entity_type": "candidate",
         "event_type": "candidate.updated",
-        "id": "3a3bd4ca-653a-4e92-99f3-6e4efed586ae",
+        "id": "f8a3bc0f-a10d-437e-b4b0-61451f2cf380",
         "metadata_json": null,
         "summary": "Updated candidate",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.092560"
+        "updated_at": "2026-11-17 16:24:02.293448"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.103679",
-        "entity_id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "created_at": "2026-11-17 16:24:02.305957",
+        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "entity_type": "candidate",
         "event_type": "candidate.updated",
-        "id": "aed7a730-5a83-45d0-90c4-fcfc5e017463",
+        "id": "23d464f4-ac54-4d8c-b6cd-5618eec83dce",
         "metadata_json": null,
         "summary": "Updated candidate",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.103682"
+        "updated_at": "2026-11-17 16:24:02.305961"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.119428",
-        "entity_id": "5bbaf44b-8a92-40f2-bb4f-eb3f252df130",
+        "created_at": "2026-11-17 16:24:02.329535",
+        "entity_id": "e344ba5b-4af9-4bee-9194-2f19bc6dcdae",
         "entity_type": "candidate",
         "event_type": "candidate.deleted",
-        "id": "bc06e138-7da9-4985-a5f1-d5fea7ae1a6a",
+        "id": "53c9e13a-c41b-472d-9282-9a8ae7e1294d",
         "metadata_json": null,
         "summary": "Deleted candidate and all dependent records",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.119430"
+        "updated_at": "2026-11-17 16:24:02.329539"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.130588",
-        "entity_id": "e0a763e3-d5f2-4b0f-8732-e6e4eda804d7",
+        "created_at": "2026-11-17 16:24:02.344140",
+        "entity_id": "6d8abc47-6778-450c-a938-45f25ef578c2",
         "entity_type": "conversation",
         "event_type": "conversation.created",
-        "id": "a8e9afd5-0761-4624-92e0-7e57c38dabe4",
+        "id": "1e321e2c-650b-4e0c-bc27-d034cd4e1dd5",
         "metadata_json": null,
         "summary": "Opened conversation",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.130590"
+        "updated_at": "2026-11-17 16:24:02.344142"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.151891",
-        "entity_id": "e85e1436-a9bf-49c6-bd63-9954c22b6501",
+        "created_at": "2026-11-17 16:24:02.367587",
+        "entity_id": "64aff5ac-c0fe-4456-a166-cef86bee48d9",
         "entity_type": "message",
         "event_type": "message.created",
-        "id": "bd4308e5-6489-4e3e-bc2d-460dc128d86c",
+        "id": "7acbed5a-c876-47ef-a882-0a0cf4a4716c",
         "metadata_json": {
           "source": "manual"
         },
         "summary": "Recorded a message",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.151892"
+        "updated_at": "2026-11-17 16:24:02.367588"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.162867",
-        "entity_id": "dfd2734f-1625-4a8a-8f35-0176986e17b2",
+        "created_at": "2026-11-17 16:24:02.382335",
+        "entity_id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
         "entity_type": "message",
         "event_type": "message.created",
-        "id": "17d2cc16-4144-4c7c-9d93-1d962817ab88",
+        "id": "5c042df5-bb91-418f-b301-b268d44afd26",
         "metadata_json": {
           "source": "manual"
         },
         "summary": "Recorded a message",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.162868"
+        "updated_at": "2026-11-17 16:24:02.382337"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.218707",
-        "entity_id": "d1d6c23b-59ed-485f-ba56-31bd12887d27",
+        "created_at": "2026-11-17 16:24:02.457200",
+        "entity_id": "4d6efdcf-7981-46a0-bdb9-4f3214034225",
         "entity_type": "send_record",
         "event_type": "send.recorded",
-        "id": "03bd19d7-2c98-4fcf-bdc4-75e5af3e42b4",
+        "id": "43ae4231-310e-4285-be81-e381f718beed",
         "metadata_json": {
           "candidate_id": "c0000000-0000-0000-0000-000000000001",
           "channel": "boss",
@@ -4106,16 +4385,16 @@
         },
         "summary": "Recorded manual send with status 'sent'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.218709"
+        "updated_at": "2026-11-17 16:24:02.457202"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.227635",
-        "entity_id": "55a8730d-ce2c-4a68-9e3c-e1d3be9c0f5d",
+        "created_at": "2026-11-17 16:24:02.468056",
+        "entity_id": "c878f502-137c-4f2b-b03e-84536d721a66",
         "entity_type": "send_record",
         "event_type": "send.recorded",
-        "id": "80a98dc1-2079-4325-8322-03b651bfc2c1",
+        "id": "14413008-9755-42ea-a925-6ac46110af27",
         "metadata_json": {
           "candidate_id": "c0000000-0000-0000-0000-000000000002",
           "channel": "wx",
@@ -4126,33 +4405,33 @@
         },
         "summary": "Recorded manual send with status 'candidate_replied'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.227637"
+        "updated_at": "2026-11-17 16:24:02.468058"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.265382",
+        "created_at": "2026-11-17 16:24:02.520513",
         "entity_id": "77777777-7777-7777-7777-777777777777",
         "entity_type": "position",
         "event_type": "position.deleted",
-        "id": "df0bc688-4360-4a56-96fb-fff18886618b",
+        "id": "ea80614a-92ef-456c-bbb9-c8959640cc4e",
         "metadata_json": null,
         "summary": "Deleted position 'ML Engineer'",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.265385"
+        "updated_at": "2026-11-17 16:24:02.520517"
       },
       {
         "actor": "local_user",
         "actor_id": null,
-        "created_at": "2026-11-17 15:16:38.281469",
+        "created_at": "2026-11-17 16:24:02.539643",
         "entity_id": "c0000000-0000-0000-0000-000000000001",
         "entity_type": "candidate",
         "event_type": "candidate.deleted",
-        "id": "bb915d93-cb12-45da-bb89-ac753f2d918b",
+        "id": "2be49226-e1c8-44d2-a12f-4d7c3f836253",
         "metadata_json": null,
         "summary": "Deleted candidate and all dependent records",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.281472"
+        "updated_at": "2026-11-17 16:24:02.539646"
       }
     ],
     "candidates": [
@@ -4226,7 +4505,7 @@
         "source": "boss",
         "status": "New",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.265587"
+        "updated_at": "2026-11-17 16:24:02.520755"
       },
       {
         "archived": 1,
@@ -4251,14 +4530,14 @@
       {
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "boss",
-        "created_at": "2026-11-17 15:16:38.161331",
-        "id": "839f0aa1-0cda-4a8e-8ad5-461b8df82809",
+        "created_at": "2026-11-17 16:24:02.380869",
+        "id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
         "is_active": 1,
-        "last_message_at": "2026-11-17 15:16:38.161606",
+        "last_message_at": "2026-11-17 16:24:02.381254",
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
         "title": null,
-        "updated_at": "2026-11-17 15:16:38.162214"
+        "updated_at": "2026-11-17 16:24:02.381556"
       },
       {
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
@@ -4275,14 +4554,14 @@
       {
         "candidate_id": "c0000000-0000-0000-0000-000000000006",
         "channel": "boss",
-        "created_at": "2026-11-17 15:16:38.129824",
-        "id": "e0a763e3-d5f2-4b0f-8732-e6e4eda804d7",
+        "created_at": "2026-11-17 16:24:02.343628",
+        "id": "6d8abc47-6778-450c-a938-45f25ef578c2",
         "is_active": 1,
         "last_message_at": null,
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
         "title": "Contract thread",
-        "updated_at": "2026-11-17 15:16:38.129826"
+        "updated_at": "2026-11-17 16:24:02.343631"
       }
     ],
     "follow_up_tasks": [
@@ -4350,16 +4629,16 @@
         "channel": "boss",
         "content": "auto thread",
         "content_hash": "324e0d9a9edc406cfe94d5de8584b0784cb9fc899bec84d587f862651480ee41",
-        "conversation_id": "839f0aa1-0cda-4a8e-8ad5-461b8df82809",
-        "created_at": "2026-11-17 15:16:38.162433",
-        "id": "dfd2734f-1625-4a8a-8f35-0176986e17b2",
+        "conversation_id": "f974c687-ff7a-49d3-a5f2-62855ce1fe25",
+        "created_at": "2026-11-17 16:24:02.381774",
+        "id": "c92b6a37-518f-44cb-ae1c-908fdb236a4a",
         "import_record_id": null,
         "message_time": null,
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "sender_type": null,
         "source": "manual",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.162434"
+        "updated_at": "2026-11-17 16:24:02.381776"
       }
     ],
     "positions": [
@@ -4495,9 +4774,9 @@
         "candidate_id": "c0000000-0000-0000-0000-000000000002",
         "channel": "wx",
         "content_summary": null,
-        "created_at": "2026-11-17 15:16:38.227249",
+        "created_at": "2026-11-17 16:24:02.467609",
         "draft_id": null,
-        "id": "55a8730d-ce2c-4a68-9e3c-e1d3be9c0f5d",
+        "id": "c878f502-137c-4f2b-b03e-84536d721a66",
         "note": null,
         "owner_id": "00000000-0000-0000-0000-000000000001",
         "sent_at": "2026-11-14 08:15:00.000000",
@@ -4505,9 +4784,9 @@
         "target": null,
         "task_id": null,
         "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2026-11-17 15:16:38.227251"
+        "updated_at": "2026-11-17 16:24:02.467613"
       }
     ]
   },
-  "started_at": "2026-11-17T15:16:37.295778+00:00"
+  "started_at": "2026-11-17T16:24:01.216307+00:00"
 }

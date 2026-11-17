@@ -20,7 +20,8 @@ use sqlx::{FromRow, SqliteConnection};
 use crate::audit::{insert_audit, AuditEntry};
 use crate::repository::find_position_by_id;
 use crate::store::{
-    repo_error, to_sql_timestamp, where_clause, SqliteStore, DEFAULT_TENANT_ID, LOCAL_OWNER_ID,
+    offset_bind, repo_error, to_sql_timestamp, where_clause, SqliteStore, DEFAULT_TENANT_ID,
+    LOCAL_OWNER_ID,
 };
 
 /// Statuses that count as a contact attempt (`means_contacted`).
@@ -148,7 +149,7 @@ async fn fetch_candidates(
         query = query.bind(value.clone());
     }
     if let Some((limit, offset)) = limit {
-        query = query.bind(limit as i64).bind(offset as i64);
+        query = query.bind(limit as i64).bind(offset_bind(offset));
     }
     let rows = query
         .fetch_all(&mut *connection)

@@ -271,6 +271,7 @@ Not served yet, and deliberately out of scope for W1:
 | `422 details.errors` | The list is pydantic-specific. `contract_diff.py` compares status + `error.code` + `error.message` + the set of `details` keys, and ignores the per-provider error list. The Rust side still emits a structurally similar list (`type`, `loc`, `msg`, `input`). |
 | `GET /` | Not implemented (not part of the API surface). |
 | Read-only opening | `?mode=ro` (without `immutable`) still updates the `-shm` sidecar's **mtime** of a WAL database — measured, and the cause is *any* such open, including `scripts/compare_baseline_schema.py`; the file's **content sha256 does not change**. The Rust service opens the baseline with `?mode=ro&immutable=true`, which leaves `ica.db`, `-wal` and `-shm` byte- and mtime-identical. |
+| Sort order without tie-break | Every list sorts by a single column (`ORDER BY p.created_at DESC`, `updated_at DESC`, …) with no secondary key, so rows sharing a timestamp have SQL-undefined order. Both sides run the same SQL over the same rows, so the capture is currently stable — but that is agreement by coincidence, not by contract. Adding a tie-break (e.g. `p.id`) would change response order and must be registered as an IMP with frontend sign-off first (audit finding F-11). |
 | Baseline emptiness | The current baseline database contains 0 positions, so the read-only proof is the startup self-check (20 tables) plus a 200 from `/api/positions`; contract parity is proven against the seeded database instead. |
 
 ### 7.1 Declared improvements (W1)
@@ -285,6 +286,16 @@ outside this table fails the comparison.
 | **IMP-1** | `GET /api/messages` → `total` | `total = min(real_total, limit + offset)`. With 5 matching rows: `?limit=2` → `total=2`, `has_more=false`; `?limit=2&offset=1` → `total=3` | `total` = the real number of matching rows, independent of the window (`?limit=2` → `total=5`, `has_more=true`) | `total` means "rows before paging"; a truncated value makes the page count uncomputable and `has_more` almost always false | **None.** No code under `frontend/src` reads `Page.total` / `Page.has_more` except the type definition in `types.ts` (verified by grep; only tests reference them) |
 | **IMP-2** | `PATCH /api/positions/{id}` with an explicit `null` on a NOT NULL column | `{"name": null}` → **500** `internal_error`; `{"archived": null}` → **500** `internal_error` | **422** `validation_error` with the same envelope as every other validation failure | A 500 means "unhandled exception": the client cannot tell a bad request from a server crash, and §3 already requires 422 for a rejected payload | **None positive, none negative.** The frontend never sends `null` for these fields; a bug that did would now show a validation message instead of a generic 500 |
 | **IMP-3** | The five list endpoints → `total` | positions / candidates / conversations / send-records report the real total; messages reports the truncated one | All five report the real total | One `Page` envelope must mean one thing, or a client cannot write generic paging code | **None** (same grep as IMP-1) |
+| **IMP-4** | The five list endpoints with `offset` beyond `u64::MAX` (R0 audit F-03) | **200** with an empty page; Python integers are unbounded, so the offset is echoed back as-is, however large | **422** `validation_error` / `int_parsing` | The page envelope echoes `offset` as a JSON number typed `usize`, and nothing wider than `u64::MAX` (≈1.8e19) fits — the echo is impossible. Within that threshold the values match exactly (`?offset=9223372036854775808`, past `i64::MAX`, answers 200 on both sides) | **None.** An offset above 1.8e19 is scanner noise; real clients page inside `u64` |
+
+`IMP-4` is registered from the R0 audit (2026-11-17), not as a W1 improvement:
+the port accepted nothing past `i64::MAX` before it, and `u64::MAX` is the
+widest echoable threshold. The same audit closed the other parser/router gaps —
+repeated query keys now keep the **last** occurrence like Starlette (no
+plain-text 400), booleans are no longer whitespace-trimmed, `405` carries the
+JSON envelope, `HEAD` on a served route answers 405, and trailing-slash paths
+307-redirect with method and query preserved. Each is pinned by a named case in
+`contract_capture.py`.
 
 Deliberately **not** changed, to keep the wave's scope honest:
 
@@ -329,6 +340,10 @@ Normalisation is symmetric on both sides and never hides a value:
   `<now>`: they are "the moment this request ran" on both sides. Seeded
   timestamps are in the past and stay literal, so they are compared exactly.
 - **422 bodies** collapse to `code` + `message` + the sorted `details` key set.
+- **`Location` headers** are reduced to `path?query` before comparing: the
+  absolute URL embeds each side's own port. `content_type` is compared for
+  every case — a plain-text rejection body is the F-02 failure mode, so the
+  media type is part of the contract.
 
 Everything else — every field, every row of the eight business tables, the
 audit metadata (parsed), `messages.content_hash`, row counts — is compared

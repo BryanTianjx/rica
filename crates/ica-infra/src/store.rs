@@ -37,6 +37,18 @@ pub fn to_sql_timestamp(value: &DateTime<Utc>) -> String {
     value.format("%Y-%m-%d %H:%M:%S%.6f").to_string()
 }
 
+/// The `OFFSET ?` bind value for a page window.
+///
+/// SQLite offsets are `i64`, and a `usize as i64` past `i64::MAX` wraps to a
+/// negative number, which SQLite treats as "no offset" — an attacker-style
+/// `?offset=9223372036854775808` would silently serve page one instead of an
+/// empty window (caught by `positions_offset_beyond_i64` in the contract). Any
+/// offset past `i64::MAX` is past the end of every table anyway, so clamping
+/// to `i64::MAX` yields the same empty page the Python slice would.
+pub fn offset_bind(offset: usize) -> i64 {
+    i64::try_from(offset).unwrap_or(i64::MAX)
+}
+
 /// Every port in one adapter over one pool.
 #[derive(Debug, Clone)]
 pub struct SqliteStore {
