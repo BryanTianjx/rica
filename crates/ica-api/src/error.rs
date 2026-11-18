@@ -57,6 +57,15 @@ impl From<ApplicationError> for ApiError {
     }
 }
 
+/// A persistence failure the route could not classify is a 500: the baseline
+/// lets an unexpected DB error become an unhandled 500 rather than inventing a
+/// 4xx for it.
+impl From<ica_application::RepositoryError> for ApiError {
+    fn from(error: ica_application::RepositoryError) -> Self {
+        Self(ContractError::internal(error.message().to_string()))
+    }
+}
+
 impl From<ContractError> for ApiError {
     fn from(error: ContractError) -> Self {
         Self(error)

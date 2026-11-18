@@ -14,16 +14,17 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{get, post};
 use axum::{middleware, Json, Router};
 
 use crate::body;
 use crate::dto::{
     CandidateDetailRead, CandidateRead, ContextPreviewRead, ConversationRead, DashboardRead,
-    DraftCopyResponse, DraftGroupRead, DraftRead, FollowUpDecisionRead, FollowUpPolicyRead,
-    FollowUpTaskRead, HealthResponse, MessageRead, PageResponse, PositionRead, SendRecordRead,
-    TimelineEntryRead,
+    DraftCopyResponse, DraftGroupRead, DraftRead, EncryptedExportResponse, ExportResponse,
+    FollowUpDecisionRead, FollowUpPolicyRead, FollowUpTaskRead, HealthResponse,
+    ImportConfirmResult, ImportOcrResult, ImportResult, ImportSessionRead, MessageRead,
+    PageResponse, PositionRead, SendRecordRead, TimelineEntryRead,
 };
 use crate::error::ApiError;
 use crate::extract::ApiQuery;
@@ -34,6 +35,7 @@ use crate::query::{
     RawListSendRecordsQuery, RawTimelineQuery,
 };
 use crate::state::AppState;
+use ica_contracts::error::ContractError;
 
 /// Every path the router serves, as axum 0.8 patterns.
 ///
@@ -69,6 +71,14 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/drafts/{draft_id}/copy",
     "/api/draft-groups/{group_id}",
     "/api/draft-groups/{group_id}/select",
+    // W4
+    "/api/imports/preview",
+    "/api/imports/ocr",
+    "/api/imports/{session_id}",
+    "/api/imports/{session_id}/confirm",
+    "/api/imports/{session_id}/reject",
+    "/api/export",
+    "/api/import",
 ];
 
 /// Build the router for `state`.
@@ -143,6 +153,15 @@ pub fn router(state: AppState) -> Router {
             get(preview_context),
         )
         .route("/api/draft-groups/{group_id}", get(get_draft_group))
+        .route("/api/imports/preview", post(preview_import))
+        // The literal `ocr` segment is registered next to `preview`; the
+        // `{session_id}` routes below must not swallow it.
+        .route("/api/imports/ocr", post(ocr_import))
+        .route("/api/imports/{session_id}", get(get_import))
+        .route("/api/imports/{session_id}/confirm", post(confirm_import))
+        .route("/api/imports/{session_id}/reject", post(reject_import))
+        .route("/api/export", post(export_data))
+        .route("/api/import", post(import_data))
         .route(
             "/api/draft-groups/{group_id}/select",
             post(select_draft_from_group),
@@ -742,4 +761,154 @@ fn build_draft_group(drafts: Vec<ica_domain::GeneratedDraft>) -> DraftGroupRead 
         created_at,
         drafts: drafts.into_iter().map(DraftRead::from).collect(),
     }
+}
+
+// ── W4: imports, export, import, OCR ────────────────────────────────────────
+
+/// `POST /api/imports/preview` — parse pasted text into an import session.
+///
+/// 200, not 201: the baseline declares no `status_code` on this route, and the
+/// preview is a reading of the page rather than a new addressable resource.
+async fn preview_import(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<ImportSessionRead>, ApiError> {
+    let raw: body::RawImportPreview = body::parse(&body)?;
+    let request = body::import_preview(raw)?;
+    let session = ica_application::preview_import(state.imports(), request).await?;
+    Ok(Json(ImportSessionRead::from(session)))
+}
+
+/// `GET /api/imports/{session_id}` — one session with its parsed records.
+async fn get_import(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> Result<Json<ImportSessionRead>, ApiError> {
+    let session = state.imports().find(&session_id).await?.ok_or_else(|| {
+        ApiError::from(ContractError::not_found(format!(
+            "Import session '{session_id}' was not found"
+        )))
+    })?;
+    Ok(Json(ImportSessionRead::from(session)))
+}
+
+/// `POST /api/imports/{session_id}/confirm` — write the parsed records into the
+/// candidate's timeline.
+async fn confirm_import(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<ImportConfirmResult>, ApiError> {
+    let raw: body::RawImportConfirm = body::parse(&body)?;
+    let request = body::import_confirm(raw)?;
+    let outcome = ica_application::confirm_import(state.imports(), &session_id, request).await?;
+    Ok(Json(ImportConfirmResult {
+        session_id: outcome.session_id,
+        saved_message_ids: outcome.saved_message_ids,
+        skipped_count: outcome.skipped_count,
+        duplicate_count: outcome.duplicate_count,
+    }))
+}
+
+/// `POST /api/imports/{session_id}/reject` — close a session without importing.
+async fn reject_import(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> Result<Json<ImportSessionRead>, ApiError> {
+    let session = ica_application::reject_import(state.imports(), &session_id).await?;
+    Ok(Json(ImportSessionRead::from(session)))
+}
+
+/// `POST /api/export` — the whole snapshot, optionally sealed.
+///
+/// Two response shapes, chosen by whether `X-Encrypt-Aes-Key` is present:
+/// without it the documents go out in the body; with it they are replaced by
+/// the AES-256-GCM envelope. The audit row is written by the use case **after**
+/// sealing succeeds.
+async fn export_data(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let key = headers
+        .get("x-encrypt-aes-key")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.to_string());
+
+    let outcome =
+        ica_application::export_data(state.snapshots(), state.export_sealer(), key.as_deref())
+            .await?;
+
+    let body = match outcome {
+        ica_application::sync::ExportOutcome::Plain(snapshot) => {
+            serde_json::to_value(ExportResponse {
+                version: snapshot.version,
+                exported_at: snapshot.exported_at,
+                data: snapshot.data,
+            })
+            .map_err(|error| {
+                ApiError::from(ContractError::internal(format!(
+                    "export could not be serialised: {error}"
+                )))
+            })?
+        }
+        ica_application::sync::ExportOutcome::Sealed(envelope) => {
+            serde_json::to_value(EncryptedExportResponse {
+                // `SealedSnapshot` carries no algorithm field: the sealer is
+                // AES-256-GCM by contract, so the marker is fixed.
+                alg: "A256GCM".to_string(),
+                iv: envelope.iv,
+                tag: envelope.tag,
+                ciphertext: envelope.ciphertext,
+            })
+            .map_err(|error| {
+                ApiError::from(ContractError::internal(format!(
+                    "sealed export could not be serialised: {error}"
+                )))
+            })?
+        }
+    };
+    Ok(Json(body))
+}
+
+/// `POST /api/import` — merge a snapshot, last-write-wins per row.
+async fn import_data(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<ImportResult>, ApiError> {
+    let raw: body::RawImportPayload = body::parse(&body)?;
+    let data = body::import_payload(raw)?;
+    let outcome = ica_application::import_data(state.snapshots(), data).await?;
+    Ok(Json(ImportResult {
+        imported: outcome.imported,
+        updated: outcome.updated,
+        skipped: outcome.skipped,
+        conflicts: outcome.conflicts,
+    }))
+}
+
+/// `POST /api/imports/ocr` — read a screenshot from the staging directory.
+///
+/// The path guard runs before any I/O, so a path outside the staging area is
+/// refused without disclosing whether the file exists.
+async fn ocr_import(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<ImportOcrResult>, ApiError> {
+    let raw: body::RawImportOcr = body::parse(&body)?;
+    let request = body::import_ocr(raw)?;
+    let candidate_id = request.candidate_id.clone();
+    let outcome = ica_application::ocr_screenshot(
+        state.imports(),
+        state.ocr(),
+        request,
+        &state.config().ocr_upload_dir,
+    )
+    .await?;
+    Ok(Json(ImportOcrResult {
+        session_id: outcome.session.id,
+        text: outcome.text,
+        language: outcome.language,
+        candidate_id,
+        created_at: outcome.session.created_at,
+    }))
 }

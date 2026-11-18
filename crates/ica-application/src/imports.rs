@@ -309,11 +309,13 @@ pub async fn ocr_screenshot(
     let resolved = assert_ocr_path_allowed(&request.image_path, allowed_dir)?;
 
     if !resolved.exists() {
-        // The baseline raises `ICAError(code="ocr_image_missing")`, which is a
-        // 409 with its own code — not the generic business-rule violation.
-        return Err(ApplicationError::StatusWithCode {
-            status: 409,
-            code: "ocr_image_missing",
+        // NOTE: `ocr_service.read_ocr_text` also has a `code="ocr_image_missing"`
+        // branch, but it is unreachable from the route: the API layer checks
+        // `os.path.exists` first and raises a PLAIN `BusinessRuleError` — no
+        // `code=` — so the wire carries the default `business_rule_violation`.
+        // Reproducing the route's behaviour, not the unreachable helper's.
+        return Err(ApplicationError::ConflictWithCode {
+            code: "business_rule_violation",
             message: format!("OCR image not found: {}", resolved.display()),
             details: serde_json::json!({}),
         });

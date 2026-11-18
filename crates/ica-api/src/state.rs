@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use ica_application::{
-    CandidateRepository, ConversationRepository, DashboardRepository, DraftGenerator,
-    DraftRepository, FollowUpRepository, MessageRepository, PositionRepository,
-    SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, DataSnapshotRepository,
+    DraftGenerator, DraftRepository, ExportSealer, FollowUpRepository, ImportRepository,
+    MessageRepository, OcrEngine, PositionRepository, SendRecordRepository,
 };
 
 /// Settings that shape a response body.
@@ -16,6 +16,10 @@ pub struct AppConfig {
     /// Reported by `GET /health` as `ai_enabled`
     /// (`bool(settings.ai_api_key.strip())` in Python).
     pub ai_enabled: bool,
+    /// The only directory `POST /api/imports/ocr` will read an image from
+    /// (`OCR_UPLOAD_DIR`, i.e. `<data dir>/ocr` in Python). The path guard
+    /// resolves against this before touching the file.
+    pub ocr_upload_dir: std::path::PathBuf,
 }
 
 /// Everything a handler may reach.
@@ -35,6 +39,10 @@ pub struct AppState {
     dashboard: Arc<dyn DashboardRepository>,
     drafts: Arc<dyn DraftRepository>,
     draft_generator: Arc<dyn DraftGenerator>,
+    imports: Arc<dyn ImportRepository>,
+    snapshots: Arc<dyn DataSnapshotRepository>,
+    export_sealer: Arc<dyn ExportSealer>,
+    ocr: Arc<dyn OcrEngine>,
     config: AppConfig,
 }
 
@@ -50,6 +58,10 @@ impl AppState {
         dashboard: Arc<dyn DashboardRepository>,
         drafts: Arc<dyn DraftRepository>,
         draft_generator: Arc<dyn DraftGenerator>,
+        imports: Arc<dyn ImportRepository>,
+        snapshots: Arc<dyn DataSnapshotRepository>,
+        export_sealer: Arc<dyn ExportSealer>,
+        ocr: Arc<dyn OcrEngine>,
         config: AppConfig,
     ) -> Self {
         Self {
@@ -62,6 +74,10 @@ impl AppState {
             dashboard,
             drafts,
             draft_generator,
+            imports,
+            snapshots,
+            export_sealer,
+            ocr,
             config,
         }
     }
@@ -100,6 +116,22 @@ impl AppState {
 
     pub fn draft_generator(&self) -> &dyn DraftGenerator {
         self.draft_generator.as_ref()
+    }
+
+    pub fn imports(&self) -> &dyn ImportRepository {
+        self.imports.as_ref()
+    }
+
+    pub fn snapshots(&self) -> &dyn DataSnapshotRepository {
+        self.snapshots.as_ref()
+    }
+
+    pub fn export_sealer(&self) -> &dyn ExportSealer {
+        self.export_sealer.as_ref()
+    }
+
+    pub fn ocr(&self) -> &dyn OcrEngine {
+        self.ocr.as_ref()
     }
 
     pub fn config(&self) -> &AppConfig {

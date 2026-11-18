@@ -36,6 +36,9 @@ pub use follow_ups::{
     cancel_task, complete_task, create_task, ensure_default_policy, evaluate, get_task, list_tasks,
     record_result, update_policy, update_task,
 };
+pub use imports::{
+    confirm_import, get_import, ocr_screenshot, preview_import, reject_import, OcrOutcome,
+};
 pub use payload::{
     CandidateFilter, CandidatePatch, ConversationFilter, DraftCopyOutcome, DraftFilter, DraftPatch,
     Field, FollowUpPolicyPatch, FollowUpResultPatch, FollowUpTaskFilter, FollowUpTaskPatch,
@@ -55,3 +58,4 @@ pub use positions::{
     create_position, delete_position, get_position, list_positions, update_position, ListPositions,
 };
 pub use send_records::{list_send_records, record_send, ListSendRecords};
+pub use sync::{export_data, import_data, ExportOutcome, ExportSnapshot, SealedSnapshot};

@@ -81,9 +81,19 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // W3's AI port: no provider is configured, so every call answers the
         // baseline's 503 `ai_provider_error`. The real provider is W5's job.
         Arc::new(ica_infra::drafts::NotConfiguredDraftGenerator),
+        // W4 ports. The same pool-backed store serves the import repository and
+        // the snapshot repository, so a write and its audit event share one
+        // transaction; sealing and OCR are separate adapters.
+        Arc::new(repository.clone()),
+        Arc::new(repository.clone()),
+        Arc::new(ica_infra::export_crypto::AesGcmSealer),
+        Arc::new(ica_infra::ocr::NotConfiguredOcrEngine),
         AppConfig {
             app_name,
             ai_enabled,
+            // `OCR_UPLOAD_DIR` in Python: `<data dir>/ocr`. Only paths under
+            // here are readable by the OCR route.
+            ocr_upload_dir: std::path::PathBuf::from(env_or("ICA_DATA_DIR", "./data")).join("ocr"),
         },
     );
 

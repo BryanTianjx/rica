@@ -48,9 +48,11 @@ impl OcrEngine for NotConfiguredOcrEngine {
         // future caller.
         Err(ApplicationError::StatusWithCode {
             status: 409,
-            code: "ocr_error",
-            message: "Local OCR failed: no OCR engine is wired into this build".to_string(),
-            details: serde_json::json!({}),
+            code: "ocr_image_undecodable",
+            message: "OCR image could not be decoded".to_string(),
+            details: serde_json::json!({
+                "reason": "no OCR engine is wired into this build",
+            }),
         })
     }
 }
@@ -73,14 +75,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn read_text_never_panics() {
+    async fn read_text_reports_an_undecodable_image_code() {
         let error = NotConfiguredOcrEngine
             .read_text(Path::new("/tmp/nothing.png"))
             .await
             .unwrap_err();
-        assert_eq!(
-            error.message(),
-            "Local OCR failed: no OCR engine is wired into this build"
-        );
+        // The route maps a read failure to the baseline's
+        // `ocr_image_undecodable`, not to a generic 409: a truncated or
+        // non-image upload is a distinct, actionable failure.
+        assert_eq!(error.message(), "OCR image could not be decoded");
+        match error {
+            ApplicationError::StatusWithCode { status, code, .. } => {
+                assert_eq!(status, 409);
+                assert_eq!(code, "ocr_image_undecodable");
+            }
+            other => panic!("unexpected variant: {other:?}"),
+        }
     }
 }
