@@ -178,3 +178,34 @@ Rust 侧因此需要两个函数（`crates/ica-infra/src/json_fmt.rs`）：
 
 > W3 的 189 条用例没暴露这两点，是因为它们恰好让两侧的 UUID 出现顺序一致。
 > 用例一多、场景一改，伪差异就会淹没真差异。
+
+### 11.6 对拍时基线已漂移（记录，不自行处置）
+
+2026-11-19 跑对拍时，`/mnt/o/ica` 的 HEAD 已从 `d39e321` 变成 `20b252d`，
+工作树另有 24 个文件未提交（AI provider / browser bridge / frontend / packaging）。
+**这些改动不是本工程做的**——对拍脚本只从基线**读**（rsync 复制到 `/tmp` 后在副本上跑）。
+
+对 W4 结论的影响：**无**。漂移没有一行落在 W4 契约面：
+
+```
+git diff --stat -- backend/app/api/imports.py   backend/app/application/conversation_service.py   backend/app/application/sync_service.py   backend/app/infrastructure/export_crypto.py   backend/app/application/import_pipeline.py backend/app/schemas/
+→ 空
+```
+
+但端点账变了：`scripts/check_endpoint_map.py` 现在报
+`live /api 112 → 排除 39 条 browser → 73 条业务路由`，
+而契约文档 §2 记的是 **68** 条，差额 **5** 条：
+
+| 端点 | 来源 |
+| --- | --- |
+| `POST /api/ai/models` | 外部会话新增 |
+| `PUT /api/ai/models/{model_id:path}` | 外部会话新增 |
+| `PUT /api/ai/models/{model_id:path}/default` | 外部会话新增 |
+| `DELETE /api/ai/models/{model_id:path}` | 外部会话新增 |
+| `POST /api/imports/{session_id}/confirm-candidate` | 基线本来就有，W4 清单只列 7 条 |
+
+**处置：记下来交 PM 定归属，不自行改契约表。** 按既定口径，
+「基线何时重锚、重锚到哪个 commit、是否纳入新增端点」是**用户决策**。
+
+> 提醒后续会话：对拍复制的是基线**工作树**（含未提交改动），
+> 所以每次交付都要写清「对的是哪个版本的基线」。
