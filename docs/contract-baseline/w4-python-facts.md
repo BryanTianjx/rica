@@ -118,3 +118,63 @@ ImportStatus  (179)：pending / previewed / confirmed / rejected / failed
 RecordStatus  (193)：pending / valid / invalid / duplicate / unknown
 MessageSource  (65)：manual / paste_import / screenshot_ocr
 ```
+
+## 11. 跨语言对拍实测（`scripts/contract_verify.sh`，214/214）
+
+这一节记的是**两边同时跑、逐字段 diff** 得到的事实，与上面的「源码推读」分开。
+原始证据：`docs/contract-baseline/w1-python.json` / `w1-rust.json`（222 条用例）。
+
+### 11.1 对拍暴露的七处真实差异（都已修）
+
+| 差异 | 基线 | 修之前 | 性质 |
+| --- | --- | --- | --- |
+| confirm 后的 `raw_text` | 清空 | 保留 | **隐私**：原文是最富集的 PII 载荷，确认后无人再读，基线在同一事务里删 |
+| `import.confirmed` 的 metadata | `{"saved":N,"skipped":N,"duplicates":N}` | `null` | 漏写审计元数据 |
+| `data.exported` / `data.imported` 的 `entity_id` | `NULL` | `"export"` / `"import"` | 多写 |
+| **加密**导出的 metadata.tables | 有完整表计数 | `{}` | 基线在封包**前**就取了计数，加密导出照样报 |
+| 导入 payload 里的未知表 | 完全忽略（`skipped` 不变） | 计入 `skipped: 1` | 基线只遍历 `_BUSINESS_TABLES` |
+| confirm 时未知 candidate | **404** `not_found` | 409 | 状态码错 |
+| `"data": null` | 422 `dict_type` | 200 | 校验漏 |
+
+### 11.2 `metadata_json` 是 TEXT 列，字节即契约
+
+Python 的 `json.dumps` 在这个代码库里有**两种形态**，不可互换：
+
+| 用途 | 参数 | 形态 |
+| --- | --- | --- |
+| 审计 `metadata_json` | `json.dumps(metadata, ensure_ascii=False)` | **默认分隔符**（`", "` / `": "`）+ **插入序**（不排序） |
+| 加密导出的明文 | `json.dumps(..., separators=(",",":"), sort_keys=True)` | **紧凑** + **键排序** |
+
+Rust 侧因此需要两个函数（`crates/ica-infra/src/json_fmt.rs`）：
+`python_json()` 与 `python_json_sorted_compact()`；serde_json 开启 `preserve_order`
+才能保住插入序。
+
+> 由此推出一条通用规则：**凡是把 JSON 存进 TEXT 列的地方，格式都是契约**。
+> 反过来，凡是走 HTTP JSON 响应的，键序不是契约（前端按名取值）。
+
+### 11.3 `entity_id` 为 NULL 是常态
+
+`record_audit` 的 `entity_id` 是可选参数。`data.exported` / `data.imported`
+在基线里**不传** `entity_id`，所以列是 NULL。Rust 侧曾传 `"export"` 占位，
+那会在库里留下一条基线没有的字符串。
+
+### 11.4 schema 快照曾缺 12 张表
+
+`crates/ica-infra/schema/ica-baseline.sql` 第一版是从**从未跑过浏览器子系统**的库导出的，
+缺 12 张 `browser_*` 表。基线 `reject_import` 会查 `browser_candidate_extractions` ——
+对着缺表的 schema，**基线自己**返 500（`no such table: browser_candidate_extractions`）。
+这是夹具缺陷，不是契约差异，但会让忠实移植被判成不一致。
+
+### 11.5 diff 工具本身的两个结构缺陷
+
+1. **UUID 占位图是两侧各自生成的** → 同一个种子 id 在两侧拿到不同编号，
+   每行带 `owner_id` 的记录都被读成差异（**122 处伪差异**）。
+   改为两侧共用一张图（对两侧 UUID 的并集排序编号）。
+2. **运行期生成的随机 id 无法按值比较** → 新建候选、确认的消息，两侧必然不同。
+   改为：只在一侧出现的 UUID 按各自首次出现顺序编号成 `<new-uuid:N>`。
+
+另外，加密导出的 `iv` / `ciphertext` **每次都不同（这是 GCM 的安全要求，
+复用 nonce 是真实破解）**，只能比形状；而 `alg` 与 `tag` 的长度是契约。
+
+> W3 的 189 条用例没暴露这两点，是因为它们恰好让两侧的 UUID 出现顺序一致。
+> 用例一多、场景一改，伪差异就会淹没真差异。
