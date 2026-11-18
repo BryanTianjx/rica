@@ -176,6 +176,8 @@ pub async fn generate(
             user_instruction: request.user_instruction,
             include_alternatives: request.include_alternatives,
             max_length: request.max_length,
+            model_id: request.model_id,
+            comparison_models: request.comparison_models,
         })
         .await
         .map(|draft| GenerateOutcome::Created(Box::new(draft)))
@@ -456,8 +458,12 @@ async fn ensure_transition_reachable(
     target: ica_domain::FollowUpTaskStatus,
 ) -> Result<(), ApplicationError> {
     let Some(task) = follow_ups.find(task_id).await.map_err(unavailable)? else {
-        // A missing task is `advance`'s own error to report.
-        return Ok(());
+        // The row is gone (a dangling `task_id` on the draft). The baseline's
+        // `get_task` raises `NotFoundError` here, so the request is a 404 and
+        // nothing is written. `advance` alone would not catch it: it treats a
+        // missing row as "nothing to update" and reports success, which made
+        // the port answer 200 for a draft that points at nothing.
+        return Err(ApplicationError::not_found("Follow-up task", task_id));
     };
     if ica_domain::find_transition_path(task.status, target).is_some() {
         return Ok(());

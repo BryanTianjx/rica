@@ -19,6 +19,50 @@ const EGRESS_CONSENT_KEY: &str = "ai.egress_consent";
 /// it. W5 replaces this whole generator with the real provider call.
 const DEFAULT_AI_MODEL: &str = "glm-4-flash";
 
+/// The `ai_provider_error` the baseline raises for a model id it cannot resolve.
+///
+/// `app/ai/registry.py::get_model` raises `AIProviderError` with the id in
+/// `details`, so the envelope carries `{"model_id": …}` — not `{}`.
+fn unknown_model(model_id: &str) -> ApplicationError {
+    ApplicationError::ProviderUnavailable {
+        message: format!("Unknown model '{model_id}'. No matching configuration found."),
+        details: serde_json::json!({ "model_id": model_id }),
+    }
+}
+
+/// Resolve the model a request names, the way the baseline's registry does
+/// when `ai_model_configs` is empty.
+///
+/// The registry builds its catalogue from the `ai_model_configs` table and
+/// falls back to the single `settings.ai_model` when that table has no rows
+/// (`app/ai/registry.py`). The contract database has zero rows, so exactly one
+/// id is known: [`DEFAULT_AI_MODEL`]. Any other requested id is a 503 naming
+/// it — the baseline refuses rather than quietly using the default, and a
+/// silent fall back would make `model_id`/`comparison_models` look accepted
+/// when they were not.
+///
+/// Resolution order matches `app/ai/service.py`: `comparison_models` wins over
+/// `model_id`, and its ids are checked in order so the first unknown one is the
+/// one reported.
+fn resolve_requested_model(
+    request: &ica_application::ai_context::GenerateDraftRequest,
+) -> Result<&str, ApplicationError> {
+    if !request.comparison_models.is_empty() {
+        for model_id in &request.comparison_models {
+            if model_id != DEFAULT_AI_MODEL {
+                return Err(unknown_model(model_id));
+            }
+        }
+        return Ok(DEFAULT_AI_MODEL);
+    }
+    if let Some(model_id) = &request.model_id {
+        if model_id != DEFAULT_AI_MODEL {
+            return Err(unknown_model(model_id));
+        }
+    }
+    Ok(DEFAULT_AI_MODEL)
+}
+
 #[derive(Debug, FromRow)]
 struct DraftRow {
     id: String,
@@ -164,14 +208,15 @@ pub struct NotConfiguredDraftGenerator;
 impl DraftGenerator for NotConfiguredDraftGenerator {
     async fn generate(
         &self,
-        _request: ica_application::ai_context::GenerateDraftRequest,
+        request: ica_application::ai_context::GenerateDraftRequest,
     ) -> Result<GeneratedDraft, ApplicationError> {
-        // `AIProviderError` carries no details, so the envelope's `details` is
+        // An unresolvable model is reported before the key is even looked for,
+        // exactly like the baseline (`registry.get_model` runs first).
+        let model = resolve_requested_model(&request)?;
+        // The no-key error carries no details, so the envelope's `details` is
         // an empty object — Python serialises it as `{}`, not `null`.
         Err(ApplicationError::ProviderUnavailable {
-            message: format!(
-                "No API key found for model '{DEFAULT_AI_MODEL}' in env var 'AI_API_KEY'"
-            ),
+            message: format!("No API key found for model '{model}' in env var 'AI_API_KEY'"),
             details: serde_json::json!({}),
         })
     }
@@ -491,12 +536,11 @@ impl DraftRepository for SqliteStore {
 impl DraftGenerator for SqliteStore {
     async fn generate(
         &self,
-        _request: ica_application::ai_context::GenerateDraftRequest,
+        request: ica_application::ai_context::GenerateDraftRequest,
     ) -> Result<GeneratedDraft, ApplicationError> {
+        let model = resolve_requested_model(&request)?;
         Err(ApplicationError::ProviderUnavailable {
-            message: format!(
-                "No API key found for model '{DEFAULT_AI_MODEL}' in env var 'AI_API_KEY'"
-            ),
+            message: format!("No API key found for model '{model}' in env var 'AI_API_KEY'"),
             details: serde_json::json!({}),
         })
     }

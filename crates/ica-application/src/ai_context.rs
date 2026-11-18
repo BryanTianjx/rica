@@ -56,6 +56,13 @@ pub struct GenerateDraftRequest {
     pub user_instruction: Option<String>,
     pub include_alternatives: bool,
     pub max_length: Option<i64>,
+    /// The model the client asked for, if any. The generator resolves it the
+    /// way the baseline's registry does — an unknown id is a 503, not a
+    /// silent fall back to the default.
+    pub model_id: Option<String>,
+    /// A/B comparison models. When non-empty this wins over `model_id`, and
+    /// every id is resolved in order (`app/ai/service.py`).
+    pub comparison_models: Vec<String>,
 }
 
 /// Build the AI context for exactly one candidate.
