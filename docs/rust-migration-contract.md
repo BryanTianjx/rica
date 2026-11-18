@@ -107,6 +107,23 @@ unchanged, and the browser subsystem is **excluded from this migration**:
   `contract_verify.sh` for the business 68; ③ update the numbers in this §1
   and in [`rust-migration-scope-20261118.md`](rust-migration-scope-20261118.md);
   ④ record the decision there.
+- **The frozen mirror is an agreement, not a mechanism** (incident
+  2026-11-18 22:05:39Z): a parallel session committed `95edb8d` in
+  `/home/bryan/ica` at 22:00 and then fast-forwarded `/mnt/o/ica` to the same
+  commit five minutes later, so the mirror stopped being frozen without any
+  re-anchor decision. Measured afterwards: live `/api` = **112** routes of
+  which **39** under `/api/browser/`, against the documented 68. The failure
+  mode is misleading — `contract_verify.sh` still reported
+  `185/185 cases matched, 0 failure(s)` (the W3 behaviour had not changed) and
+  failed *only* on `git status: DIRTY` → exit 1, which reads like
+  "clean up some uncommitted files" rather than "the baseline moved".
+  Restored with `git checkout -- .` + `git reset --hard d39e321`, after first
+  confirming the fast-forwarded commit still exists in `/home/bryan/ica` so
+  nothing was lost; re-measured 68 routes / 0 browser, `status` clean,
+  `ica.db` sha256 `466aa3fc…18e1`, and `contract_verify.sh` back to exit 0.
+  **Therefore: verify `git -C /mnt/o/ica rev-parse --short HEAD` is `d39e321`
+  before starting any wave, and treat a route count other than 68 (browser
+  count other than 0) as a drifted baseline rather than a code defect.**
 
 ## 2. Endpoint → crate/module map
 
