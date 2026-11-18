@@ -521,6 +521,145 @@ pub trait DraftRepository: Send + Sync {
     ) -> Result<Vec<GeneratedDraft>, RepositoryError>;
 }
 
+// ── Import sessions, OCR and data snapshots (W4) ───────────────────────────
+
+/// The parsed records a preview should persist, plus the session envelope.
+///
+/// `preview` is not a read-only call: the baseline writes the session, its
+/// records and an `import.previewed` audit row. What it must never touch is the
+/// business tables (`candidates`, `messages`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportSessionRow {
+    pub candidate_id: Option<String>,
+    /// `MessageSource` as stored (`paste_import` / `screenshot_ocr`).
+    pub source: String,
+    pub raw_text: String,
+    pub status: ica_domain::ImportStatus,
+    pub error_message: Option<String>,
+    pub records: Vec<ica_domain::ImportRecord>,
+    pub detected_duplicate_count: i64,
+}
+
+/// What a confirmation produced.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ImportConfirmOutcome {
+    pub session_id: String,
+    pub saved_message_ids: Vec<String>,
+    pub skipped_count: i64,
+    pub duplicate_count: i64,
+}
+
+/// One per-record correction, already validated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportRecordCorrection {
+    pub id: String,
+    pub sender_type: Option<ica_domain::SenderType>,
+    pub content: Option<String>,
+    pub message_time: Option<DateTime<Utc>>,
+    pub skip: bool,
+}
+
+/// Read and write access to import sessions.
+///
+/// Every write method also writes the audit event the baseline writes for the
+/// same action, inside the same transaction.
+#[async_trait]
+pub trait ImportRepository: Send + Sync {
+    /// Whether a candidate exists — `preview` validates it before writing.
+    async fn candidate_exists(&self, id: &str) -> Result<bool, RepositoryError>;
+
+    /// `content_hash -> message id` for the candidate's existing messages, the
+    /// input to duplicate detection.
+    async fn message_hashes(
+        &self,
+        candidate_id: &str,
+    ) -> Result<std::collections::HashMap<String, String>, RepositoryError>;
+
+    /// Persist a preview: session + records + `import.previewed`, one
+    /// transaction. `preview` must not write `messages`.
+    async fn create_preview(
+        &self,
+        new: NewImportSessionRow,
+    ) -> Result<ica_domain::ImportSession, RepositoryError>;
+
+    /// One session with its records, or `None`.
+    async fn find(&self, id: &str) -> Result<Option<ica_domain::ImportSession>, RepositoryError>;
+
+    /// Confirm a session: write one `messages` row per record that is neither
+    /// skipped nor an unflagged duplicate, stamp the session confirmed, and
+    /// write `import.confirmed` — all in one transaction, so a failure leaves
+    /// no partial messages.
+    async fn confirm(
+        &self,
+        session_id: &str,
+        candidate_id: &str,
+        conversation_id: Option<String>,
+        corrections: Vec<ImportRecordCorrection>,
+    ) -> Result<ImportConfirmOutcome, RepositoryError>;
+
+    /// Reject a session: set `rejected`, clear `raw_text`, write
+    /// `import.rejected`.
+    ///
+    /// Note the baseline still lets a rejected session be confirmed afterwards
+    /// (its confirm guards `confirmed` only); this port copies that.
+    async fn reject(&self, id: &str) -> Result<Option<ica_domain::ImportSession>, RepositoryError>;
+}
+
+/// Local OCR, used only by `POST /imports/ocr`.
+///
+/// `ica-application` never touches an image or an OCR engine; the adapter
+/// decides how text is read. A missing engine must surface as a readable error
+/// (the baseline's `require_ocr`), never a panic or a 500.
+#[async_trait]
+pub trait OcrEngine: Send + Sync {
+    /// Fail with the baseline's "OCR is not available" error when the engine is
+    /// missing.
+    fn ensure_available(&self) -> Result<(), ApplicationError>;
+
+    /// Read the image at `path` and return the recognised text.
+    async fn read_text(&self, path: &std::path::Path) -> Result<String, ApplicationError>;
+}
+
+/// The JSON snapshot an export produces, and the outcome an import reports.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SnapshotOutcome {
+    pub imported: i64,
+    pub updated: i64,
+    pub skipped: i64,
+    pub conflicts: i64,
+}
+
+/// Read and write access to the whole data snapshot (`POST /export`,
+/// `POST /import`).
+#[async_trait]
+pub trait DataSnapshotRepository: Send + Sync {
+    /// Every exported table, as `table name -> rows`.
+    async fn export_tables(
+        &self,
+    ) -> Result<serde_json::Map<String, serde_json::Value>, RepositoryError>;
+
+    /// Import a snapshot: known UUIDs merged last-write-wins on `updated_at`,
+    /// unknown UUIDs inserted, cross-tenant/owner violations rejecting the
+    /// whole request before anything is written. One transaction.
+    async fn import_tables(
+        &self,
+        data: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<SnapshotOutcome, RepositoryError>;
+}
+
+/// Seals an export snapshot with AES-256-GCM (`X-Encrypt-Aes-Key`).
+///
+/// The key is base64 of exactly 32 bytes; an unusable key must be refused
+/// rather than ignored, so an encrypted export can never silently fall back to
+/// plaintext.
+pub trait ExportSealer: Send + Sync {
+    fn seal(
+        &self,
+        document: &serde_json::Value,
+        key_b64: &str,
+    ) -> Result<(String, String, String), ApplicationError>;
+}
+
 /// The AI generation port. `ica-application` never talks to a provider: the
 /// adapter implements this against whatever backend is configured (W5 wires
 /// the real HTTP client; the W3 implementation answers with the baseline's
