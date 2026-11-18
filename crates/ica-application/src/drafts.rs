@@ -16,6 +16,16 @@ use crate::payload::{DraftFilter, DraftPatch, NewDraftGeneration, NewDraftGroupS
 use crate::ports::{DraftGenerator, DraftRepository, RepositoryError};
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
+    // A business-rule failure is a 409 `business_rule_violation`, not a 500:
+    // the follow-up state machine refusing an unreachable transition is the
+    // baseline's `BusinessRuleError`, and its message plus details are
+    // contract text.
+    if let Some(details) = error.conflict_details() {
+        return ApplicationError::Conflict {
+            message: error.message().to_string(),
+            details: details.clone(),
+        };
+    }
     ApplicationError::Unavailable {
         message: error.message().to_string(),
     }
@@ -221,6 +231,16 @@ pub async fn approve_draft(
             Default::default(),
         ));
     }
+    // Guard before the write: the baseline rolls the draft change back when
+    // the task cannot reach `Approved`.
+    if let Some(task_id) = &draft.task_id {
+        ensure_transition_reachable(
+            follow_ups,
+            task_id,
+            ica_domain::FollowUpTaskStatus::Approved,
+        )
+        .await?;
+    }
     let updated = drafts
         .approve(id, Utc::now(), note)
         .await
@@ -245,7 +265,15 @@ pub async fn reject_draft(
     follow_ups: &dyn crate::ports::FollowUpRepository,
     id: &str,
 ) -> Result<GeneratedDraft, ApplicationError> {
-    let _draft = get_draft(drafts, id).await?;
+    let draft = get_draft(drafts, id).await?;
+    if let Some(task_id) = &draft.task_id {
+        ensure_transition_reachable(
+            follow_ups,
+            task_id,
+            ica_domain::FollowUpTaskStatus::Rejected,
+        )
+        .await?;
+    }
     let updated = drafts
         .reject(id, Utc::now())
         .await
@@ -277,6 +305,14 @@ pub async fn copy_draft(
             "A rejected draft cannot be copied",
             Default::default(),
         ));
+    }
+    if let Some(task_id) = &draft.task_id {
+        ensure_transition_reachable(
+            follow_ups,
+            task_id,
+            ica_domain::FollowUpTaskStatus::AwaitingResult,
+        )
+        .await?;
     }
     let copied_at = Utc::now();
     let updated = drafts
@@ -383,6 +419,46 @@ pub async fn advance_task(
         .await
         .map_err(unavailable)?;
     Ok(())
+}
+
+/// Refuse an unreachable transition *before* anything is written.
+///
+/// The baseline mutates the draft and advances its task inside **one**
+/// transaction: when the state machine refuses the target, the whole thing
+/// rolls back and the draft keeps its previous status. The port's two writes
+/// are separate transactions, so an advance that fails *after* the draft
+/// write would leave the row mutated — the API would still answer 409, but
+/// the stored draft would claim `approved` for a request that failed.
+///
+/// Checking reachability up front makes the failure happen before the first
+/// write, which reproduces the baseline's roll-back outcome. The check and the
+/// write are not atomic with respect to a concurrent task update, but the
+/// desktop app drives one candidate's workflow at a time; the baseline's own
+/// guarantee only has to hold against *its* writes, and `advance` still
+/// re-validates the path inside its transaction.
+async fn ensure_transition_reachable(
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    task_id: &str,
+    target: ica_domain::FollowUpTaskStatus,
+) -> Result<(), ApplicationError> {
+    let Some(task) = follow_ups.find(task_id).await.map_err(unavailable)? else {
+        // A missing task is `advance`'s own error to report.
+        return Ok(());
+    };
+    if ica_domain::find_transition_path(task.status, target).is_some() {
+        return Ok(());
+    }
+    let mut details = std::collections::BTreeMap::new();
+    details.insert("current".to_string(), task.status.as_str().to_string());
+    details.insert("requested".to_string(), target.as_str().to_string());
+    Err(ApplicationError::conflict(
+        &format!(
+            "A task in state {} cannot reach {}",
+            task.status.as_str(),
+            target.as_str()
+        ),
+        details,
+    ))
 }
 
 /// The AI context for one candidate (the `/context` preview surface).

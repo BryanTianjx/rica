@@ -1,5 +1,7 @@
 //! Repository ports (the application's outward-facing seam).
 
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use ica_domain::{
@@ -24,22 +26,55 @@ pub struct PositionFilter {
     pub search: Option<String>,
 }
 
-/// A persistence failure. The message is logged and surfaced as a generic
-/// 500 to the client, never echoed (it can carry SQL details).
+/// A persistence failure.
+///
+/// Most failures are "the database could not be read or written": the message
+/// is logged and surfaced as a generic 500, never echoed (it can carry SQL
+/// details).
+///
+/// A few are **business-rule failures** the baseline reports as 409
+/// `business_rule_violation` — the follow-up state machine refusing an
+/// unreachable transition, for example. Those carry a message and a details
+/// map that are *contract text*, so they are modelled separately: turning one
+/// into a 500 would tell the client "the server crashed" for what is
+/// actually "you asked for something the rules forbid".
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepositoryError {
     message: String,
+    /// `Some` when this is a business-rule failure (409), `None` when it is
+    /// a genuine persistence failure (500).
+    conflict_details: Option<BTreeMap<String, String>>,
 }
 
 impl RepositoryError {
     pub fn unavailable(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            conflict_details: None,
+        }
+    }
+
+    /// A business-rule failure: the baseline's `BusinessRuleError` (409).
+    pub fn conflict(message: impl Into<String>, details: BTreeMap<String, String>) -> Self {
+        Self {
+            message: message.into(),
+            conflict_details: Some(details),
         }
     }
 
     pub fn message(&self) -> &str {
         &self.message
+    }
+
+    /// The business-rule details, when this is a 409 rather than a 500.
+    pub fn conflict_details(&self) -> Option<&BTreeMap<String, String>> {
+        self.conflict_details.as_ref()
+    }
+
+    /// Whether this is a business-rule failure (409) rather than a
+    /// persistence failure (500).
+    pub fn is_conflict(&self) -> bool {
+        self.conflict_details.is_some()
     }
 }
 

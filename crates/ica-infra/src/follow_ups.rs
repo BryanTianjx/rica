@@ -1027,11 +1027,20 @@ impl SqliteStore {
             return Ok(Some(current));
         }
         let Some(path) = ica_domain::find_transition_path(current.status, target) else {
-            return Err(RepositoryError::unavailable(format!(
-                "A task in state {} cannot reach {}",
-                current.status.as_str(),
-                target.as_str()
-            )));
+            // The baseline raises `BusinessRuleError` here — a 409
+            // `business_rule_violation` naming both states — not a 500. The
+            // details are contract text, so they travel with the error.
+            let mut details = std::collections::BTreeMap::new();
+            details.insert("current".to_string(), current.status.as_str().to_string());
+            details.insert("requested".to_string(), target.as_str().to_string());
+            return Err(RepositoryError::conflict(
+                format!(
+                    "A task in state {} cannot reach {}",
+                    current.status.as_str(),
+                    target.as_str()
+                ),
+                details,
+            ));
         };
         let mut status = current.status;
         for step in &path {
