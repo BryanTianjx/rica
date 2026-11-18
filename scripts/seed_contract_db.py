@@ -192,12 +192,34 @@ FOLLOW_UP_TASKS: list[tuple] = [
     ("dddddddd-0000-0000-0000-000000000003", BOB, "Completed"),
 ]
 
-# (id, candidate_id, status)
+#: One comparison group shared by two drafts, so `GET /api/draft-groups/{id}`
+#: and the supersede-on-select side effect have something to act on.
+DRAFT_GROUP = "dddddddd-0000-0000-0000-000000000001"
+
+#: The routing blob on draft `…0004`. `actual_tier` must win over
+#: `requested_tier` in `routing_tier`, and `reason` becomes `routing_reason`
+#: (`app/api/mappers.py::draft_to_read`).
+DRAFT_ROUTING = (
+    '{"requested_tier": "standard", "actual_tier": "economy", "reason": "budget"}'
+)
+
+# (id, candidate_id, status, draft_group_id, routing_decision_json, created_at)
 DRAFTS: list[tuple] = [
     # `approved` is sendable; `generated` is not.
-    ("eeeeeeee-0000-0000-0000-000000000001", ALICE, "approved"),
-    ("eeeeeeee-0000-0000-0000-000000000002", ALICE, "generated"),
-    ("eeeeeeee-0000-0000-0000-000000000003", BOB, "approved"),
+    ("eeeeeeee-0000-0000-0000-000000000001", ALICE, "approved", None, None,
+     "2026-11-10 09:00:00.000000"),
+    ("eeeeeeee-0000-0000-0000-000000000002", ALICE, "generated", None, None,
+     "2026-11-10 09:00:01.000000"),
+    ("eeeeeeee-0000-0000-0000-000000000003", BOB, "approved", None, None,
+     "2026-11-10 09:00:00.000000"),
+    # W3 fixtures. Alice is deleted by the FK section, so anything W3 asserts
+    # has to hang off Bob.
+    ("eeeeeeee-0000-0000-0000-000000000004", BOB, "generated", None, DRAFT_ROUTING,
+     "2026-11-10 09:00:02.000000"),
+    ("eeeeeeee-0000-0000-0000-000000000005", BOB, "generated", DRAFT_GROUP, None,
+     "2026-11-10 09:00:03.000000"),
+    ("eeeeeeee-0000-0000-0000-000000000006", BOB, "generated", DRAFT_GROUP, None,
+     "2026-11-10 09:00:04.000000"),
 ]
 
 
@@ -277,11 +299,15 @@ def main(argv: list[str]) -> int:
             " status, objective, message_text, alternatives_json, context_references_json,"
             " uncertainties_json, warnings_json, validation_status, validation_messages_json,"
             " quality_status, provider, model, prompt_version, is_edited, approved_at,"
-            " copied_at, rejected_at, created_at, updated_at)"
+            " copied_at, rejected_at, draft_group_id, routing_decision_json,"
+            " created_at, updated_at)"
             " VALUES (?, ?, NULL, 'reply', 'friendly', ?, NULL, 'draft body', NULL, NULL,"
             " NULL, NULL, 'Passed', NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL,"
-            " '2026-11-10 09:00:00.000000', '2026-11-10 09:00:00.000000')",
-            DRAFTS,
+            " ?, ?, ?, ?)",
+            [
+                (draft_id, candidate_id, status, group_id, routing, created_at, created_at)
+                for draft_id, candidate_id, status, group_id, routing, created_at in DRAFTS
+            ],
         )
         connection.commit()
 

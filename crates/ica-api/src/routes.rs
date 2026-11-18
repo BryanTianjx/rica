@@ -20,17 +20,18 @@ use axum::{middleware, Json, Router};
 
 use crate::body;
 use crate::dto::{
-    CandidateDetailRead, CandidateRead, ConversationRead, DashboardRead, FollowUpDecisionRead,
-    FollowUpPolicyRead, FollowUpTaskRead, HealthResponse, MessageRead, PageResponse, PositionRead,
-    SendRecordRead, TimelineEntryRead,
+    CandidateDetailRead, CandidateRead, ContextPreviewRead, ConversationRead, DashboardRead,
+    DraftCopyResponse, DraftGroupRead, DraftRead, FollowUpDecisionRead, FollowUpPolicyRead,
+    FollowUpTaskRead, HealthResponse, MessageRead, PageResponse, PositionRead, SendRecordRead,
+    TimelineEntryRead,
 };
 use crate::error::ApiError;
 use crate::extract::ApiQuery;
 use crate::http_parity::RoutePatterns;
 use crate::query::{
     self, RawFollowUpCancelQuery, RawListCandidatesQuery, RawListConversationsQuery,
-    RawListFollowUpsQuery, RawListMessagesQuery, RawListPositionsQuery, RawListSendRecordsQuery,
-    RawTimelineQuery,
+    RawListDraftsQuery, RawListFollowUpsQuery, RawListMessagesQuery, RawListPositionsQuery,
+    RawListSendRecordsQuery, RawTimelineQuery,
 };
 use crate::state::AppState;
 
@@ -48,6 +49,7 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/candidates",
     "/api/candidates/{candidate_id}",
     "/api/candidates/{candidate_id}/timeline",
+    "/api/candidates/{candidate_id}/context",
     "/api/conversations",
     "/api/messages",
     "/api/send-records",
@@ -59,6 +61,14 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/follow-ups/{task_id}/complete",
     "/api/follow-ups/{task_id}/record-result",
     "/api/dashboard",
+    "/api/drafts",
+    "/api/drafts/generate",
+    "/api/drafts/{draft_id}",
+    "/api/drafts/{draft_id}/approve",
+    "/api/drafts/{draft_id}/reject",
+    "/api/drafts/{draft_id}/copy",
+    "/api/draft-groups/{group_id}",
+    "/api/draft-groups/{group_id}/select",
 ];
 
 /// Build the router for `state`.
@@ -120,6 +130,23 @@ pub fn router(state: AppState) -> Router {
             post(record_follow_up_result),
         )
         .route("/api/dashboard", get(dashboard))
+        .route("/api/drafts", get(list_drafts))
+        // Static segments must be registered before the `{draft_id}` param
+        // route for readability; axum's matcher prioritises them either way.
+        .route("/api/drafts/generate", post(generate_draft))
+        .route("/api/drafts/{draft_id}", get(get_draft).patch(update_draft))
+        .route("/api/drafts/{draft_id}/approve", post(approve_draft))
+        .route("/api/drafts/{draft_id}/reject", post(reject_draft))
+        .route("/api/drafts/{draft_id}/copy", post(copy_draft))
+        .route(
+            "/api/candidates/{candidate_id}/context",
+            get(preview_context),
+        )
+        .route("/api/draft-groups/{group_id}", get(get_draft_group))
+        .route(
+            "/api/draft-groups/{group_id}/select",
+            post(select_draft_from_group),
+        )
         .fallback(unknown_path)
         .method_not_allowed_fallback(|| async { crate::http_parity::method_not_allowed() })
         // `reject_head` must sit *inside* the redirect (added first = run last):
@@ -555,4 +582,164 @@ async fn dashboard(State(state): State<AppState>) -> Result<Json<DashboardRead>,
         position_total: snapshot.position_total,
         open_position_count: snapshot.open_position_count,
     }))
+}
+
+// ── Drafts and draft groups (W3) ───────────────────────────────────────────
+
+/// `GET /api/drafts` — one page of drafts, `created_at DESC`.
+///
+/// `total` is the true filtered count (IMP-3's uniform rule), so the approval
+/// centre can render "1-50 of N" without loading the whole table.
+async fn list_drafts(
+    State(state): State<AppState>,
+    ApiQuery(raw): ApiQuery<RawListDraftsQuery>,
+) -> Result<Json<PageResponse<DraftRead>>, ApiError> {
+    let query = query::validate_drafts(raw)?;
+    let (drafts, total) =
+        ica_application::list_drafts(state.drafts(), query.filter, query.offset, query.limit)
+            .await?;
+    let page = ica_domain::Page {
+        items: drafts,
+        total,
+        offset: query.offset,
+        limit: query.limit,
+    };
+    Ok(Json(PageResponse::from_page(page, DraftRead::from)))
+}
+
+/// `GET /api/drafts/{draft_id}` — one draft.
+async fn get_draft(
+    State(state): State<AppState>,
+    Path(draft_id): Path<String>,
+) -> Result<Json<DraftRead>, ApiError> {
+    let draft = ica_application::get_draft(state.drafts(), &draft_id).await?;
+    Ok(Json(DraftRead::from(draft)))
+}
+
+/// `POST /api/drafts/generate` — 201 with the created draft.
+///
+/// With no provider configured the AI port answers the baseline's
+/// `503 ai_provider_error`, which propagates before anything is persisted.
+async fn generate_draft(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<(StatusCode, Json<DraftRead>), ApiError> {
+    let raw: body::RawGenerateRequest = body::parse(&body)?;
+    let request = body::generate_request(raw)?;
+    let outcome = ica_application::generate(
+        state.drafts(),
+        state.follow_ups(),
+        state.candidates(),
+        state.positions(),
+        state.draft_generator(),
+        request,
+    )
+    .await?;
+    match outcome {
+        ica_application::drafts::GenerateOutcome::Created(draft) => {
+            Ok((StatusCode::CREATED, Json(DraftRead::from(*draft))))
+        }
+    }
+}
+
+/// `GET /api/candidates/{candidate_id}/context` — what the model would see.
+async fn preview_context(
+    State(state): State<AppState>,
+    Path(candidate_id): Path<String>,
+) -> Result<Json<ContextPreviewRead>, ApiError> {
+    let context = ica_application::preview_context(
+        state.candidates(),
+        state.positions(),
+        state.messages(),
+        &candidate_id,
+    )
+    .await?;
+    Ok(Json(ContextPreviewRead::from(context)))
+}
+
+/// `PATCH /api/drafts/{draft_id}` — edit the wording.
+async fn update_draft(
+    State(state): State<AppState>,
+    Path(draft_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<DraftRead>, ApiError> {
+    let raw: body::RawDraftPatch = body::parse(&body)?;
+    let patch = body::draft_patch(raw)?;
+    let draft = ica_application::update_draft(state.drafts(), &draft_id, patch).await?;
+    Ok(Json(DraftRead::from(draft)))
+}
+
+/// `POST /api/drafts/{draft_id}/approve` — approval only, never a send.
+async fn approve_draft(
+    State(state): State<AppState>,
+    Path(draft_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<DraftRead>, ApiError> {
+    let raw: body::RawDraftApprove = body::parse(&body)?;
+    let note = body::draft_approve(raw)?;
+    let draft =
+        ica_application::approve_draft(state.drafts(), state.follow_ups(), &draft_id, note).await?;
+    Ok(Json(DraftRead::from(draft)))
+}
+
+/// `POST /api/drafts/{draft_id}/reject` — no guard, every state answers 200.
+async fn reject_draft(
+    State(state): State<AppState>,
+    Path(draft_id): Path<String>,
+) -> Result<Json<DraftRead>, ApiError> {
+    let draft =
+        ica_application::reject_draft(state.drafts(), state.follow_ups(), &draft_id).await?;
+    Ok(Json(DraftRead::from(draft)))
+}
+
+/// `POST /api/drafts/{draft_id}/copy` — copy is not a send.
+async fn copy_draft(
+    State(state): State<AppState>,
+    Path(draft_id): Path<String>,
+) -> Result<Json<DraftCopyResponse>, ApiError> {
+    let outcome =
+        ica_application::copy_draft(state.drafts(), state.follow_ups(), &draft_id).await?;
+    Ok(Json(DraftCopyResponse::from(outcome)))
+}
+
+/// `GET /api/draft-groups/{group_id}` — the group, `created_at ASC`.
+async fn get_draft_group(
+    State(state): State<AppState>,
+    Path(group_id): Path<String>,
+) -> Result<Json<DraftGroupRead>, ApiError> {
+    let drafts = ica_application::get_draft_group(state.drafts(), &group_id).await?;
+    Ok(Json(build_draft_group(drafts)))
+}
+
+/// `POST /api/draft-groups/{group_id}/select` — pick one, reject the rest.
+async fn select_draft_from_group(
+    State(state): State<AppState>,
+    Path(group_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<DraftGroupRead>, ApiError> {
+    let raw: body::RawDraftGroupSelect = body::parse(&body)?;
+    let selection = body::draft_group_select(raw)?;
+    let drafts = ica_application::select_draft_from_group(
+        state.drafts(),
+        state.follow_ups(),
+        &group_id,
+        selection,
+    )
+    .await?;
+    Ok(Json(build_draft_group(drafts)))
+}
+
+/// `_build_draft_group`: the group id, the **newest** `created_at`, and the
+/// drafts in `created_at ASC` order (the use case already sorted them).
+fn build_draft_group(drafts: Vec<ica_domain::GeneratedDraft>) -> DraftGroupRead {
+    let draft_group_id = drafts
+        .first()
+        .and_then(|draft| draft.draft_group_id.clone())
+        .unwrap_or_default();
+    let created_at = drafts.iter().map(|draft| draft.created_at).max();
+    DraftGroupRead {
+        draft_group_id,
+        created_at,
+        drafts: drafts.into_iter().map(DraftRead::from).collect(),
+    }
 }

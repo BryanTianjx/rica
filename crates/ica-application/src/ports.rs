@@ -3,14 +3,15 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use ica_domain::{
-    Candidate, Conversation, FollowUpPolicy, FollowUpTask, FollowUpTaskStatus, Message, Position,
-    SendRecord,
+    Candidate, Conversation, FollowUpPolicy, FollowUpTask, FollowUpTaskStatus, GeneratedDraft,
+    Message, Position, SendRecord,
 };
 
+use crate::error::ApplicationError;
 use crate::payload::{
-    CandidateFilter, CandidatePatch, ConversationFilter, FollowUpPolicyPatch, FollowUpResultPatch,
-    FollowUpTaskFilter, FollowUpTaskPatch, MessageFilter, NewCandidate, NewConversation,
-    NewMessage, NewPosition, NewSendRecord, PositionPatch, SendRecordFilter,
+    CandidateFilter, CandidatePatch, ConversationFilter, DraftFilter, FollowUpPolicyPatch,
+    FollowUpResultPatch, FollowUpTaskFilter, FollowUpTaskPatch, MessageFilter, NewCandidate,
+    NewConversation, NewMessage, NewPosition, NewSendRecord, PositionPatch, SendRecordFilter,
 };
 
 /// Filter the repository applies when listing positions.
@@ -177,6 +178,15 @@ pub trait MessageRepository: Send + Sync {
         new: NewMessage,
         conversation_id: &str,
     ) -> Result<Message, RepositoryError>;
+
+    /// The candidate's messages oldest-first (`message_time ASC NULLS LAST`,
+    /// then `created_at ASC`), capped at `limit` — the AI context builder's
+    /// read (W3).
+    async fn context_messages(
+        &self,
+        candidate_id: &str,
+        limit: i64,
+    ) -> Result<Vec<Message>, RepositoryError>;
 }
 
 /// Read and write access to manual send records.
@@ -288,6 +298,17 @@ pub trait FollowUpRepository: Send + Sync {
     /// `follow_up.tasks_expired` audit (no entity). Returns the count.
     async fn expire_stale(&self, now: DateTime<Utc>) -> Result<u64, RepositoryError>;
 
+    /// Move a task to `target` along the shortest legal path (the baseline's
+    /// `advance_task`): stamps every intermediate status, optionally sets the
+    /// reason, and writes ONE `follow_up.task_advanced` audit with the path as
+    /// metadata. A task already in `target` is left untouched.
+    async fn advance(
+        &self,
+        id: &str,
+        target: FollowUpTaskStatus,
+        reason: Option<String>,
+    ) -> Result<Option<FollowUpTask>, RepositoryError>;
+
     /// The candidate's latest message
     /// (`message_time DESC NULLS LAST`, then `created_at DESC`).
     async fn latest_message_for_candidate(
@@ -394,4 +415,85 @@ pub trait DashboardRepository: Send + Sync {
 
     /// Positions with `archived = false` and `status = 'Open'`.
     async fn open_position_count(&self) -> Result<i64, RepositoryError>;
+}
+
+// ── Drafts and the AI port (W3) ────────────────────────────────────────────
+
+/// Read and write access to generated drafts. Every transition method writes
+/// the audit event the baseline writes for the same action, inside the same
+/// transaction; the follow-up-task advance happens through
+/// [`FollowUpRepository::advance`], which the caller drives.
+#[async_trait]
+pub trait DraftRepository: Send + Sync {
+    /// One page of drafts plus the real filtered count (`created_at DESC`).
+    async fn list(
+        &self,
+        filter: DraftFilter,
+        offset: usize,
+        limit: usize,
+    ) -> Result<(Vec<GeneratedDraft>, usize), RepositoryError>;
+
+    /// One draft by id, or `None`.
+    async fn find(&self, id: &str) -> Result<Option<GeneratedDraft>, RepositoryError>;
+
+    /// Every draft of one comparison group (unordered; the use case sorts).
+    async fn find_group(&self, group_id: &str) -> Result<Vec<GeneratedDraft>, RepositoryError>;
+
+    /// The egress-consent switch (`app_settings.key = 'ai.egress_consent'`);
+    /// defaults to allowed when nothing is recorded (PRIV-07).
+    async fn egress_consent(&self) -> Result<bool, RepositoryError>;
+
+    /// Apply a wording/objective edit, set `is_edited`/status when the text
+    /// changed, stamp `updated_at`, and write `draft.edited`.
+    async fn update(
+        &self,
+        id: &str,
+        message_text: Option<String>,
+        objective: Option<String>,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError>;
+
+    /// Mark approved (`approved_at` stamped) and write `draft.approved` with
+    /// the request note as metadata (kept even when null, like the baseline).
+    async fn approve(
+        &self,
+        id: &str,
+        approved_at: DateTime<Utc>,
+        note: Option<String>,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError>;
+
+    /// Mark rejected (`rejected_at` stamped) and write `draft.rejected`.
+    async fn reject(
+        &self,
+        id: &str,
+        rejected_at: DateTime<Utc>,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError>;
+
+    /// Mark copied (`copied_at` stamped) and write `draft.copied`.
+    async fn copy(
+        &self,
+        id: &str,
+        copied_at: DateTime<Utc>,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError>;
+
+    /// Mark every **other** group member rejected with `rejected_at` and one
+    /// `draft.rejected` audit each (metadata `superseded_by`/`reason`).
+    /// Returns the updated rows in the caller's order.
+    async fn supersede_others(
+        &self,
+        group_id: &str,
+        selected_id: &str,
+        rejected_at: DateTime<Utc>,
+    ) -> Result<Vec<GeneratedDraft>, RepositoryError>;
+}
+
+/// The AI generation port. `ica-application` never talks to a provider: the
+/// adapter implements this against whatever backend is configured (W5 wires
+/// the real HTTP client; the W3 implementation answers with the baseline's
+/// not-configured error, byte-for-byte).
+#[async_trait]
+pub trait DraftGenerator: Send + Sync {
+    async fn generate(
+        &self,
+        request: crate::ai_context::GenerateDraftRequest,
+    ) -> Result<GeneratedDraft, ApplicationError>;
 }

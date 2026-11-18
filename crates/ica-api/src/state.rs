@@ -3,8 +3,9 @@
 use std::sync::Arc;
 
 use ica_application::{
-    CandidateRepository, ConversationRepository, DashboardRepository, FollowUpRepository,
-    MessageRepository, PositionRepository, SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, DraftGenerator,
+    DraftRepository, FollowUpRepository, MessageRepository, PositionRepository,
+    SendRecordRepository,
 };
 
 /// Settings that shape a response body.
@@ -32,6 +33,8 @@ pub struct AppState {
     send_records: Arc<dyn SendRecordRepository>,
     follow_ups: Arc<dyn FollowUpRepository>,
     dashboard: Arc<dyn DashboardRepository>,
+    drafts: Arc<dyn DraftRepository>,
+    draft_generator: Arc<dyn DraftGenerator>,
     config: AppConfig,
 }
 
@@ -45,6 +48,8 @@ impl AppState {
         send_records: Arc<dyn SendRecordRepository>,
         follow_ups: Arc<dyn FollowUpRepository>,
         dashboard: Arc<dyn DashboardRepository>,
+        drafts: Arc<dyn DraftRepository>,
+        draft_generator: Arc<dyn DraftGenerator>,
         config: AppConfig,
     ) -> Self {
         Self {
@@ -55,6 +60,8 @@ impl AppState {
             send_records,
             follow_ups,
             dashboard,
+            drafts,
+            draft_generator,
             config,
         }
     }
@@ -85,6 +92,14 @@ impl AppState {
 
     pub fn dashboard(&self) -> &dyn DashboardRepository {
         self.dashboard.as_ref()
+    }
+
+    pub fn drafts(&self) -> &dyn DraftRepository {
+        self.drafts.as_ref()
+    }
+
+    pub fn draft_generator(&self) -> &dyn DraftGenerator {
+        self.draft_generator.as_ref()
     }
 
     pub fn config(&self) -> &AppConfig {

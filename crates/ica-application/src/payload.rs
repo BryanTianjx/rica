@@ -266,3 +266,53 @@ pub struct FollowUpResultPatch {
     /// `last_follow_up_at = now` for contact-indicating results.
     pub last_follow_up_at: Option<DateTime<Utc>>,
 }
+
+// ── Drafts (W3) ────────────────────────────────────────────────────────────
+
+use ica_domain::{DraftStatus, MessageType, Tone};
+
+/// A validated `POST /api/drafts/generate` body (the AI-port request).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewDraftGeneration {
+    pub candidate_id: String,
+    pub task_id: Option<String>,
+    pub message_type: MessageType,
+    pub tone: Tone,
+    pub user_instruction: Option<String>,
+    pub include_alternatives: bool,
+    pub max_length: Option<i64>,
+    /// The A/B comparison list; accepted and stored on the request, the
+    /// per-model generation itself belongs to the provider (W5).
+    pub comparison_models: Vec<String>,
+    pub model_id: Option<String>,
+}
+
+/// A validated `PATCH /api/drafts/{id}` body. `exclude_unset + exclude_none`
+/// means absent and null behave identically: both leave the field alone.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DraftPatch {
+    pub message_text: Option<String>,
+    pub objective: Option<String>,
+}
+
+/// A validated `POST /api/draft-groups/{id}/select` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewDraftGroupSelection {
+    pub draft_id: String,
+}
+
+/// The `POST /api/drafts/{id}/copy` response body (`DraftCopyResponse`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DraftCopyOutcome {
+    pub draft_id: String,
+    pub message_text: String,
+    pub copied_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Filter for `GET /api/drafts`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DraftFilter {
+    pub candidate_id: Option<String>,
+    pub task_id: Option<String>,
+    pub status: Option<DraftStatus>,
+}

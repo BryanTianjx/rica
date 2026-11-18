@@ -615,6 +615,15 @@ impl FollowUpRepository for SqliteStore {
         fetch_one_task(&mut connection, id).await
     }
 
+    async fn advance(
+        &self,
+        id: &str,
+        target: ica_domain::FollowUpTaskStatus,
+        reason: Option<String>,
+    ) -> Result<Option<ica_domain::FollowUpTask>, RepositoryError> {
+        self.advance_task_row(id, target, reason).await
+    }
+
     async fn expire_stale(&self, now: DateTime<Utc>) -> Result<u64, RepositoryError> {
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
         let now_sql = to_sql_timestamp(&now);
@@ -997,5 +1006,70 @@ impl DashboardRepository for SqliteStore {
         .await
         .map_err(repo_error)?;
         Ok(count)
+    }
+}
+
+/// The draft flows' task advance (`advance_task` in the baseline): walk the
+/// shortest legal path, stamp every intermediate status, optionally set the
+/// reason, and write ONE `follow_up.task_advanced` audit with the path.
+impl SqliteStore {
+    pub(crate) async fn advance_task_row(
+        &self,
+        id: &str,
+        target: ica_domain::FollowUpTaskStatus,
+        reason: Option<String>,
+    ) -> Result<Option<ica_domain::FollowUpTask>, RepositoryError> {
+        let mut tx = self.pool().begin().await.map_err(repo_error)?;
+        let Some(current) = fetch_one_task(&mut tx, id).await? else {
+            return Ok(None);
+        };
+        if current.status == target {
+            return Ok(Some(current));
+        }
+        let Some(path) = ica_domain::find_transition_path(current.status, target) else {
+            return Err(RepositoryError::unavailable(format!(
+                "A task in state {} cannot reach {}",
+                current.status.as_str(),
+                target.as_str()
+            )));
+        };
+        let mut status = current.status;
+        for step in &path {
+            status = *step;
+        }
+        let resolved_reason = reason.or(current.reason.clone());
+        sqlx::query(
+            "UPDATE follow_up_tasks SET status = ?, reason = ?, updated_at = ? WHERE id = ?",
+        )
+        .bind(status.as_str())
+        .bind(resolved_reason)
+        .bind(to_sql_timestamp(&Utc::now()))
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .map_err(repo_error)?;
+
+        insert_audit(
+            &mut tx,
+            AuditEntry::new(
+                "follow_up.task_advanced",
+                "follow_up_task",
+                id,
+                format!(
+                    "Advanced follow-up task {} → {}",
+                    current.status.as_str(),
+                    target.as_str()
+                ),
+            )
+            .with_metadata(json!({
+                "path": path.iter().map(|step| step.as_str()).collect::<Vec<_>>(),
+            })),
+        )
+        .await
+        .map_err(repo_error)?;
+        tx.commit().await.map_err(repo_error)?;
+
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        fetch_one_task(&mut connection, id).await
     }
 }

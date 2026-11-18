@@ -26,6 +26,8 @@ async-trait = "0.1"
 # Content fingerprint (`content_hash`): pure computation, so the domain keeps
 # the duplicate-detection rule instead of the adapter.
 sha2 = "0.10"
+# AI-context redaction (`redact_for_ai` port): pure pattern work, no runtime.
+regex = "1"
 
 # ── persistence ───────────────────────────────────────────────────────────
 # Runtime queries only (D7): no compile-time DATABASE_URL, no `sqlx::query!`

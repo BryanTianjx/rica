@@ -141,16 +141,16 @@ codebases by symbol.
 | 23 | POST | `/messages` | `create_message` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
 | 24 | GET | `/candidates/{candidate_id}/timeline` | `candidate_timeline` | `ica-application/conversations.rs` + `ica-infra/conversations.rs` | **W1 ✅** |
 | 25 | GET | `/dashboard` | `dashboard` | `ica-application/dashboard.rs` | W2 ✅ |
-| 26 | GET | `/drafts` | `list_drafts` | `ica-application/drafts.rs` | W3 |
-| 27 | GET | `/drafts/{draft_id}` | `get_draft` | `ica-application/drafts.rs` | W3 |
-| 28 | POST | `/drafts/generate` | `generate` | `ica-application/drafts.rs` | W3 |
-| 29 | GET | `/candidates/{candidate_id}/context` | `preview_context` | `ica-application/drafts.rs` | W3 |
-| 30 | PATCH | `/drafts/{draft_id}` | `update_draft` | `ica-application/drafts.rs` | W3 |
-| 31 | POST | `/drafts/{draft_id}/approve` | `approve_draft` | `ica-application/drafts.rs` | W3 |
-| 32 | POST | `/drafts/{draft_id}/reject` | `reject_draft` | `ica-application/drafts.rs` | W3 |
-| 33 | POST | `/drafts/{draft_id}/copy` | `copy_draft` | `ica-application/drafts.rs` | W3 |
-| 34 | GET | `/draft-groups/{group_id}` | `get_draft_group` | `ica-application/drafts.rs` | W3 |
-| 35 | POST | `/draft-groups/{group_id}/select` | `select_draft_from_group` | `ica-application/drafts.rs` | W3 |
+| 26 | GET | `/drafts` | `list_drafts` | `ica-application/drafts.rs` | W3 ✅ |
+| 27 | GET | `/drafts/{draft_id}` | `get_draft` | `ica-application/drafts.rs` | W3 ✅ |
+| 28 | POST | `/drafts/generate` | `generate` | `ica-application/drafts.rs` | W3 ✅ |
+| 29 | GET | `/candidates/{candidate_id}/context` | `preview_context` | `ica-application/drafts.rs` | W3 ✅ |
+| 30 | PATCH | `/drafts/{draft_id}` | `update_draft` | `ica-application/drafts.rs` | W3 ✅ |
+| 31 | POST | `/drafts/{draft_id}/approve` | `approve_draft` | `ica-application/drafts.rs` | W3 ✅ |
+| 32 | POST | `/drafts/{draft_id}/reject` | `reject_draft` | `ica-application/drafts.rs` | W3 ✅ |
+| 33 | POST | `/drafts/{draft_id}/copy` | `copy_draft` | `ica-application/drafts.rs` | W3 ✅ |
+| 34 | GET | `/draft-groups/{group_id}` | `get_draft_group` | `ica-application/drafts.rs` | W3 ✅ |
+| 35 | POST | `/draft-groups/{group_id}/select` | `select_draft_from_group` | `ica-application/drafts.rs` | W3 ✅ |
 | 36 | POST | `/follow-ups/evaluate` | `evaluate_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
 | 37 | GET | `/follow-ups` | `list_follow_ups` | `ica-application/follow_ups.rs` | W2 ✅ |
 | 38 | POST | `/follow-ups` | `create_follow_up` | `ica-application/follow_ups.rs` | W2 ✅ |
@@ -192,7 +192,7 @@ Reconciliation:
 | R0 (done) | 2 | 2 |
 | W1 positions writes + candidates + conversations + send-records | 15 | 17 |
 | W2 follow-ups + dashboard | 11 | 28 |
-| W3 drafts + draft-groups | 10 | 38 |
+| W3 drafts + draft-groups (done) | 10 | 38 |
 | W4 imports + export/import + OCR | 7 | 45 |
 | W5 ai + settings + audit + backups | 15 | 60 |
 | W6 auth + shares | 8 | 68 |
@@ -355,7 +355,53 @@ Deliberately **not** changed, to keep the wave's scope honest:
 - no existing field name, type or required-ness changes, and no sort order or
   error-code enum changes.
 
+### 7.1b W3 — measured deltas (drafts, draft-groups, context)
+
+W3's baseline behaviour was measured before any Rust code was written
+(`docs/contract-baseline/w3-python-facts.md`), and the comparison is
+`185/185 cases matched, 0 failure(s)`.
+
+**No new declared improvement (no IMP-5).** Every W3 difference the
+measurement found was a *missing* behaviour, not a divergent one, so the port
+reproduces the baseline exactly:
+
+| Behaviour | Python (measured) | Rust |
+| --- | --- | --- |
+| `generate` with no provider key | **503** `ai_provider_error`, `details: {}` | identical |
+| `GET /api/drafts` → `total` | the true filtered count | identical |
+| `GET /api/draft-groups/{id}` → `created_at` | `2026-11-10T09:00:04` — **no `Z`**, because `DraftGroupRead` is a plain `BaseModel`, not a `UtcModel` | identical (`serialize_naive_opt`) |
+| `POST /api/draft-groups/{id}/select` → error `details` | `{}` (the baseline raises `BusinessRuleError` with no details) | identical |
+| `PATCH /api/drafts/{id}` → absent vs explicit `null` | both ignored (`exclude_unset` + `exclude_none`) | identical |
+| `approve` / `reject` / `copy` guards | only a **rejected** draft is refused (`409`); every other state answers `200` | identical |
+| `copy` semantics | `copied` + `copied_at`, task → `AwaitingResult`; the response's `note` states that a copy is **not** a send | identical |
+| `DraftRead` field set | 31 fields, including `routing_decision_json` | identical (the field was missing from the first port and **added**) |
+| `routing_tier` / `routing_reason` | projected from the routing blob: `actual_tier` wins over `requested_tier`, `reason` becomes `routing_reason` | identical |
+
+The last two rows are worth spelling out: the first W3 port draft carried 30
+fields and hard-coded `routing_tier: None`. Both were **field-level contract
+breaks** (a missing response field is a wire break), found by reading
+`app/schemas/workflow.py::DraftRead` rather than by a failing test, and fixed
+before the comparison ran.
+
+### 7.1c Implementation optimizations (W3)
+
+| # | Optimization | Python value | Rust value | Reason | Frontend impact |
+| --- | --- | --- | --- | --- | --- |
+| **OPT-3** | Draft list paging pushed into SQL | reads every matching row, then slices `[offset : offset + limit]` | `SELECT COUNT(*)` for `total` plus `LIMIT ? OFFSET ?` for the window, same filter and `ORDER BY created_at DESC` | a page no longer reads the whole table | **None** — identical items in identical order, identical envelope |
+| **OPT-4** | Group supersede runs in one transaction | loops over the group and commits each superseded draft separately | the whole loop runs in a single transaction (`BEGIN` … `COMMIT`), so a failure leaves no half-superseded group | the baseline can leave the group half-rejected if one row's write fails; the port cannot | **None** — the same rows end up `rejected` with the same `rejected_at` |
+
+The per-row work is deliberately **not** collapsed into one statement: every
+superseded draft needs its own `draft.rejected` audit event, so the port
+issues one `UPDATE` plus one audit insert per row, exactly like the baseline —
+inside one transaction instead of one commit each.
+
+The audit trail is preserved either way: `draft.rejected` /
+`Draft rejected as superseded by a group member` with the
+`superseded_by` / `reason` metadata is written for every superseded row, and
+the `generated_drafts` table is compared row by row by the contract diff.
+
 ### 7.2 Implementation optimizations (W1)
+
 
 These change *how* a value is produced, never the value. Each is covered by the
 contract comparison (items, `total`, `offset`, `limit`, `has_more` and every
@@ -423,10 +469,20 @@ scripts/contract_verify.sh
 The implementation is `scripts/contract_verify.py`; the shell file is a wrapper
 around it.
 
-Last run: **`113/113 cases matched, 0 failure(s)`**, including
-`PASS db.<table>` for all eight business tables (17 audit events, 6 positions,
-5 candidates, 3 conversations, 1 message, 2 send records, 1 follow-up task,
-1 draft — the post-scenario state of both databases, row for row).
+Last run: **`185/185 cases matched, 0 failure(s)`** (W3), including
+`PASS db.<table>` for all nine business tables — the post-scenario state of
+both databases, row for row.
+
+> **The Python side must be isolated from the operator's stored credential.**
+> `app/config.py` ends with `apply_stored_secrets(settings)`, which overlays
+> the OS credential store (`<data dir>/secrets/ai_api_key.secret`) onto the
+> settings singleton *after* env and `.env` are resolved — so a stored key
+> beats `AI_API_KEY=""` and `/health.ai_enabled` reports `true` no matter what
+> the harness sets. `scripts/contract_verify.py` therefore sets **both**
+> `AI_API_KEY=""` and `ICA_DATA_DIR=<scratch>` (the latter is what actually
+> isolates it: `app/paths.py::default_data_dir` honours that variable). A
+> `health` mismatch on `ai_enabled` means the harness ran without that
+> isolation, not that the port is wrong.
 
 The steps it performs, if you need them individually:
 
@@ -441,6 +497,7 @@ rsync -a --exclude '.venv' --exclude '.env' --exclude '__pycache__' \
   --exclude 'ica.db*' /mnt/o/ica/backend/ /tmp/ica-py-baseline/
 cd /tmp/ica-py-baseline
 env -u PYTHONPATH -u PYTHONHOME PYTHONDONTWRITEBYTECODE=1 \
+  AI_API_KEY="" ICA_DATA_DIR="/tmp/ica-contract/python-data" \
   DATABASE_URL="sqlite:////tmp/ica-contract/python.db" \
   /mnt/o/ica/backend/.venv/bin/python -m uvicorn app.main:app --port 8010 &
 

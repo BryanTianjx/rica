@@ -18,20 +18,24 @@ pub mod error;
 pub mod query;
 
 pub use body::{
-    follow_up_create, follow_up_evaluate, follow_up_patch, follow_up_policy_patch,
-    follow_up_result, parse, RawFollowUpCreate, RawFollowUpEvaluate, RawFollowUpPatch,
-    RawFollowUpPolicyPatch, RawFollowUpResult, RawMessageCreate, RawSendRecordCreate,
+    draft_approve, draft_group_select, draft_patch, follow_up_create, follow_up_evaluate,
+    follow_up_patch, follow_up_policy_patch, follow_up_result, generate_request, parse,
+    RawDraftApprove, RawDraftGroupSelect, RawDraftPatch, RawFollowUpCreate, RawFollowUpEvaluate,
+    RawFollowUpPatch, RawFollowUpPolicyPatch, RawFollowUpResult, RawGenerateRequest,
+    RawMessageCreate, RawSendRecordCreate,
 };
 pub use dto::{
-    CandidateDetailRead, CandidateRead, ConversationRead, DashboardRead, FollowUpDecisionRead,
-    FollowUpPolicyRead, FollowUpTaskRead, HealthResponse, MessageRead, PageResponse, PositionRead,
-    SendRecordRead, TimelineEntryRead,
+    CandidateDetailRead, CandidateRead, ContextPreviewRead, ConversationRead, DashboardRead,
+    DraftCopyResponse, DraftGroupRead, DraftRead, FollowUpDecisionRead, FollowUpPolicyRead,
+    FollowUpTaskRead, HealthResponse, MessageRead, PageResponse, PositionRead, SendRecordRead,
+    TimelineEntryRead,
 };
 pub use error::{ContractError, ValidationIssue};
 pub use query::{
     typed_limit, typed_offset, validate, validate_candidates, validate_conversations,
-    validate_follow_ups, validate_messages, validate_send_records, validate_timeline,
-    RawFollowUpCancelQuery, RawListCandidatesQuery, RawListConversationsQuery,
-    RawListFollowUpsQuery, RawListMessagesQuery, RawListPositionsQuery, RawListSendRecordsQuery,
-    RawTimelineQuery, DEFAULT_LIMIT, DEFAULT_MESSAGE_LIMIT, MAX_LIMIT, MAX_MESSAGE_LIMIT,
+    validate_drafts, validate_follow_ups, validate_messages, validate_send_records,
+    validate_timeline, ListDrafts, RawFollowUpCancelQuery, RawListCandidatesQuery,
+    RawListConversationsQuery, RawListDraftsQuery, RawListFollowUpsQuery, RawListMessagesQuery,
+    RawListPositionsQuery, RawListSendRecordsQuery, RawTimelineQuery, DEFAULT_LIMIT,
+    DEFAULT_MESSAGE_LIMIT, MAX_LIMIT, MAX_MESSAGE_LIMIT,
 };

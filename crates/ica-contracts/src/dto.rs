@@ -7,12 +7,15 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, SecondsFormat, Utc};
+use ica_application::ai_context::AiContext;
+use ica_application::payload::DraftCopyOutcome;
 use ica_application::FollowUpPolicyRecord;
 use ica_domain::{
-    Candidate, Conversation, FollowUpDecision, FollowUpTask, Message, Page, Position, SendRecord,
-    TimelineEntry,
+    Candidate, Conversation, FollowUpDecision, FollowUpTask, GeneratedDraft, Message, Page,
+    Position, SendRecord, TimelineEntry,
 };
 use serde::{Serialize, Serializer};
+use serde_json::Value;
 
 /// Render a UTC instant the way the Python baseline does.
 ///
@@ -42,6 +45,31 @@ where
 {
     match value {
         Some(instant) => serializer.serialize_some(&format_utc(instant)),
+        None => serializer.serialize_none(),
+    }
+}
+
+/// Python's *naive* `datetime.isoformat()` — no `Z`, no offset.
+///
+/// `DraftGroupRead` is a plain `BaseModel`, not a `UtcModel`, so its
+/// `created_at` never passes through `as_utc` and comes out as
+/// `2026-11-10T09:00:04`. A port that "helpfully" adds the `Z` here is a
+/// value difference, and the contract diff catches it.
+fn format_naive(value: &DateTime<Utc>) -> String {
+    if value.timestamp_subsec_micros() == 0 {
+        value.format("%Y-%m-%dT%H:%M:%S").to_string()
+    } else {
+        value.format("%Y-%m-%dT%H:%M:%S%.6f").to_string()
+    }
+}
+
+/// `null` stays `null`; a present instant is rendered like [`format_naive`].
+fn serialize_naive_opt<S>(value: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(instant) => serializer.serialize_some(&format_naive(instant)),
         None => serializer.serialize_none(),
     }
 }
@@ -505,5 +533,201 @@ mod tests {
         let page: PageResponse<u8> =
             PageResponse::from_page(Page::from_items(vec![1, 2, 3], 2, 2), |value| value);
         assert!(!page.has_more);
+    }
+}
+
+// ── Drafts (W3) ────────────────────────────────────────────────────────────
+
+fn expand_json_list(raw: &str) -> Vec<String> {
+    serde_json::from_str::<Vec<String>>(raw).unwrap_or_default()
+}
+
+/// Python's `load_json_dict`: read a JSON object from a text column, returning
+/// `None` for NULL/empty, malformed JSON, or any non-object value — a broken
+/// blob must never break the row's rendering.
+fn load_json_object(raw: Option<&str>) -> Option<serde_json::Map<String, Value>> {
+    let raw = raw?;
+    if raw.is_empty() {
+        return None;
+    }
+    match serde_json::from_str::<Value>(raw) {
+        Ok(Value::Object(map)) => Some(map),
+        _ => None,
+    }
+}
+
+/// One generated draft (`DraftRead`), field-for-field the Python schema
+/// including the V2 cost/routing fields; the JSON-backed list columns are
+/// expanded, and `routing_tier`/`routing_reason` are projected out of the
+/// `routing_decision_json` blob exactly like `draft_to_read` does.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DraftRead {
+    pub id: String,
+    pub candidate_id: String,
+    pub task_id: Option<String>,
+    pub message_type: String,
+    pub tone: String,
+    pub status: &'static str,
+    pub objective: Option<String>,
+    pub message_text: String,
+    pub alternatives: Vec<String>,
+    pub context_references: Vec<String>,
+    pub uncertainties: Vec<String>,
+    pub warnings: Vec<String>,
+    pub validation_status: String,
+    pub validation_messages: Vec<String>,
+    pub quality_status: Option<String>,
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub prompt_version: Option<String>,
+    pub is_edited: bool,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub approved_at: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub copied_at: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub rejected_at: Option<DateTime<Utc>>,
+    pub draft_group_id: Option<String>,
+    pub cost_cents: Option<i64>,
+    pub prompt_tokens: Option<i64>,
+    pub completion_tokens: Option<i64>,
+    pub routing_tier: Option<String>,
+    pub routing_reason: Option<String>,
+    /// The raw routing blob, echoed verbatim like Python's `DraftRead`
+    /// (the ORM model carries it as a column, so `model_validate` keeps it).
+    pub routing_decision_json: Option<String>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<GeneratedDraft> for DraftRead {
+    fn from(draft: GeneratedDraft) -> Self {
+        // Python: `routing = load_json_dict(draft.routing_decision_json)` then
+        // `routing.get("actual_tier") or routing.get("requested_tier")` and
+        // `routing.get("reason")`. A NULL/empty blob, malformed JSON, or a
+        // JSON non-object all degrade to "no routing" (never an error).
+        let routing = load_json_object(draft.routing_decision_json.as_deref());
+        let routing_tier = routing
+            .as_ref()
+            .and_then(|routing| {
+                routing
+                    .get("actual_tier")
+                    .filter(|value| !value.is_null())
+                    .or_else(|| {
+                        routing
+                            .get("requested_tier")
+                            .filter(|value| !value.is_null())
+                    })
+            })
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let routing_reason = routing
+            .as_ref()
+            .and_then(|routing| routing.get("reason"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        Self {
+            id: draft.id,
+            candidate_id: draft.candidate_id,
+            task_id: draft.task_id,
+            message_type: draft.message_type,
+            tone: draft.tone,
+            status: draft.status.as_str(),
+            objective: draft.objective,
+            message_text: draft.message_text,
+            alternatives: expand_json_list(&draft.alternatives_json),
+            context_references: expand_json_list(&draft.context_references_json),
+            uncertainties: expand_json_list(&draft.uncertainties_json),
+            warnings: expand_json_list(&draft.warnings_json),
+            validation_status: draft.validation_status,
+            validation_messages: expand_json_list(&draft.validation_messages_json),
+            quality_status: draft.quality_status,
+            provider: draft.provider,
+            model: draft.model,
+            prompt_version: draft.prompt_version,
+            is_edited: draft.is_edited,
+            approved_at: draft.approved_at,
+            copied_at: draft.copied_at,
+            rejected_at: draft.rejected_at,
+            draft_group_id: draft.draft_group_id,
+            cost_cents: draft.cost_cents,
+            prompt_tokens: draft.prompt_tokens,
+            completion_tokens: draft.completion_tokens,
+            routing_tier,
+            routing_reason,
+            routing_decision_json: draft.routing_decision_json,
+            created_at: draft.created_at,
+            updated_at: draft.updated_at,
+        }
+    }
+}
+
+/// One comparison group (`DraftGroupRead`): the shared id, the group's latest
+/// `created_at`, and the drafts sorted `created_at ASC`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DraftGroupRead {
+    pub draft_group_id: String,
+    /// Naive on purpose — Python's `DraftGroupRead` is a plain `BaseModel`, so
+    /// this field keeps `2026-11-10T09:00:04` (the `DraftRead`s inside do get
+    /// the `Z`, because they inherit `UtcModel`).
+    #[serde(serialize_with = "serialize_naive_opt")]
+    pub created_at: Option<DateTime<Utc>>,
+    pub drafts: Vec<DraftRead>,
+}
+
+/// The transparency surface (`ContextPreviewRead`): exactly what the model
+/// would see for this candidate.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ContextPreviewRead {
+    pub candidate_id: String,
+    pub candidate_summary: Value,
+    pub position_summary: Option<Value>,
+    pub message_count: usize,
+    /// The newest 10 of the oldest-first context messages.
+    pub recent_messages: Vec<Value>,
+    pub notes: Vec<String>,
+    pub unknowns: Vec<String>,
+    pub conflicts: Vec<String>,
+    pub redaction_applied: Vec<String>,
+}
+
+impl From<AiContext> for ContextPreviewRead {
+    fn from(context: AiContext) -> Self {
+        let message_count = context.messages.len();
+        let recent_start = message_count.saturating_sub(10);
+        Self {
+            candidate_id: context.candidate_id,
+            candidate_summary: context.candidate_summary,
+            position_summary: context.position_summary,
+            message_count,
+            recent_messages: context.messages[recent_start..].to_vec(),
+            notes: context.notes,
+            unknowns: context.unknowns,
+            conflicts: context.conflicts,
+            redaction_applied: context.redaction_applied,
+        }
+    }
+}
+
+/// The `POST /api/drafts/{id}/copy` response (`DraftCopyResponse`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DraftCopyResponse {
+    pub draft_id: String,
+    pub message_text: String,
+    #[serde(serialize_with = "serialize_utc")]
+    pub copied_at: DateTime<Utc>,
+    pub note: &'static str,
+}
+
+impl From<DraftCopyOutcome> for DraftCopyResponse {
+    fn from(outcome: DraftCopyOutcome) -> Self {
+        Self {
+            draft_id: outcome.draft_id,
+            message_text: outcome.message_text,
+            copied_at: outcome.copied_at,
+            note: "Copied to clipboard. This does not mean the message was sent.",
+        }
     }
 }

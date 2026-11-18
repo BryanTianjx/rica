@@ -87,6 +87,12 @@ impl IntoResponse for ApiError {
                 message,
                 details,
             ),
+            ContractError::ProviderUnavailable { message, details } => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "ai_provider_error",
+                message,
+                details,
+            ),
             ContractError::Http { status, message } => (
                 StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
                 "http_error",

@@ -59,13 +59,32 @@ HEALTH_INTERVAL = 0.5
 
 
 def clean_env() -> dict[str, str]:
-    """The environment with the host's Python paths and AI key removed, plus
+    """The environment with the host's Python paths and AI key neutralised, plus
     the build-artefact location on a fast local disk (Tauri-audit finding
     G-5: the repo volume is small and the committed config no longer pins an
-    absolute path; an explicit `CARGO_TARGET_DIR` always wins)."""
+    absolute path; an explicit `CARGO_TARGET_DIR` always wins).
+
+    `AI_API_KEY` is set to the **empty string**, not deleted. Deleting it lets
+    the Python baseline fall back to its own `.env` (pydantic-settings'
+    `env_file` is an absolute path derived from `__file__`), so
+    `/health.ai_enabled` would mirror whoever ran the harness instead of the
+    no-key scenario the baseline facts were measured in. An environment
+    variable wins over `.env`, so `""` pins `ai_enabled=false` on both sides —
+    and the AI path still answers the same 503, because the provider reads the
+    per-model env var rather than `settings`.
+
+    That alone is not enough: `app/config.py` finishes with
+    `apply_stored_secrets(settings)`, which overlays the **OS credential
+    store** (`<data dir>/secrets/ai_api_key.secret`) onto the settings
+    singleton *after* the env/`.env` sources are resolved — so a stored key
+    beats `AI_API_KEY=""`. `start_python_baseline` therefore also points
+    `ICA_DATA_DIR` at a scratch directory, which is what actually isolates the
+    harness from the operator's stored credential.
+    """
     env = dict(os.environ)
-    for name in ("PYTHONPATH", "PYTHONHOME", "AI_API_KEY"):
+    for name in ("PYTHONPATH", "PYTHONHOME"):
         env.pop(name, None)
+    env["AI_API_KEY"] = ""
     env.setdefault(
         "CARGO_TARGET_DIR", str(Path.home() / ".cache" / "ica-rust-target")
     )
@@ -140,6 +159,7 @@ def start_python_baseline() -> subprocess.Popen:
     env = clean_env()
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["DATABASE_URL"] = f"sqlite:///{WORK / 'python.db'}"
+    env["ICA_DATA_DIR"] = str(WORK / "python-data")
     log = (WORK / "python.log").open("w")
 
     # `exec`-like behaviour: the process group is started directly so killing

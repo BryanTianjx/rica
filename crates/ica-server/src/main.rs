@@ -67,7 +67,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| database_url.clone());
 
     let repository = SqliteStore::new(pool);
-    // One adapter, seven port views: the HTTP layer sees only the traits, and a
+    // One adapter, nine port views: the HTTP layer sees only the traits, and a
     // write plus its audit event always share the same pool/transaction.
     let state = AppState::new(
         Arc::new(repository.clone()),
@@ -76,7 +76,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),
-        Arc::new(repository),
+        Arc::new(repository.clone()),
+        Arc::new(repository.clone()),
+        // W3's AI port: no provider is configured, so every call answers the
+        // baseline's 503 `ai_provider_error`. The real provider is W5's job.
+        Arc::new(ica_infra::drafts::NotConfiguredDraftGenerator),
         AppConfig {
             app_name,
             ai_enabled,

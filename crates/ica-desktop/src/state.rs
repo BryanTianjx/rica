@@ -7,9 +7,11 @@
 use std::sync::Arc;
 
 use ica_application::{
-    CandidateRepository, ConversationRepository, DashboardRepository, FollowUpRepository,
-    MessageRepository, PositionRepository, SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, DraftGenerator,
+    DraftRepository, FollowUpRepository, MessageRepository, PositionRepository,
+    SendRecordRepository,
 };
+use ica_infra::drafts::NotConfiguredDraftGenerator;
 use ica_infra::SqliteStore;
 
 /// Settings that shape response bodies (mirrors the server's `AppConfig`).
@@ -33,6 +35,8 @@ pub struct DesktopState {
     send_records: Arc<dyn SendRecordRepository>,
     follow_ups: Arc<dyn FollowUpRepository>,
     dashboard: Arc<dyn DashboardRepository>,
+    drafts: Arc<dyn DraftRepository>,
+    draft_generator: Arc<dyn DraftGenerator>,
     config: DesktopConfig,
 }
 
@@ -61,7 +65,11 @@ impl DesktopState {
             messages: Arc::new(store.clone()),
             send_records: Arc::new(store.clone()),
             follow_ups: Arc::new(store.clone()),
-            dashboard: Arc::new(store),
+            dashboard: Arc::new(store.clone()),
+            drafts: Arc::new(store),
+            // W3: no provider configured, so `generate` answers the baseline's
+            // 503 `ai_provider_error`. W5 supplies the real provider.
+            draft_generator: Arc::new(NotConfiguredDraftGenerator),
             config,
         }
     }
@@ -92,6 +100,14 @@ impl DesktopState {
 
     pub fn dashboard(&self) -> &dyn DashboardRepository {
         self.dashboard.as_ref()
+    }
+
+    pub fn drafts(&self) -> &dyn DraftRepository {
+        self.drafts.as_ref()
+    }
+
+    pub fn draft_generator(&self) -> &dyn DraftGenerator {
+        self.draft_generator.as_ref()
     }
 
     pub fn config(&self) -> &DesktopConfig {

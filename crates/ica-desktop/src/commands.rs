@@ -602,3 +602,169 @@ pub async fn dashboard(state: &DesktopState) -> Result<dto::DashboardRead, IpcEr
         open_position_count: snapshot.open_position_count,
     })
 }
+
+// ── Drafts and draft groups (W3) ───────────────────────────────────────────
+
+/// Typed args for `drafts_list` (the `status` alias is the Python wire name).
+#[derive(Debug, Default, Deserialize)]
+pub struct DraftListArgs {
+    pub candidate_id: Option<String>,
+    pub task_id: Option<String>,
+    pub status: Option<String>,
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+/// `drafts_list` — one page, `created_at DESC`, true total.
+pub async fn drafts_list(
+    state: &DesktopState,
+    args: DraftListArgs,
+) -> Result<dto::PageResponse<dto::DraftRead>, IpcError> {
+    let offset = query::typed_offset(args.offset).map_err(fail)?;
+    let limit = query::typed_limit(args.limit, DEFAULT_LIMIT, MAX_LIMIT).map_err(fail)?;
+    let validated = query::validate_drafts(ica_contracts::query::RawListDraftsQuery {
+        candidate_id: args.candidate_id,
+        task_id: args.task_id,
+        status: args.status,
+        offset: None,
+        limit: None,
+    })
+    .map_err(fail)?;
+    let (drafts, total) =
+        ica_application::list_drafts(state.drafts(), validated.filter, offset, limit).await?;
+    let page = ica_domain::Page {
+        items: drafts,
+        total,
+        offset,
+        limit,
+    };
+    Ok(dto::PageResponse::from_page(page, dto::DraftRead::from))
+}
+
+/// `drafts_get` — one draft.
+pub async fn drafts_get(state: &DesktopState, draft_id: &str) -> Result<dto::DraftRead, IpcError> {
+    let draft = ica_application::get_draft(state.drafts(), draft_id).await?;
+    Ok(dto::DraftRead::from(draft))
+}
+
+/// `drafts_generate` — the guard chain, then the AI port's 503.
+pub async fn drafts_generate(
+    state: &DesktopState,
+    payload: &Value,
+) -> Result<dto::DraftRead, IpcError> {
+    let raw: body::RawGenerateRequest = parse_body(payload)?;
+    let request = body::generate_request(raw).map_err(fail)?;
+    match ica_application::generate(
+        state.drafts(),
+        state.follow_ups(),
+        state.candidates(),
+        state.positions(),
+        state.draft_generator(),
+        request,
+    )
+    .await?
+    {
+        ica_application::drafts::GenerateOutcome::Created(draft) => {
+            Ok(dto::DraftRead::from(*draft))
+        }
+    }
+}
+
+/// `candidate_context` — exactly what the model would see.
+pub async fn candidate_context(
+    state: &DesktopState,
+    candidate_id: &str,
+) -> Result<dto::ContextPreviewRead, IpcError> {
+    let context = ica_application::preview_context(
+        state.candidates(),
+        state.positions(),
+        state.messages(),
+        candidate_id,
+    )
+    .await?;
+    Ok(dto::ContextPreviewRead::from(context))
+}
+
+/// `drafts_patch` — edit the wording (409 once approved/copied).
+pub async fn drafts_patch(
+    state: &DesktopState,
+    draft_id: &str,
+    payload: &Value,
+) -> Result<dto::DraftRead, IpcError> {
+    let raw: body::RawDraftPatch = parse_body(payload)?;
+    let patch = body::draft_patch(raw).map_err(fail)?;
+    let draft = ica_application::update_draft(state.drafts(), draft_id, patch).await?;
+    Ok(dto::DraftRead::from(draft))
+}
+
+/// `drafts_approve` — approval only, never a send.
+pub async fn drafts_approve(
+    state: &DesktopState,
+    draft_id: &str,
+    payload: &Value,
+) -> Result<dto::DraftRead, IpcError> {
+    let raw: body::RawDraftApprove = parse_body(payload)?;
+    let note = body::draft_approve(raw).map_err(fail)?;
+    let draft =
+        ica_application::approve_draft(state.drafts(), state.follow_ups(), draft_id, note).await?;
+    Ok(dto::DraftRead::from(draft))
+}
+
+/// `drafts_reject` — no guard, every state answers success.
+pub async fn drafts_reject(
+    state: &DesktopState,
+    draft_id: &str,
+) -> Result<dto::DraftRead, IpcError> {
+    let draft = ica_application::reject_draft(state.drafts(), state.follow_ups(), draft_id).await?;
+    Ok(dto::DraftRead::from(draft))
+}
+
+/// `drafts_copy` — copy is not a send.
+pub async fn drafts_copy(
+    state: &DesktopState,
+    draft_id: &str,
+) -> Result<dto::DraftCopyResponse, IpcError> {
+    let outcome = ica_application::copy_draft(state.drafts(), state.follow_ups(), draft_id).await?;
+    Ok(dto::DraftCopyResponse::from(outcome))
+}
+
+/// `draft_groups_get` — the group, `created_at ASC`.
+pub async fn draft_groups_get(
+    state: &DesktopState,
+    group_id: &str,
+) -> Result<dto::DraftGroupRead, IpcError> {
+    let drafts = ica_application::get_draft_group(state.drafts(), group_id).await?;
+    Ok(build_draft_group(drafts))
+}
+
+/// `draft_groups_select` — pick one, reject the rest.
+pub async fn draft_groups_select(
+    state: &DesktopState,
+    group_id: &str,
+    payload: &Value,
+) -> Result<dto::DraftGroupRead, IpcError> {
+    let raw: body::RawDraftGroupSelect = parse_body(payload)?;
+    let selection = body::draft_group_select(raw).map_err(fail)?;
+    let drafts = ica_application::select_draft_from_group(
+        state.drafts(),
+        state.follow_ups(),
+        group_id,
+        selection,
+    )
+    .await?;
+    Ok(build_draft_group(drafts))
+}
+
+/// `_build_draft_group`, shared with the HTTP adapter's mapping.
+fn build_draft_group(drafts: Vec<ica_domain::GeneratedDraft>) -> dto::DraftGroupRead {
+    let draft_group_id = drafts
+        .first()
+        .and_then(|draft| draft.draft_group_id.clone())
+        .unwrap_or_default();
+    let created_at = drafts.iter().map(|draft| draft.created_at).max();
+    dto::DraftGroupRead {
+        draft_group_id,
+        created_at,
+        drafts: drafts.into_iter().map(dto::DraftRead::from).collect(),
+    }
+}

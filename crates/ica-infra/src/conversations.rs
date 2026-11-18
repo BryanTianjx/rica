@@ -420,4 +420,14 @@ impl MessageRepository for SqliteStore {
                 .map_err(RepositoryError::unavailable)?,
         })
     }
+
+    /// The AI context builder's read (W3): the candidate's messages
+    /// oldest-first, capped — `message_time ASC NULLS LAST, created_at ASC`.
+    async fn context_messages(
+        &self,
+        candidate_id: &str,
+        limit: i64,
+    ) -> Result<Vec<Message>, RepositoryError> {
+        crate::drafts::context_messages(self.pool(), candidate_id, limit).await
+    }
 }

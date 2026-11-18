@@ -68,6 +68,9 @@ pub enum ContractError {
     Validation { message: String, details: Value },
     /// 409 `business_rule_violation`.
     Conflict { message: String, details: Value },
+    /// 503 `ai_provider_error` — the upstream AI provider failed or is not
+    /// configured (the baseline's `AIProviderError`).
+    ProviderUnavailable { message: String, details: Value },
     /// A transport-level error such as an unknown path (HTTP) or an unknown
     /// command target (IPC).
     Http { status: u16, message: String },
@@ -135,6 +138,7 @@ impl ContractError {
             Self::NotFound { .. } => "not_found",
             Self::ValidationIssues { .. } | Self::Validation { .. } => "validation_error",
             Self::Conflict { .. } => "business_rule_violation",
+            Self::ProviderUnavailable { .. } => "ai_provider_error",
             Self::Http { .. } => "http_error",
             Self::Internal { .. } => "internal_error",
         }
@@ -145,6 +149,7 @@ impl ContractError {
         match self {
             Self::ValidationIssues { issues } => serde_json::json!({ "errors": issues }),
             Self::Validation { details, .. } | Self::Conflict { details, .. } => details.clone(),
+            Self::ProviderUnavailable { details, .. } => details.clone(),
             Self::NotFound { .. } | Self::Http { .. } | Self::Internal { .. } => {
                 serde_json::json!({})
             }
@@ -159,6 +164,7 @@ impl ContractError {
             Self::NotFound { message }
             | Self::Validation { message, .. }
             | Self::Conflict { message, .. }
+            | Self::ProviderUnavailable { message, .. }
             | Self::Http { message, .. } => message,
             Self::ValidationIssues { .. } => "Request payload failed validation",
             Self::Internal { .. } => "An unexpected error occurred",
@@ -182,6 +188,10 @@ impl From<ApplicationError> for ContractError {
             // (it carries the settable-status list as an array).
             ApplicationError::ConflictValue { message, details } => {
                 ContractError::Conflict { message, details }
+            }
+            // The AI provider's 503: same free-form details shape.
+            ApplicationError::ProviderUnavailable { message, details } => {
+                ContractError::ProviderUnavailable { message, details }
             }
             ApplicationError::Unavailable { message } => ContractError::Internal { message },
         }

@@ -24,9 +24,11 @@ use axum::Router;
 use http_body_util::BodyExt;
 use ica_api::{AppConfig, AppState};
 use ica_application::{
-    CandidateRepository, ConversationRepository, DashboardRepository, FollowUpRepository,
-    MessageRepository, PositionRepository, SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, DraftGenerator,
+    DraftRepository, FollowUpRepository, MessageRepository, PositionRepository,
+    SendRecordRepository,
 };
+use ica_infra::drafts::NotConfiguredDraftGenerator;
 use ica_infra::{connect, SqliteStore};
 
 /// The real baseline DDL, exported from the Python database.
@@ -384,7 +386,9 @@ pub async fn app_for(path: &Path) -> Router {
         Arc::new(store.clone()) as Arc<dyn MessageRepository>,
         Arc::new(store.clone()) as Arc<dyn SendRecordRepository>,
         Arc::new(store.clone()) as Arc<dyn FollowUpRepository>,
-        Arc::new(store) as Arc<dyn DashboardRepository>,
+        Arc::new(store.clone()) as Arc<dyn DashboardRepository>,
+        Arc::new(store.clone()) as Arc<dyn DraftRepository>,
+        Arc::new(NotConfiguredDraftGenerator) as Arc<dyn DraftGenerator>,
         AppConfig {
             app_name: "ICA Personal".to_string(),
             ai_enabled: false,

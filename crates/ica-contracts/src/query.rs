@@ -18,7 +18,7 @@ use ica_application::{
     ListCandidates, ListConversations, ListMessages, ListPositions, ListSendRecords,
 };
 use ica_domain::{
-    normalize_search, CandidateStatus, FollowUpTaskStatus, ResultType, MAX_SEARCH_LEN,
+    normalize_search, CandidateStatus, DraftStatus, FollowUpTaskStatus, ResultType, MAX_SEARCH_LEN,
 };
 
 use crate::error::{ContractError, ValidationIssue};
@@ -526,6 +526,56 @@ pub fn validate_follow_ups(raw: RawListFollowUpsQuery) -> Result<ListFollowUps, 
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct RawFollowUpCancelQuery {
     pub reason: Option<String>,
+}
+
+// ── Drafts (W3) ────────────────────────────────────────────────────────────
+
+/// Raw `GET /api/drafts` query.
+///
+/// Python's signature is `draft_status` with `alias="status"`, so the wire
+/// name is `status` and the expected list is pydantic's lowercase set.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct RawListDraftsQuery {
+    pub candidate_id: Option<String>,
+    pub task_id: Option<String>,
+    /// Query alias `status` (`draft_status` in the Python signature).
+    pub status: Option<String>,
+    pub offset: Option<String>,
+    pub limit: Option<String>,
+}
+
+/// A validated `GET /api/drafts` request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListDrafts {
+    pub filter: ica_application::DraftFilter,
+    pub offset: usize,
+    pub limit: usize,
+}
+
+/// Validate every `GET /api/drafts` parameter.
+pub fn validate_drafts(raw: RawListDraftsQuery) -> Result<ListDrafts, ContractError> {
+    let mut issues = Vec::new();
+    let status = parse_enum(
+        raw.status.as_deref(),
+        "status",
+        "'generated', 'edited', 'approved', 'rejected' or 'copied'",
+        DraftStatus::parse,
+        &mut issues,
+    );
+    let offset = offset_or_default(raw.offset.as_deref(), &mut issues);
+    let limit = limit_or_default(raw.limit.as_deref(), DEFAULT_LIMIT, MAX_LIMIT, &mut issues);
+    finish(
+        issues,
+        ListDrafts {
+            filter: ica_application::DraftFilter {
+                candidate_id: raw.candidate_id,
+                task_id: raw.task_id,
+                status,
+            },
+            offset,
+            limit,
+        },
+    )
 }
 
 // ── Typed-argument variants (Tauri IPC) ────────────────────────────────────

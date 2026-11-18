@@ -9,6 +9,7 @@ pub mod audit;
 pub mod candidates;
 pub mod conversations;
 pub mod db;
+pub mod drafts;
 pub mod follow_ups;
 pub mod repository;
 pub mod send_records;

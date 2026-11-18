@@ -1231,3 +1231,239 @@ mod tests {
         assert_eq!(patch.position_id, Field::Absent);
     }
 }
+
+// ── Drafts (W3) ────────────────────────────────────────────────────────────
+
+use ica_application::{DraftPatch, NewDraftGeneration, NewDraftGroupSelection};
+use ica_domain::{MessageType, Tone};
+
+/// A validated `POST /api/drafts/generate` body.
+#[derive(Deserialize, Default)]
+pub struct RawGenerateRequest {
+    #[serde(default)]
+    pub candidate_id: Incoming<String>,
+    #[serde(default)]
+    pub task_id: Incoming<String>,
+    #[serde(default)]
+    pub message_type: Incoming<String>,
+    #[serde(default)]
+    pub tone: Incoming<String>,
+    #[serde(default)]
+    pub user_instruction: Incoming<String>,
+    #[serde(default)]
+    pub include_alternatives: Incoming<bool>,
+    #[serde(default)]
+    pub max_length: Incoming<i64>,
+    #[serde(default)]
+    pub comparison_models: Incoming<Vec<String>>,
+    #[serde(default)]
+    pub model_id: Incoming<String>,
+}
+
+/// Validate a `POST /api/drafts/generate` body.
+pub fn generate_request(raw: RawGenerateRequest) -> Result<NewDraftGeneration, ContractError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
+    let task_id = take_optional_string(raw.task_id);
+    let message_type = match take_enum(
+        &mut issues,
+        "message_type",
+        raw.message_type,
+        MessageType::EXPECTED_LIST,
+        MessageType::parse,
+    ) {
+        Some(value) => value,
+        None => MessageType::Reply,
+    };
+    let tone = match take_enum(
+        &mut issues,
+        "tone",
+        raw.tone,
+        Tone::EXPECTED_LIST,
+        Tone::parse,
+    ) {
+        Some(value) => value,
+        None => Tone::Friendly,
+    };
+    let user_instruction = match &raw.user_instruction {
+        Incoming::Value(value) => {
+            check_max_chars(&mut issues, "user_instruction", value, 2000);
+            Some(value.clone())
+        }
+        Incoming::Null | Incoming::Absent => None,
+    };
+    let include_alternatives = match raw.include_alternatives {
+        Incoming::Value(value) => value,
+        _ => true,
+    };
+    let max_length = match raw.max_length {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => {
+            if value < 50 {
+                issues.push(issue(
+                    "greater_than_equal",
+                    "max_length",
+                    "Input should be greater than or equal to 50",
+                    &value.to_string(),
+                ));
+                None
+            } else if value > 2000 {
+                issues.push(issue(
+                    "less_than_equal",
+                    "max_length",
+                    "Input should be less than or equal to 2000",
+                    &value.to_string(),
+                ));
+                None
+            } else {
+                Some(value)
+            }
+        }
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewDraftGeneration {
+        candidate_id,
+        task_id,
+        message_type,
+        tone,
+        user_instruction,
+        include_alternatives,
+        max_length,
+        comparison_models: match raw.comparison_models {
+            Incoming::Value(models) => models,
+            _ => Vec::new(),
+        },
+        model_id: take_optional_string(raw.model_id),
+    })
+}
+
+/// A validated `PATCH /api/drafts/{id}` body. `message_text` has
+/// `min_length=1`; both fields ignore absent and null alike
+/// (`exclude_unset + exclude_none`).
+#[derive(Deserialize, Default)]
+pub struct RawDraftPatch {
+    #[serde(default)]
+    pub message_text: Incoming<String>,
+    #[serde(default)]
+    pub objective: Incoming<String>,
+}
+
+/// Validate a `PATCH /api/drafts/{id}` body.
+pub fn draft_patch(raw: RawDraftPatch) -> Result<DraftPatch, ContractError> {
+    let mut issues = Vec::new();
+    let message_text = match &raw.message_text {
+        Incoming::Value(value) => {
+            check_min_chars(&mut issues, "message_text", value, 1);
+            Some(value.clone())
+        }
+        Incoming::Null | Incoming::Absent => None,
+    };
+    let objective = match &raw.objective {
+        Incoming::Value(value) => Some(value.clone()),
+        Incoming::Null | Incoming::Absent => None,
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(DraftPatch {
+        message_text,
+        objective,
+    })
+}
+
+/// A validated `POST /api/drafts/{id}/approve` body (`DraftApproveRequest`:
+/// one optional `note`, echoed into the audit metadata).
+#[derive(Deserialize, Default)]
+pub struct RawDraftApprove {
+    #[serde(default)]
+    pub note: Incoming<String>,
+}
+
+/// Validate a `POST /api/drafts/{id}/approve` body: absent and null are both
+/// "no note" (`note: str | None = None`).
+pub fn draft_approve(raw: RawDraftApprove) -> Result<Option<String>, ContractError> {
+    Ok(match raw.note {
+        Incoming::Value(value) => Some(value),
+        Incoming::Null | Incoming::Absent => None,
+    })
+}
+
+/// A validated `POST /api/draft-groups/{id}/select` body.
+#[derive(Deserialize, Default)]
+pub struct RawDraftGroupSelect {
+    #[serde(default)]
+    pub draft_id: Incoming<String>,
+}
+
+/// Validate a `POST /api/draft-groups/{id}/select` body.
+pub fn draft_group_select(
+    raw: RawDraftGroupSelect,
+) -> Result<NewDraftGroupSelection, ContractError> {
+    let mut issues = Vec::new();
+    let draft_id = take_required_string(&mut issues, "draft_id", raw.draft_id, None);
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewDraftGroupSelection { draft_id })
+}
+
+#[cfg(test)]
+mod draft_tests {
+    use super::*;
+
+    #[test]
+    fn generate_defaults_match_the_python_signature() {
+        let raw: RawGenerateRequest = parse(br#"{"candidate_id": "c-1"}"#).unwrap();
+        let request = generate_request(raw).unwrap();
+        assert_eq!(request.message_type, MessageType::Reply);
+        assert_eq!(request.tone, Tone::Friendly);
+        assert!(request.include_alternatives);
+        assert_eq!(request.max_length, None);
+    }
+
+    #[test]
+    fn max_length_is_range_checked() {
+        // Two bodies of different lengths, so the array elements must be
+        // slices rather than fixed-size byte arrays.
+        let out_of_range: [&[u8]; 2] = [
+            br#"{"candidate_id": "c-1", "max_length": 49}"#,
+            br#"{"candidate_id": "c-1", "max_length": 2001}"#,
+        ];
+        for body in out_of_range {
+            let raw: RawGenerateRequest = parse(body).unwrap();
+            assert!(
+                generate_request(raw).is_err(),
+                "{}",
+                String::from_utf8_lossy(body)
+            );
+        }
+        let raw: RawGenerateRequest =
+            parse(br#"{"candidate_id": "c-1", "max_length": 2000}"#).unwrap();
+        assert_eq!(generate_request(raw).unwrap().max_length, Some(2000));
+    }
+
+    #[test]
+    fn a_draft_patch_ignores_null_and_absent_alike() {
+        let raw: RawDraftPatch = parse(br#"{"message_text": null}"#).unwrap();
+        let patch = draft_patch(raw).unwrap();
+        assert_eq!(patch.message_text, None);
+        let raw: RawDraftPatch = parse(br#"{}"#).unwrap();
+        let patch = draft_patch(raw).unwrap();
+        assert_eq!(patch.message_text, None);
+    }
+
+    #[test]
+    fn an_empty_message_text_is_a_422() {
+        let raw: RawDraftPatch = parse(br#"{"message_text": ""}"#).unwrap();
+        let error = draft_patch(raw).unwrap_err();
+        let ContractError::ValidationIssues { issues } = error else {
+            panic!("expected a 422");
+        };
+        assert_eq!(issues[0].kind, "string_too_short");
+    }
+}

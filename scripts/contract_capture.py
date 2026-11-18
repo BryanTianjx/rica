@@ -54,6 +54,15 @@ POSITION_DRAFT = "33333333-3333-3333-3333-333333333333"
 #: candidate (see the FK section of the scenario).
 POSITION_SINGLE_CANDIDATE = "77777777-7777-7777-7777-777777777777"
 
+#: W3 draft fixtures (see `seed_contract_db.py`). Alice is cascade-deleted by
+#: the FK section, so every draft assertion below hangs off Bob.
+BOB_DRAFT_APPROVED = "eeeeeeee-0000-0000-0000-000000000003"
+BOB_DRAFT_ROUTED = "eeeeeeee-0000-0000-0000-000000000004"
+BOB_DRAFT_GROUP = "dddddddd-0000-0000-0000-000000000001"
+BOB_DRAFT_GROUP_A = "eeeeeeee-0000-0000-0000-000000000005"
+BOB_DRAFT_GROUP_B = "eeeeeeee-0000-0000-0000-000000000006"
+MISSING_DRAFT = "does-not-exist"
+
 #: The scenario. Order matters: every read-only case runs before the first write,
 #: so the declared improvements are measured on the untouched seed (five
 #: messages, seven positions, …). ``capture`` pulls a generated id out of the
@@ -366,6 +375,104 @@ CASES: list[dict] = [
     {"name": "follow_ups_list_final", "method": "GET", "path": "/api/follow-ups"},
     {"name": "dashboard_default", "method": "GET", "path": "/api/dashboard"},
 
+    # ── W3: drafts, draft groups, AI context and the generate guards ───────
+    # Runs after the FK section, so only Bob's drafts exist: `approved`
+    # (…0003), a `generated` one carrying a routing blob (…0004, which also
+    # proves `actual_tier` wins over `requested_tier`), and two members of one
+    # comparison group (…0005 / …0006).
+    {"name": "drafts_default", "method": "GET", "path": "/api/drafts"},
+    {"name": "drafts_limit2", "method": "GET", "path": "/api/drafts?limit=2"},
+    {"name": "drafts_page2", "method": "GET", "path": "/api/drafts?limit=2&offset=2"},
+    {"name": "drafts_offset_beyond_total", "method": "GET", "path": "/api/drafts?offset=100"},
+    {"name": "drafts_filter_candidate", "method": "GET",
+     "path": f"/api/drafts?candidate_id={BOB}"},
+    {"name": "drafts_filter_candidate_deleted", "method": "GET",
+     "path": f"/api/drafts?candidate_id={ALICE}"},
+    {"name": "drafts_filter_status_generated", "method": "GET", "path": "/api/drafts?status=generated"},
+    {"name": "drafts_filter_status_approved", "method": "GET", "path": "/api/drafts?status=approved"},
+    # pydantic validates the `status` alias as `DraftStatus`: an unknown value
+    # is a 422 enum error, not an empty page.
+    {"name": "drafts_filter_status_invalid", "method": "GET", "path": "/api/drafts?status=nope"},
+    {"name": "drafts_limit_zero", "method": "GET", "path": "/api/drafts?limit=0"},
+    {"name": "drafts_limit_over_max", "method": "GET", "path": "/api/drafts?limit=501"},
+    {"name": "drafts_offset_negative", "method": "GET", "path": "/api/drafts?offset=-1"},
+    {"name": "drafts_trailing_slash", "method": "GET", "path": "/api/drafts/"},
+    {"name": "drafts_head_not_allowed", "method": "HEAD", "path": "/api/drafts"},
+    # The routed draft: `routing_tier` is projected out of the blob and the raw
+    # column is echoed — both are part of Python's `DraftRead`.
+    {"name": "draft_detail_routed", "method": "GET", "path": f"/api/drafts/{BOB_DRAFT_ROUTED}"},
+    {"name": "draft_detail_approved", "method": "GET", "path": f"/api/drafts/{BOB_DRAFT_APPROVED}"},
+    {"name": "draft_detail_missing", "method": "GET", "path": f"/api/drafts/{MISSING_DRAFT}"},
+
+    # The transparency surface: masking, unknowns and the message cap.
+    {"name": "context_preview", "method": "GET", "path": f"/api/candidates/{BOB}/context"},
+    {"name": "context_preview_missing", "method": "GET",
+     "path": f"/api/candidates/{MISSING_DRAFT}/context"},
+
+    # `generate` with no provider configured: the guard chain runs first, then
+    # the AI port answers 503 `ai_provider_error` (measured baseline behaviour).
+    {"name": "generate_no_key", "method": "POST", "path": "/api/drafts/generate",
+     "json": {"candidate_id": BOB}},
+    {"name": "generate_unknown_candidate", "method": "POST", "path": "/api/drafts/generate",
+     "json": {"candidate_id": MISSING_DRAFT}},
+    {"name": "generate_missing_candidate_id", "method": "POST", "path": "/api/drafts/generate",
+     "json": {}},
+    {"name": "generate_bad_message_type", "method": "POST", "path": "/api/drafts/generate",
+     "json": {"candidate_id": BOB, "message_type": "smalltalk"}},
+    {"name": "generate_max_length_too_small", "method": "POST", "path": "/api/drafts/generate",
+     "json": {"candidate_id": BOB, "max_length": 49}},
+    {"name": "generate_max_length_too_large", "method": "POST", "path": "/api/drafts/generate",
+     "json": {"candidate_id": BOB, "max_length": 2001}},
+
+    # Draft groups: the read, the 404, and the three `select` refusals.
+    {"name": "draft_group_get", "method": "GET", "path": f"/api/draft-groups/{BOB_DRAFT_GROUP}"},
+    {"name": "draft_group_missing", "method": "GET",
+     "path": f"/api/draft-groups/{MISSING_DRAFT}"},
+    {"name": "draft_group_select_not_member", "method": "POST",
+     "path": f"/api/draft-groups/{BOB_DRAFT_GROUP}/select",
+     "json": {"draft_id": BOB_DRAFT_ROUTED}},
+
+    # ── W3 writes: the draft state machine and the group supersede ─────────
+    # A text edit marks `is_edited` and advances `generated → edited`; absent
+    # and explicit null are both ignored (`exclude_unset + exclude_none`).
+    {"name": "draft_patch_text", "method": "PATCH", "path": f"/api/drafts/{BOB_DRAFT_ROUTED}",
+     "json": {"message_text": "edited by the contract scenario"}},
+    {"name": "draft_patch_empty_text", "method": "PATCH",
+     "path": f"/api/drafts/{BOB_DRAFT_ROUTED}", "json": {"message_text": ""}},
+    {"name": "draft_patch_null_objective", "method": "PATCH",
+     "path": f"/api/drafts/{BOB_DRAFT_ROUTED}", "json": {"objective": None}},
+    # `approved` can no longer be edited: 409 `business_rule_violation`.
+    {"name": "draft_patch_approved", "method": "PATCH",
+     "path": f"/api/drafts/{BOB_DRAFT_APPROVED}", "json": {"message_text": "too late"}},
+    # reject has no guard (every state answers 200); approve and copy refuse a
+    # rejected draft.
+    {"name": "draft_reject", "method": "POST", "path": f"/api/drafts/{BOB_DRAFT_GROUP_A}"},
+    {"name": "draft_approve_rejected", "method": "POST",
+     "path": f"/api/drafts/{BOB_DRAFT_GROUP_A}/approve", "json": {}},
+    {"name": "draft_copy_rejected", "method": "POST",
+     "path": f"/api/drafts/{BOB_DRAFT_GROUP_A}/copy"},
+    {"name": "draft_group_select_rejected_member", "method": "POST",
+     "path": f"/api/draft-groups/{BOB_DRAFT_GROUP}/select",
+     "json": {"draft_id": BOB_DRAFT_GROUP_A}},
+    {"name": "draft_approve", "method": "POST", "path": f"/api/drafts/{BOB_DRAFT_ROUTED}/approve",
+     "json": {"note": "contract"}},
+    {"name": "draft_patch_after_approve", "method": "PATCH",
+     "path": f"/api/drafts/{BOB_DRAFT_ROUTED}", "json": {"message_text": "too late"}},
+    # copy is not a send: the response says so in `note`, and the follow-up
+    # task only moves to `AwaitingResult`.
+    {"name": "draft_copy", "method": "POST", "path": f"/api/drafts/{BOB_DRAFT_APPROVED}/copy"},
+    {"name": "draft_reject_copied", "method": "POST",
+     "path": f"/api/drafts/{BOB_DRAFT_APPROVED}"},
+    # Selecting a live member rejects the other ones (and re-rejects the
+    # already-rejected one, exactly like the baseline's loop).
+    {"name": "draft_group_select", "method": "POST",
+     "path": f"/api/draft-groups/{BOB_DRAFT_GROUP}/select",
+     "json": {"draft_id": BOB_DRAFT_GROUP_B}},
+    {"name": "draft_group_get_after_select", "method": "GET",
+     "path": f"/api/draft-groups/{BOB_DRAFT_GROUP}"},
+    {"name": "drafts_final", "method": "GET", "path": "/api/drafts"},
+    {"name": "dashboard_after_drafts", "method": "GET", "path": "/api/dashboard"},
+
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
@@ -423,22 +530,28 @@ def _location_path(location: str | None) -> str | None:
 
 def fetch(base_url: str, method: str, path: str, payload: dict | None,
           timeout: float = 20.0) -> dict[str, object]:
-    """Issue one request and return status + decoded body (or raw text)."""
+    """Issue one request and return status + decoded body (or raw text).
+
+    A `HEAD` response carries no body by definition, so it is never read: the
+    405 envelope advertises a `Content-Length` that the server then withholds,
+    and reading it blocks until the connection is reset.
+    """
     url = base_url.rstrip("/") + path
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     headers = {"accept": "application/json"}
     if data is not None:
         headers["content-type"] = "application/json"
+    is_head = method.upper() == "HEAD"
     request = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
         with OPENER.open(request, timeout=timeout) as response:
             status = response.status
-            raw = response.read().decode("utf-8")
+            raw = "" if is_head else response.read().decode("utf-8")
             response_headers = response.headers
     except urllib.error.HTTPError as exc:  # 4xx/5xx — and, with redirect
         # chasing disabled, every 3xx too — still carries headers
         status = exc.code
-        raw = exc.read().decode("utf-8")
+        raw = "" if is_head else exc.read().decode("utf-8")
         response_headers = exc.headers or {}
     content_type = response_headers.get("content-type", "") if response_headers else ""
     location = response_headers.get("location") if response_headers else None

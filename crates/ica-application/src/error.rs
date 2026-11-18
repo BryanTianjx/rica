@@ -31,6 +31,11 @@ pub enum ApplicationError {
     /// machine ships the settable-status list as a JSON array, exactly like
     /// the baseline's ``BusinessRuleError``.
     ConflictValue { message: String, details: Value },
+    /// The upstream AI provider failed or is unavailable (HTTP 503
+    /// ``ai_provider_error``) — the baseline's ``AIProviderError``. The
+    /// message is contract text; the details stay JSON for the same reason as
+    /// ``ConflictValue``.
+    ProviderUnavailable { message: String, details: Value },
     /// The repository could not be read or written (HTTP 500).
     Unavailable { message: String },
 }
@@ -74,6 +79,7 @@ impl ApplicationError {
             | ApplicationError::Validation { message, .. }
             | ApplicationError::Conflict { message, .. }
             | ApplicationError::ConflictValue { message, .. }
+            | ApplicationError::ProviderUnavailable { message, .. }
             | ApplicationError::Unavailable { message } => message,
         }
     }

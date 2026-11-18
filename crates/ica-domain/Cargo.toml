@@ -11,3 +11,5 @@ description = "Pure domain model for the ICA backend: entities, enums, paginatio
 [dependencies]
 chrono.workspace = true
 sha2.workspace = true
+# AI-context redaction (`redact_for_ai` port): pure pattern matching.
+regex.workspace = true
