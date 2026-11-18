@@ -19,12 +19,15 @@ reject/copy/generate 守卫链/context/draft-groups/审计。原始数据 `/tmp/
   expected `'generated', 'edited', 'approved', 'rejected' or 'copied'`）；`created_at DESC`；
   `total` 为过滤后真实总数。
 - 详情 404：`Draft '{id}' was not found`。
-- `DraftRead` 字段集（28 个，含 V2 成本/路由）：id, candidate_id, task_id, message_type,
+- `DraftRead` 字段集（**31 个**，含 V2 成本/路由）：id, candidate_id, task_id, message_type,
   tone, status, objective, message_text, alternatives, context_references, uncertainties,
   warnings, validation_status, validation_messages, quality_status, provider, model,
   prompt_version, is_edited, approved_at, copied_at, rejected_at, draft_group_id,
-  cost_cents, prompt_tokens, completion_tokens, routing_tier, routing_reason, created_at,
-  updated_at。列表字段（alternatives 等）由 `*_json` 列展开。
+  cost_cents, prompt_tokens, completion_tokens, routing_tier, routing_reason,
+  routing_decision_json, created_at, updated_at。列表字段（alternatives 等）由 `*_json`
+  列展开；`routing_decision_json` 是**原样回显的原始 blob 列**，不要漏（漏它就是线格式破坏）。
+  核对方式：`/mnt/o/ica/backend/.venv/bin/python -c "from app.schemas.workflow import
+  DraftRead; print(len(DraftRead.model_fields))"` → 31。
 
 ## 3. PATCH `/drafts/{id}`（实测）
 
