@@ -10,6 +10,7 @@ pub mod conversation;
 pub mod draft;
 pub mod follow_up;
 pub mod import;
+pub mod import_parser;
 pub mod pagination;
 pub mod position;
 pub mod redact;
@@ -26,6 +27,10 @@ pub use follow_up::{
     FollowUpTaskStatus,
 };
 pub use import::{ImportRecord, ImportSession, ImportStatus, RecordStatus};
+pub use import_parser::{
+    find_duplicates, normalize_text, parse_messages, split_message_blocks, ParseResult,
+    ParsedMessage,
+};
 pub use redact::redact_for_ai;
 
 pub use pagination::Page;
