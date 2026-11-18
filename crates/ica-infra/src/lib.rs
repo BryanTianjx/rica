@@ -11,10 +11,12 @@ pub mod conversations;
 pub mod db;
 pub mod drafts;
 pub mod export_crypto;
+pub mod export_tables;
 pub mod follow_ups;
 pub mod imports;
 pub mod repository;
 pub mod send_records;
+pub mod snapshots;
 pub mod store;
 pub mod time;
 
