@@ -41,7 +41,21 @@ enum DigitRule {
 ///
 /// Returns the new text and whether anything was replaced. `\d+` is greedy,
 /// so each match is a maximal digit run: the baseline's `(?<!\d)` / `(?!\d)`
-/// guards hold without any extra check.
+/// guards hold without any extra check — **with one exception**: the ID
+/// pattern's `[\dXx]` tail can reach past the digit run, and the guard that
+/// follows it then applies to the character *after* that tail.
+///
+/// That exception is the difference between `12345678901234567X8` and
+/// `12345678901234567X`:
+///   * the baseline's `(?<!\d)(\d{17}[\dXx])(?!\d)` matches 18 characters —
+///     17 digits plus the `X` — and the trailing `(?!\d)` then rejects the
+///     match when a **digit follows the X**. So `…X8` is *not* an ID, and the
+///     card rule (16–19 digits) claims the 17 digits instead;
+///   * `…X` at the end of the string (or before a non-digit) *is* an ID.
+///
+/// The X/x is therefore only consumed when the character after it is not a
+/// digit — otherwise the ID rule must not fire at all, and the X stays in
+/// the text for the card rule to leave it alone.
 fn mask_digit_runs(text: &str, rule: DigitRule, placeholder: &str) -> (String, bool) {
     let digits = Regex::new(r"\d+").expect("static pattern");
     let mut out = String::with_capacity(text.len());
@@ -63,8 +77,18 @@ fn mask_digit_runs(text: &str, rule: DigitRule, placeholder: &str) -> (String, b
                 if length == 18 {
                     (true, end)
                 } else if length == 17 && matches!(next, Some('X' | 'x')) {
-                    // Consume the trailing X/x, exactly like `[\dXx]` does.
-                    (true, end + next.map_or(0, char::len_utf8))
+                    // The tail is `X`/`x`; the baseline's trailing `(?!\d)`
+                    // then looks at the character *after* it.
+                    let tail_len = next.map_or(0, char::len_utf8);
+                    let after = text[end + tail_len..].chars().next();
+                    if after.is_some_and(|c| c.is_ascii_digit()) {
+                        // A digit follows the X: the ID pattern does not match,
+                        // so the ID rule must not fire and must not consume the X.
+                        (false, end)
+                    } else {
+                        // Consume the trailing X/x, exactly like `[\dXx]` does.
+                        (true, end + tail_len)
+                    }
                 } else {
                     (false, end)
                 }
@@ -237,5 +261,43 @@ mod tests {
         let (masked, categories) = apply_privacy_filter("110101199003078912");
         assert_eq!(masked, "[ID_NUMBER]");
         assert_eq!(categories, vec!["id_number"]);
+    }
+
+    // ── The ID rule's trailing guard ──────────────────────────────────────
+    //
+    // Python's pattern is `(?<!\d)(\d{17}[\dXx])(?!\d)`: 17 digits, one
+    // `[\dXx]`, and then the next character must not be a digit. When a
+    // digit follows the X, the whole match is rejected — the ID rule does not
+    // fire, and the card rule (16–19 digits) claims the 17 digits instead.
+    // The X itself stays in the text.
+
+    #[test]
+    fn a_digit_after_the_x_defeats_the_id_rule() {
+        let (masked, categories) = apply_privacy_filter("12345678901234567X8");
+        assert_eq!(masked, "[CARD_NUMBER]X8");
+        assert_eq!(categories, vec!["card_number"]);
+    }
+
+    #[test]
+    fn a_digit_after_the_lowercase_x_defeats_the_id_rule_too() {
+        let (masked, categories) = apply_privacy_filter("12345678901234567x9");
+        assert_eq!(masked, "[CARD_NUMBER]x9");
+        assert_eq!(categories, vec!["card_number"]);
+    }
+
+    #[test]
+    fn the_x_is_still_an_id_when_no_digit_follows_it() {
+        for text in [
+            "12345678901234567X",
+            "12345678901234567X ",
+            "a12345678901234567Xb",
+        ] {
+            let (masked, categories) = apply_privacy_filter(text);
+            assert!(
+                categories.contains(&"id_number".to_string()),
+                "{text} -> {categories:?}"
+            );
+            assert!(masked.contains("[ID_NUMBER]"), "{text} -> {masked}");
+        }
     }
 }
