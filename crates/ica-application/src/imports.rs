@@ -309,8 +309,11 @@ pub async fn ocr_screenshot(
     let resolved = assert_ocr_path_allowed(&request.image_path, allowed_dir)?;
 
     if !resolved.exists() {
-        return Err(ApplicationError::ConflictWithCode {
-            code: "business_rule_violation",
+        // The baseline raises `ICAError(code="ocr_image_missing")`, which is a
+        // 409 with its own code — not the generic business-rule violation.
+        return Err(ApplicationError::StatusWithCode {
+            status: 409,
+            code: "ocr_image_missing",
             message: format!("OCR image not found: {}", resolved.display()),
             details: serde_json::json!({}),
         });

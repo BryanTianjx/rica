@@ -81,6 +81,17 @@ impl IntoResponse for ApiError {
                 message,
                 details,
             ),
+            ContractError::StatusWithCode {
+                status,
+                code,
+                message,
+                details,
+            } => (
+                StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                code,
+                message,
+                details,
+            ),
             ContractError::ValidationWithCode {
                 code,
                 message,

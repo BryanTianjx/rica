@@ -41,6 +41,19 @@ pub enum ApplicationError {
         message: String,
         details: Value,
     },
+    /// Any status with a caller-chosen code.
+    ///
+    /// The baseline's `ICAError` takes `status_code=` and `code=`, and OCR uses
+    /// both: a missing engine is a **503** `ocr_unavailable`, a missing file a
+    /// 409 `ocr_image_missing`, a failed read a 409 `ocr_error`. Modelling the
+    /// status alongside the code keeps those three distinct instead of folding
+    /// them into one generic envelope.
+    StatusWithCode {
+        status: u16,
+        code: &'static str,
+        message: String,
+        details: Value,
+    },
     /// A 409 with a **caller-chosen** error code.
     ///
     /// The baseline's ``BusinessRuleError`` takes ``code=`` and uses something
@@ -106,6 +119,7 @@ impl ApplicationError {
             | ApplicationError::ConflictValue { message, .. }
             | ApplicationError::ConflictWithCode { message, .. }
             | ApplicationError::ValidationWithCode { message, .. }
+            | ApplicationError::StatusWithCode { message, .. }
             | ApplicationError::ProviderUnavailable { message, .. }
             | ApplicationError::Unavailable { message } => message,
         }
