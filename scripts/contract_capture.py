@@ -528,13 +528,41 @@ def _location_path(location: str | None) -> str | None:
     return parts.path + (f"?{parts.query}" if parts.query else "")
 
 
+def _one_request(opener, request, is_head: bool,
+                 timeout: float) -> tuple[int, str, object]:
+    """One request, returning `(status, body, headers)`.
+
+    A `ConnectionResetError` raised anywhere in here — while opening the
+    response *or* while reading the error body out of an `HTTPError` — is
+    allowed to escape, because the caller retries on it.
+    """
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            status = response.status
+            raw = "" if is_head else response.read().decode("utf-8")
+            return status, raw, response.headers
+    except urllib.error.HTTPError as exc:  # 4xx/5xx — and, with redirect
+        # chasing disabled, every 3xx too — still carries headers
+        status = exc.code
+        raw = "" if is_head else exc.read().decode("utf-8")
+        return status, raw, exc.headers or {}
+
+
 def fetch(base_url: str, method: str, path: str, payload: dict | None,
-          timeout: float = 20.0) -> dict[str, object]:
+          timeout: float = 20.0, attempts: int = 4) -> dict[str, object]:
     """Issue one request and return status + decoded body (or raw text).
 
     A `HEAD` response carries no body by definition, so it is never read: the
     405 envelope advertises a `Content-Length` that the server then withholds,
     and reading it blocks until the connection is reset.
+
+    A request that carries a **body** and gets a **405** is retried. The
+    Python baseline answers 405 without draining the request body, so the
+    socket still holds unread data and the server's close arrives as a TCP
+    RST — which `urllib` surfaces as `ConnectionResetError` instead of the
+    405 envelope. It is a race (measured: one run in three needed two
+    retries), not a contract difference, so the capture must not fail on it.
+    A fresh connection has no unread body, so a retry sees the real answer.
     """
     url = base_url.rstrip("/") + path
     data = None if payload is None else json.dumps(payload).encode("utf-8")
@@ -543,16 +571,24 @@ def fetch(base_url: str, method: str, path: str, payload: dict | None,
         headers["content-type"] = "application/json"
     is_head = method.upper() == "HEAD"
     request = urllib.request.Request(url, data=data, method=method, headers=headers)
-    try:
-        with OPENER.open(request, timeout=timeout) as response:
-            status = response.status
-            raw = "" if is_head else response.read().decode("utf-8")
-            response_headers = response.headers
-    except urllib.error.HTTPError as exc:  # 4xx/5xx — and, with redirect
-        # chasing disabled, every 3xx too — still carries headers
-        status = exc.code
-        raw = "" if is_head else exc.read().decode("utf-8")
-        response_headers = exc.headers or {}
+    last_reset: ConnectionResetError | None = None
+    for _attempt in range(attempts):
+        try:
+            status, raw, response_headers = _one_request(
+                OPENER, request, is_head, timeout
+            )
+        except ConnectionResetError as exc:
+            # The 405-with-unread-body race described above. It can surface in
+            # two places: while opening the response, and while reading the
+            # error body out of the `HTTPError` — both are inside
+            # `_one_request`, so both land here.
+            last_reset = exc
+            continue
+        break
+    else:
+        raise last_reset if last_reset else RuntimeError(
+            f"{method} {path}: the server reset the connection {attempts} times"
+        )
     content_type = response_headers.get("content-type", "") if response_headers else ""
     location = response_headers.get("location") if response_headers else None
 
