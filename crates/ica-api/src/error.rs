@@ -81,6 +81,11 @@ impl IntoResponse for ApiError {
                 message,
                 details,
             ),
+            ContractError::ValidationWithCode {
+                code,
+                message,
+                details,
+            } => (StatusCode::UNPROCESSABLE_ENTITY, code, message, details),
             ContractError::ConflictWithCode {
                 code,
                 message,

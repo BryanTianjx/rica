@@ -68,6 +68,13 @@ pub enum ContractError {
     Validation { message: String, details: Value },
     /// 409 `business_rule_violation`.
     Conflict { message: String, details: Value },
+    /// 422 with a caller-chosen code (`invalid_encryption_key`, …). The
+    /// baseline's `ValidationError` accepts `code=`.
+    ValidationWithCode {
+        code: &'static str,
+        message: String,
+        details: Value,
+    },
     /// 409 with a caller-chosen code (`ocr_path_not_allowed`,
     /// `ocr_image_undecodable`, …). The baseline's `BusinessRuleError` accepts
     /// `code=`, so the code is part of the contract.
@@ -145,6 +152,7 @@ impl ContractError {
         match self {
             Self::NotFound { .. } => "not_found",
             Self::ValidationIssues { .. } | Self::Validation { .. } => "validation_error",
+            Self::ValidationWithCode { code, .. } => code,
             Self::Conflict { .. } => "business_rule_violation",
             // The caller chose this code (`ocr_path_not_allowed`, …), so it is
             // not a `&'static str` literal.
@@ -161,6 +169,7 @@ impl ContractError {
             Self::ValidationIssues { issues } => serde_json::json!({ "errors": issues }),
             Self::Validation { details, .. } | Self::Conflict { details, .. } => details.clone(),
             Self::ConflictWithCode { details, .. } => details.clone(),
+            Self::ValidationWithCode { details, .. } => details.clone(),
             Self::ProviderUnavailable { details, .. } => details.clone(),
             Self::NotFound { .. } | Self::Http { .. } | Self::Internal { .. } => {
                 serde_json::json!({})
@@ -177,6 +186,7 @@ impl ContractError {
             | Self::Validation { message, .. }
             | Self::Conflict { message, .. }
             | Self::ConflictWithCode { message, .. }
+            | Self::ValidationWithCode { message, .. }
             | Self::ProviderUnavailable { message, .. }
             | Self::Http { message, .. } => message,
             Self::ValidationIssues { .. } => "Request payload failed validation",
@@ -202,6 +212,15 @@ impl From<ApplicationError> for ContractError {
             ApplicationError::ConflictValue { message, details } => {
                 ContractError::Conflict { message, details }
             }
+            ApplicationError::ValidationWithCode {
+                code,
+                message,
+                details,
+            } => ContractError::ValidationWithCode {
+                code,
+                message,
+                details,
+            },
             ApplicationError::ConflictWithCode {
                 code,
                 message,

@@ -31,6 +31,16 @@ pub enum ApplicationError {
     /// machine ships the settable-status list as a JSON array, exactly like
     /// the baseline's ``BusinessRuleError``.
     ConflictValue { message: String, details: Value },
+    /// A **422** with a caller-chosen code.
+    ///
+    /// The baseline's `ValidationError` accepts `code=`: an unusable export key
+    /// is `invalid_encryption_key` on a 422, not the default
+    /// `validation_error`. The code and status are both contract text.
+    ValidationWithCode {
+        code: &'static str,
+        message: String,
+        details: Value,
+    },
     /// A 409 with a **caller-chosen** error code.
     ///
     /// The baseline's ``BusinessRuleError`` takes ``code=`` and uses something
@@ -95,6 +105,7 @@ impl ApplicationError {
             | ApplicationError::Conflict { message, .. }
             | ApplicationError::ConflictValue { message, .. }
             | ApplicationError::ConflictWithCode { message, .. }
+            | ApplicationError::ValidationWithCode { message, .. }
             | ApplicationError::ProviderUnavailable { message, .. }
             | ApplicationError::Unavailable { message } => message,
         }
