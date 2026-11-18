@@ -768,3 +768,125 @@ fn build_draft_group(drafts: Vec<ica_domain::GeneratedDraft>) -> dto::DraftGroup
         drafts: drafts.into_iter().map(dto::DraftRead::from).collect(),
     }
 }
+
+// ── W4: imports, export, import, OCR ────────────────────────────────────────
+
+/// `imports_preview` — parse pasted text into an import session.
+///
+/// The session and its records are persisted; no message is written — that is
+/// `imports_confirm`'s job.
+pub async fn imports_preview(
+    state: &DesktopState,
+    payload: &Value,
+) -> Result<dto::ImportSessionRead, IpcError> {
+    let raw: body::RawImportPreview = parse_body(payload)?;
+    let request = body::import_preview(raw).map_err(fail)?;
+    let session = ica_application::preview_import(state.imports(), request).await?;
+    Ok(dto::ImportSessionRead::from(session))
+}
+
+/// `imports_get` — one session with its parsed records.
+pub async fn imports_get(
+    state: &DesktopState,
+    session_id: &str,
+) -> Result<dto::ImportSessionRead, IpcError> {
+    let session = ica_application::get_import(state.imports(), session_id).await?;
+    Ok(dto::ImportSessionRead::from(session))
+}
+
+/// `imports_confirm` — write the parsed records into the timeline.
+pub async fn imports_confirm(
+    state: &DesktopState,
+    session_id: &str,
+    payload: &Value,
+) -> Result<dto::ImportConfirmResult, IpcError> {
+    let raw: body::RawImportConfirm = parse_body(payload)?;
+    let request = body::import_confirm(raw).map_err(fail)?;
+    let outcome = ica_application::confirm_import(state.imports(), session_id, request).await?;
+    Ok(dto::ImportConfirmResult {
+        session_id: outcome.session_id,
+        saved_message_ids: outcome.saved_message_ids,
+        skipped_count: outcome.skipped_count,
+        duplicate_count: outcome.duplicate_count,
+    })
+}
+
+/// `imports_reject` — close a session without importing.
+pub async fn imports_reject(
+    state: &DesktopState,
+    session_id: &str,
+) -> Result<dto::ImportSessionRead, IpcError> {
+    let session = ica_application::reject_import(state.imports(), session_id).await?;
+    Ok(dto::ImportSessionRead::from(session))
+}
+
+/// `export_data` — the whole snapshot, optionally sealed.
+///
+/// `encrypt_key` is the base64 AES-256 key the caller wants the snapshot
+/// sealed with; `None` returns the plaintext document. The key is never logged
+/// or echoed, and it is never persisted.
+pub async fn export_data(
+    state: &DesktopState,
+    encrypt_key: Option<&str>,
+) -> Result<Value, IpcError> {
+    let outcome =
+        ica_application::export_data(state.snapshots(), state.export_sealer(), encrypt_key).await?;
+
+    Ok(match outcome {
+        ica_application::sync::ExportOutcome::Plain(snapshot) => serde_json::json!({
+            "version": snapshot.version,
+            "exported_at": snapshot.exported_at,
+            "data": snapshot.data,
+        }),
+        ica_application::sync::ExportOutcome::Sealed(envelope) => serde_json::json!({
+            // The sealer is AES-256-GCM by contract, so the marker is fixed.
+            "alg": "A256GCM",
+            "iv": envelope.iv,
+            "tag": envelope.tag,
+            "ciphertext": envelope.ciphertext,
+        }),
+    })
+}
+
+/// `import_data` — merge a snapshot, last-write-wins per row.
+pub async fn import_data(
+    state: &DesktopState,
+    payload: &Value,
+) -> Result<dto::ImportResult, IpcError> {
+    let raw: body::RawImportPayload = parse_body(payload)?;
+    let data = body::import_payload(raw).map_err(fail)?;
+    let outcome = ica_application::import_data(state.snapshots(), data).await?;
+    Ok(dto::ImportResult {
+        imported: outcome.imported,
+        updated: outcome.updated,
+        skipped: outcome.skipped,
+        conflicts: outcome.conflicts,
+    })
+}
+
+/// `imports_ocr` — read a screenshot from the staging directory.
+///
+/// The path guard runs before any I/O, so a path outside the staging area is
+/// refused without disclosing whether the file exists.
+pub async fn imports_ocr(
+    state: &DesktopState,
+    payload: &Value,
+) -> Result<dto::ImportOcrResult, IpcError> {
+    let raw: body::RawImportOcr = parse_body(payload)?;
+    let request = body::import_ocr(raw).map_err(fail)?;
+    let candidate_id = request.candidate_id.clone();
+    let outcome = ica_application::ocr_screenshot(
+        state.imports(),
+        state.ocr(),
+        request,
+        &state.config().ocr_upload_dir,
+    )
+    .await?;
+    Ok(dto::ImportOcrResult {
+        session_id: outcome.session.id,
+        text: outcome.text,
+        language: outcome.language,
+        candidate_id,
+        created_at: outcome.session.created_at,
+    })
+}

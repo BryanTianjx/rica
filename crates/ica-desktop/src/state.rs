@@ -7,11 +7,13 @@
 use std::sync::Arc;
 
 use ica_application::{
-    CandidateRepository, ConversationRepository, DashboardRepository, DraftGenerator,
-    DraftRepository, FollowUpRepository, MessageRepository, PositionRepository,
-    SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, DataSnapshotRepository,
+    DraftGenerator, DraftRepository, ExportSealer, FollowUpRepository, ImportRepository,
+    MessageRepository, OcrEngine, PositionRepository, SendRecordRepository,
 };
 use ica_infra::drafts::NotConfiguredDraftGenerator;
+use ica_infra::export_crypto::AesGcmSealer;
+use ica_infra::ocr::NotConfiguredOcrEngine;
 use ica_infra::SqliteStore;
 
 /// Settings that shape response bodies (mirrors the server's `AppConfig`).
@@ -22,6 +24,10 @@ pub struct DesktopConfig {
     /// Reported by the `health` command as `ai_enabled`
     /// (`bool(settings.ai_api_key.strip())` in Python).
     pub ai_enabled: bool,
+    /// The only directory `imports_ocr` will read an image from
+    /// (`<data dir>/ocr` in Python). The path guard resolves against this
+    /// before touching the file.
+    pub ocr_upload_dir: std::path::PathBuf,
 }
 
 /// Every port the command layer may reach — several views of one adapter, so
@@ -37,6 +43,10 @@ pub struct DesktopState {
     dashboard: Arc<dyn DashboardRepository>,
     drafts: Arc<dyn DraftRepository>,
     draft_generator: Arc<dyn DraftGenerator>,
+    imports: Arc<dyn ImportRepository>,
+    snapshots: Arc<dyn DataSnapshotRepository>,
+    export_sealer: Arc<dyn ExportSealer>,
+    ocr: Arc<dyn OcrEngine>,
     config: DesktopConfig,
 }
 
@@ -66,10 +76,17 @@ impl DesktopState {
             send_records: Arc::new(store.clone()),
             follow_ups: Arc::new(store.clone()),
             dashboard: Arc::new(store.clone()),
-            drafts: Arc::new(store),
+            drafts: Arc::new(store.clone()),
             // W3: no provider configured, so `generate` answers the baseline's
             // 503 `ai_provider_error`. W5 supplies the real provider.
             draft_generator: Arc::new(NotConfiguredDraftGenerator),
+            // W4 ports. The same store serves the import and snapshot
+            // repositories, so a write and its audit event share one
+            // transaction.
+            imports: Arc::new(store.clone()),
+            snapshots: Arc::new(store.clone()),
+            export_sealer: Arc::new(AesGcmSealer),
+            ocr: Arc::new(NotConfiguredOcrEngine),
             config,
         }
     }
@@ -108,6 +125,22 @@ impl DesktopState {
 
     pub fn draft_generator(&self) -> &dyn DraftGenerator {
         self.draft_generator.as_ref()
+    }
+
+    pub fn imports(&self) -> &dyn ImportRepository {
+        self.imports.as_ref()
+    }
+
+    pub fn snapshots(&self) -> &dyn DataSnapshotRepository {
+        self.snapshots.as_ref()
+    }
+
+    pub fn export_sealer(&self) -> &dyn ExportSealer {
+        self.export_sealer.as_ref()
+    }
+
+    pub fn ocr(&self) -> &dyn OcrEngine {
+        self.ocr.as_ref()
     }
 
     pub fn config(&self) -> &DesktopConfig {

@@ -23,6 +23,9 @@ async fn desktop_app() -> (DesktopState, tempfile::TempDir) {
         DesktopConfig {
             app_name: "ICA Personal".to_string(),
             ai_enabled: false,
+            // A directory inside the throwaway temp dir, so the OCR path guard
+            // has a real root to resolve against.
+            ocr_upload_dir: dir.path().join("ocr"),
         },
     )
     .await
