@@ -1412,6 +1412,229 @@ pub fn draft_group_select(
     Ok(NewDraftGroupSelection { draft_id })
 }
 
+// ── Import sessions (W4) ────────────────────────────────────────────────────
+
+/// Raw `POST /api/imports/preview` body (`ImportPreviewRequest`).
+#[derive(Deserialize, Default)]
+pub struct RawImportPreview {
+    #[serde(default)]
+    pub candidate_id: Incoming<String>,
+    #[serde(default)]
+    pub raw_text: Incoming<String>,
+    #[serde(default)]
+    pub source: Incoming<String>,
+}
+
+/// A validated `POST /api/imports/preview` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportPreview {
+    pub candidate_id: Option<String>,
+    pub raw_text: String,
+    /// Defaults to `paste_import`, the baseline's default for this endpoint.
+    pub source: ica_domain::MessageSource,
+}
+
+/// Validate a `POST /api/imports/preview` body.
+///
+/// `raw_text` is `Field(min_length=1)` in the baseline, so an empty or
+/// whitespace-free-but-empty value is a 422; `source` is an enum whose values
+/// are the `MessageSource` strings.
+pub fn import_preview(raw: RawImportPreview) -> Result<NewImportPreview, ContractError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_optional_string(raw.candidate_id);
+    let raw_text = take_required_string(&mut issues, "raw_text", raw.raw_text, None);
+    if raw_text.is_empty() {
+        issues.push(issue(
+            "string_too_short",
+            "raw_text",
+            "String should have at least 1 character",
+            "",
+        ));
+    }
+    let source = match raw.source {
+        Incoming::Absent | Incoming::Null => ica_domain::MessageSource::PasteImport,
+        Incoming::Value(value) => match ica_domain::MessageSource::parse(&value) {
+            Some(parsed) => parsed,
+            None => {
+                issues.push(issue(
+                    "enum",
+                    "source",
+                    "Input should be 'manual', 'paste_import' or 'screenshot_ocr'",
+                    &value,
+                ));
+                ica_domain::MessageSource::PasteImport
+            }
+        },
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewImportPreview {
+        candidate_id,
+        raw_text,
+        source,
+    })
+}
+
+/// Raw per-record correction inside `ImportConfirmRequest.records`.
+#[derive(Deserialize, Default)]
+pub struct RawImportCorrection {
+    #[serde(default)]
+    pub id: Incoming<String>,
+    #[serde(default)]
+    pub sender_type: Incoming<String>,
+    #[serde(default)]
+    pub content: Incoming<String>,
+    #[serde(default)]
+    pub message_time: Incoming<String>,
+    #[serde(default)]
+    pub skip: Incoming<bool>,
+}
+
+/// Raw `POST /api/imports/{id}/confirm` body (`ImportConfirmRequest`).
+#[derive(Deserialize, Default)]
+pub struct RawImportConfirm {
+    #[serde(default)]
+    pub candidate_id: Incoming<String>,
+    #[serde(default)]
+    pub conversation_id: Incoming<String>,
+    #[serde(default)]
+    pub records: Incoming<Vec<RawImportCorrection>>,
+}
+
+/// One validated per-record correction.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportCorrection {
+    pub id: String,
+    pub sender_type: Option<ica_domain::SenderType>,
+    pub content: Option<String>,
+    pub message_time: Option<DateTime<Utc>>,
+    pub skip: bool,
+}
+
+/// A validated `POST /api/imports/{id}/confirm` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportConfirm {
+    /// Required at confirm time: an import must never be filed against the
+    /// wrong candidate.
+    pub candidate_id: String,
+    pub conversation_id: Option<String>,
+    pub corrections: Vec<ImportCorrection>,
+}
+
+/// Validate a `POST /api/imports/{id}/confirm` body.
+pub fn import_confirm(raw: RawImportConfirm) -> Result<NewImportConfirm, ContractError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_required_string(&mut issues, "candidate_id", raw.candidate_id, None);
+    let conversation_id = take_optional_string(raw.conversation_id);
+
+    let mut corrections = Vec::new();
+    if let Incoming::Value(items) = raw.records {
+        for (index, item) in items.into_iter().enumerate() {
+            let prefix = format!("records.{index}");
+            let id = take_required_string(&mut issues, &format!("{prefix}.id"), item.id, None);
+            let sender_type = match item.sender_type {
+                Incoming::Absent | Incoming::Null => None,
+                Incoming::Value(value) => match ica_domain::SenderType::parse(&value) {
+                    Some(parsed) => Some(parsed),
+                    None => {
+                        issues.push(issue(
+                            "enum",
+                            &format!("{prefix}.sender_type"),
+                            "Input should be 'Candidate', 'Recruiter' or 'System'",
+                            &value,
+                        ));
+                        None
+                    }
+                },
+            };
+            let content = take_optional_string(item.content);
+            let message_time = take_datetime(
+                &mut issues,
+                &format!("{prefix}.message_time"),
+                item.message_time,
+            );
+            let skip = match item.skip {
+                Incoming::Value(value) => value,
+                Incoming::Absent | Incoming::Null => false,
+            };
+            corrections.push(ImportCorrection {
+                id,
+                sender_type,
+                content,
+                message_time,
+                skip,
+            });
+        }
+    }
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewImportConfirm {
+        candidate_id,
+        conversation_id,
+        corrections,
+    })
+}
+
+/// Raw `POST /api/imports/ocr` body (`ImportOcrRequest`).
+#[derive(Deserialize, Default)]
+pub struct RawImportOcr {
+    #[serde(default)]
+    pub candidate_id: Incoming<String>,
+    #[serde(default)]
+    pub image_path: Incoming<String>,
+}
+
+/// A validated `POST /api/imports/ocr` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportOcr {
+    pub candidate_id: Option<String>,
+    /// A server-side path, guarded against escaping the staging directory.
+    pub image_path: String,
+}
+
+/// Validate a `POST /api/imports/ocr` body (`image_path` is `min_length=1`).
+pub fn import_ocr(raw: RawImportOcr) -> Result<NewImportOcr, ContractError> {
+    let mut issues = Vec::new();
+    let candidate_id = take_optional_string(raw.candidate_id);
+    let image_path = take_required_string(&mut issues, "image_path", raw.image_path, None);
+    if image_path.is_empty() {
+        issues.push(issue(
+            "string_too_short",
+            "image_path",
+            "String should have at least 1 character",
+            "",
+        ));
+    }
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewImportOcr {
+        candidate_id,
+        image_path,
+    })
+}
+
+/// Raw `POST /api/import` body (`ImportPayload`): `{data: {<table>: [...]}}`.
+#[derive(Deserialize, Default)]
+pub struct RawImportPayload {
+    #[serde(default)]
+    pub data: Incoming<serde_json::Map<String, serde_json::Value>>,
+}
+
+/// Validate a `POST /api/import` body. `data` defaults to an empty map.
+pub fn import_payload(
+    raw: RawImportPayload,
+) -> Result<serde_json::Map<String, serde_json::Value>, ContractError> {
+    Ok(match raw.data {
+        Incoming::Value(map) => map,
+        Incoming::Absent | Incoming::Null => serde_json::Map::new(),
+    })
+}
+
 #[cfg(test)]
 mod draft_tests {
     use super::*;

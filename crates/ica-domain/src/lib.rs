@@ -9,6 +9,7 @@ pub mod content_hash;
 pub mod conversation;
 pub mod draft;
 pub mod follow_up;
+pub mod import;
 pub mod pagination;
 pub mod position;
 pub mod redact;
@@ -24,6 +25,7 @@ pub use follow_up::{
     DecisionOutcome, EvaluateInput, FollowUpDecision, FollowUpPolicy, FollowUpTask,
     FollowUpTaskStatus,
 };
+pub use import::{ImportRecord, ImportSession, ImportStatus, RecordStatus};
 pub use redact::redact_for_ai;
 
 pub use pagination::Page;

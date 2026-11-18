@@ -731,3 +731,138 @@ impl From<DraftCopyOutcome> for DraftCopyResponse {
         }
     }
 }
+
+// ── Import sessions (W4) ────────────────────────────────────────────────────
+
+/// One parsed record inside an import session (`ImportRecordRead`).
+///
+/// `status` is the parser's per-record verdict (`duplicate` / `valid` /
+/// `invalid` / …); it is projected to `&'static str` like every other domain
+/// enum in this file, because `ica-domain` carries no serde.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ImportRecordRead {
+    pub id: String,
+    pub session_id: String,
+    pub sequence: i64,
+    pub sender_type: Option<String>,
+    pub content: String,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub message_time: Option<DateTime<Utc>>,
+    pub status: &'static str,
+    pub duplicate_of_message_id: Option<String>,
+    pub content_hash: Option<String>,
+    pub validation_messages: Option<String>,
+}
+
+impl From<ica_domain::ImportRecord> for ImportRecordRead {
+    fn from(record: ica_domain::ImportRecord) -> Self {
+        Self {
+            id: record.id,
+            session_id: record.session_id,
+            sequence: record.sequence,
+            sender_type: record.sender_type,
+            content: record.content,
+            message_time: record.message_time,
+            status: record.status.as_str(),
+            duplicate_of_message_id: record.duplicate_of_message_id,
+            content_hash: record.content_hash,
+            validation_messages: record.validation_messages,
+        }
+    }
+}
+
+/// One import session with its parsed records (`ImportSessionRead`).
+///
+/// Nine fields, no `total` and no pagination: the baseline returns every
+/// record of the session.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ImportSessionRead {
+    pub id: String,
+    pub candidate_id: Option<String>,
+    pub source: String,
+    pub status: &'static str,
+    pub detected_duplicate_count: i64,
+    #[serde(serialize_with = "serialize_utc_opt")]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+    pub records: Vec<ImportRecordRead>,
+}
+
+impl From<ica_domain::ImportSession> for ImportSessionRead {
+    fn from(session: ica_domain::ImportSession) -> Self {
+        Self {
+            id: session.id,
+            candidate_id: session.candidate_id,
+            source: session.source,
+            status: session.status.as_str(),
+            detected_duplicate_count: session.detected_duplicate_count,
+            confirmed_at: session.confirmed_at,
+            error_message: session.error_message,
+            created_at: session.created_at,
+            records: session.records.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+/// Result of confirming an import session (`ImportConfirmResult`).
+///
+/// `duplicate_count` counts records the parser had already flagged as
+/// duplicates; those are also counted in `skipped_count`, exactly as the
+/// baseline does.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ImportConfirmResult {
+    pub session_id: String,
+    pub saved_message_ids: Vec<String>,
+    pub skipped_count: i64,
+    pub duplicate_count: i64,
+}
+
+/// Result of a screenshot OCR call (`ImportOcrResult`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ImportOcrResult {
+    pub session_id: String,
+    pub text: String,
+    pub language: String,
+    pub candidate_id: Option<String>,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+}
+
+// ── Data export / import (W4) ───────────────────────────────────────────────
+
+/// A plaintext export snapshot (`ExportResponse`).
+///
+/// `exported_at` is a **string** in the wire format, not a datetime: the
+/// baseline builds it with `datetime.isoformat()` and puts it in a `str` field,
+/// so it carries `+00:00` rather than the `Z` that `UtcModel` would produce.
+/// `version` is the literal `"0.2.0"`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ExportResponse {
+    pub version: String,
+    pub exported_at: String,
+    pub data: serde_json::Map<String, serde_json::Value>,
+}
+
+/// The opaque envelope an encrypted export returns (`EncryptedExportResponse`).
+///
+/// `ciphertext` seals the UTF-8 JSON of the plaintext snapshot, `iv` is a fresh
+/// 96-bit GCM nonce and `tag` the 128-bit authentication tag; all three are
+/// standard base64.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct EncryptedExportResponse {
+    pub alg: String,
+    pub iv: String,
+    pub tag: String,
+    pub ciphertext: String,
+}
+
+/// Outcome of a JSON snapshot import (`ImportResult`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ImportResult {
+    pub imported: i64,
+    pub updated: i64,
+    pub skipped: i64,
+    pub conflicts: i64,
+}
