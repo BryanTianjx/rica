@@ -51,10 +51,10 @@ struct RecordRow {
     validation_messages: Option<String>,
 }
 
-const SESSION_COLUMNS: &str = "id, candidate_id, source, status, detected_duplicate_count,\
+const SESSION_COLUMNS: &str = "id, candidate_id, source, status, detected_duplicate_count, \
  confirmed_at, error_message, created_at";
 
-const RECORD_COLUMNS: &str = "id, session_id, sequence, sender_type, content, message_time,\
+const RECORD_COLUMNS: &str = "id, session_id, sequence, sender_type, content, message_time, \
  status, duplicate_of_message_id, content_hash, validation_messages";
 
 fn parse_timestamp(raw: &str) -> chrono::DateTime<Utc> {
@@ -156,7 +156,7 @@ async fn ensure_conversation(
     }
 
     let existing: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM conversations WHERE candidate_id = ? AND is_active = 1\
+        "SELECT id FROM conversations WHERE candidate_id = ? AND is_active = 1 \
          ORDER BY last_message_at IS NULL, last_message_at DESC LIMIT 1",
     )
     .bind(candidate_id)
@@ -170,8 +170,8 @@ async fn ensure_conversation(
     let id = new_uuid();
     let now = to_sql_timestamp(&Utc::now());
     sqlx::query(
-        "INSERT INTO conversations (id, candidate_id, channel, title, is_active,\
-         last_message_at, created_at, updated_at, owner_id, tenant_id)\
+        "INSERT INTO conversations (id, candidate_id, channel, title, is_active, \
+         last_message_at, created_at, updated_at, owner_id, tenant_id) \
          VALUES (?, ?, 'boss', NULL, 1, NULL, ?, ?, ?, ?)",
     )
     .bind(&id)
@@ -202,7 +202,7 @@ impl ImportRepository for SqliteStore {
         candidate_id: &str,
     ) -> Result<std::collections::HashMap<String, String>, RepositoryError> {
         let rows: Vec<(String, String)> = sqlx::query_as(
-            "SELECT content_hash, id FROM messages WHERE candidate_id = ?\
+            "SELECT content_hash, id FROM messages WHERE candidate_id = ? \
              AND content_hash IS NOT NULL",
         )
         .bind(candidate_id)
@@ -221,8 +221,8 @@ impl ImportRepository for SqliteStore {
         let now = to_sql_timestamp(&Utc::now());
 
         sqlx::query(
-            "INSERT INTO import_sessions (id, candidate_id, source, raw_text, status,\
-             detected_duplicate_count, confirmed_at, error_message, created_at, updated_at,\
+            "INSERT INTO import_sessions (id, candidate_id, source, raw_text, status, \
+             detected_duplicate_count, confirmed_at, error_message, created_at, updated_at, \
              owner_id, tenant_id) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)",
         )
         .bind(&session_id)
@@ -242,9 +242,9 @@ impl ImportRepository for SqliteStore {
 
         for record in &new.records {
             sqlx::query(
-                "INSERT INTO import_records (id, session_id, sequence, sender_type, content,\
-                 message_time, status, duplicate_of_message_id, content_hash,\
-                 validation_messages, created_at, updated_at, owner_id, tenant_id)\
+                "INSERT INTO import_records (id, session_id, sequence, sender_type, content, \
+                 message_time, status, duplicate_of_message_id, content_hash, \
+                 validation_messages, created_at, updated_at, owner_id, tenant_id) \
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .bind(new_uuid())
@@ -326,7 +326,7 @@ impl ImportRepository for SqliteStore {
             ensure_conversation(&mut tx, candidate_id, conversation_id.as_deref()).await?;
 
         let rows: Vec<RecordRow> = sqlx::query_as(&format!(
-            "SELECT {RECORD_COLUMNS} FROM import_records WHERE session_id = ?\
+            "SELECT {RECORD_COLUMNS} FROM import_records WHERE session_id = ? \
              ORDER BY sequence ASC"
         ))
         .bind(session_id)
@@ -377,9 +377,9 @@ impl ImportRepository for SqliteStore {
 
             let message_id = new_uuid();
             sqlx::query(
-                "INSERT INTO messages (id, candidate_id, conversation_id, sender_type, content,\
-                 message_time, channel, source, content_hash, import_record_id, created_at,\
-                 updated_at, owner_id, tenant_id)\
+                "INSERT INTO messages (id, candidate_id, conversation_id, sender_type, content, \
+                 message_time, channel, source, content_hash, import_record_id, created_at, \
+                 updated_at, owner_id, tenant_id) \
                  VALUES (?, ?, ?, ?, ?, ?, 'boss', 'paste_import', ?, ?, ?, ?, ?, ?)",
             )
             .bind(&message_id)
@@ -401,7 +401,7 @@ impl ImportRepository for SqliteStore {
         }
 
         sqlx::query(
-            "UPDATE import_sessions SET status = 'confirmed', confirmed_at = ?, updated_at = ?\
+            "UPDATE import_sessions SET status = 'confirmed', confirmed_at = ?, updated_at = ? \
              WHERE id = ?",
         )
         .bind(&now)
@@ -440,7 +440,7 @@ impl ImportRepository for SqliteStore {
         // page again. The records stay, which is why a rejected session can
         // still be confirmed (the baseline behaves the same way).
         let affected = sqlx::query(
-            "UPDATE import_sessions SET status = 'rejected', raw_text = '', updated_at = ?\
+            "UPDATE import_sessions SET status = 'rejected', raw_text = '', updated_at = ? \
              WHERE id = ?",
         )
         .bind(&now)

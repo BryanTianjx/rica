@@ -21,6 +21,7 @@ form_urlencoded.workspace = true
 serde_urlencoded.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
 ica-infra.workspace = true
 sqlx.workspace = true
 tokio.workspace = true

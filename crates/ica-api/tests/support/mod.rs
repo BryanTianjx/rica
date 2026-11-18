@@ -454,6 +454,28 @@ pub async fn post(app: Router, uri: &str, body: &str) -> TestResponse {
     with_body(app, "POST", uri, body).await
 }
 
+/// Issue a POST with extra headers (the encrypted-export path needs
+/// `X-Encrypt-Aes-Key`).
+pub async fn post_with_headers(
+    app: Router,
+    uri: &str,
+    body: &str,
+    headers: &[(&str, &str)],
+) -> TestResponse {
+    let mut builder = axum::http::Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header("accept", "application/json")
+        .header("content-type", "application/json");
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    let request = builder
+        .body(Body::from(body.to_string()))
+        .expect("build request");
+    send(app, request).await
+}
+
 pub async fn patch(app: Router, uri: &str, body: &str) -> TestResponse {
     with_body(app, "PATCH", uri, body).await
 }
