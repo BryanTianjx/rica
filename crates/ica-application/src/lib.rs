@@ -11,6 +11,7 @@ pub mod dashboard;
 pub mod drafts;
 pub mod error;
 pub mod follow_ups;
+pub mod imports;
 pub mod payload;
 pub mod ports;
 pub mod positions;
@@ -37,14 +38,17 @@ pub use follow_ups::{
 pub use payload::{
     CandidateFilter, CandidatePatch, ConversationFilter, DraftCopyOutcome, DraftFilter, DraftPatch,
     Field, FollowUpPolicyPatch, FollowUpResultPatch, FollowUpTaskFilter, FollowUpTaskPatch,
-    MessageFilter, NewCandidate, NewConversation, NewDraftGeneration, NewDraftGroupSelection,
-    NewFollowUpEvaluation, NewFollowUpResult, NewFollowUpTask, NewMessage, NewPosition,
-    NewSendRecord, PositionPatch, SendRecordFilter,
+    ImportCorrection, MessageFilter, NewCandidate, NewConversation, NewDraftGeneration,
+    NewDraftGroupSelection, NewFollowUpEvaluation, NewFollowUpResult, NewFollowUpTask,
+    NewImportConfirm, NewImportOcr, NewImportPreview, NewMessage, NewPosition, NewSendRecord,
+    PositionPatch, SendRecordFilter,
 };
 pub use ports::{
-    CandidateRepository, ConversationRepository, DashboardRepository, DraftGenerator,
-    DraftRepository, FollowUpPolicyRecord, FollowUpRepository, MessageRepository,
-    NewFollowUpTaskRow, PositionFilter, PositionRepository, RepositoryError, SendRecordRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, DataSnapshotRepository,
+    DraftGenerator, DraftRepository, ExportSealer, FollowUpPolicyRecord, FollowUpRepository,
+    ImportConfirmOutcome, ImportRecordCorrection, ImportRepository, MessageRepository,
+    NewFollowUpTaskRow, NewImportRecordRow, NewImportSessionRow, OcrEngine, PositionFilter,
+    PositionRepository, RepositoryError, SendRecordRepository, SnapshotOutcome,
 };
 pub use positions::{
     create_position, delete_position, get_position, list_positions, update_position, ListPositions,

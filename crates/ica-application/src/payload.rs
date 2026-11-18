@@ -316,3 +316,42 @@ pub struct DraftFilter {
     pub task_id: Option<String>,
     pub status: Option<DraftStatus>,
 }
+
+// ── Import sessions (W4) ────────────────────────────────────────────────────
+
+/// A validated `POST /api/imports/preview` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportPreview {
+    pub candidate_id: Option<String>,
+    pub raw_text: String,
+    /// Defaults to `paste_import`, the baseline's default for this endpoint.
+    pub source: ica_domain::MessageSource,
+}
+
+/// One validated per-record correction from `ImportConfirmRequest.records`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportCorrection {
+    pub id: String,
+    pub sender_type: Option<ica_domain::SenderType>,
+    pub content: Option<String>,
+    pub message_time: Option<chrono::DateTime<chrono::Utc>>,
+    pub skip: bool,
+}
+
+/// A validated `POST /api/imports/{id}/confirm` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportConfirm {
+    /// Required at confirm time: an import must never be filed against the
+    /// wrong candidate.
+    pub candidate_id: String,
+    pub conversation_id: Option<String>,
+    pub corrections: Vec<ImportCorrection>,
+}
+
+/// A validated `POST /api/imports/ocr` body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportOcr {
+    pub candidate_id: Option<String>,
+    /// A server-side path, guarded against escaping the staging directory.
+    pub image_path: String,
+}

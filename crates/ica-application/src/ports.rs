@@ -536,8 +536,25 @@ pub struct NewImportSessionRow {
     pub raw_text: String,
     pub status: ica_domain::ImportStatus,
     pub error_message: Option<String>,
-    pub records: Vec<ica_domain::ImportRecord>,
+    pub records: Vec<NewImportRecordRow>,
     pub detected_duplicate_count: i64,
+}
+
+/// One record to persist with a preview.
+///
+/// Neither `id` nor `session_id` is carried: the session does not exist yet
+/// when the parser produces these, so the repository mints both and returns the
+/// finished rows inside [`ica_domain::ImportSession`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewImportRecordRow {
+    pub sequence: i64,
+    pub sender_type: Option<String>,
+    pub content: String,
+    pub message_time: Option<DateTime<Utc>>,
+    pub status: ica_domain::RecordStatus,
+    pub duplicate_of_message_id: Option<String>,
+    pub content_hash: Option<String>,
+    pub validation_messages: Option<String>,
 }
 
 /// What a confirmation produced.

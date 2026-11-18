@@ -1234,7 +1234,10 @@ mod tests {
 
 // ── Drafts (W3) ────────────────────────────────────────────────────────────
 
-use ica_application::{DraftPatch, NewDraftGeneration, NewDraftGroupSelection};
+use ica_application::{
+    DraftPatch, ImportCorrection, NewDraftGeneration, NewDraftGroupSelection, NewImportConfirm,
+    NewImportOcr, NewImportPreview,
+};
 use ica_domain::{MessageType, Tone};
 
 /// A validated `POST /api/drafts/generate` body.
@@ -1425,15 +1428,6 @@ pub struct RawImportPreview {
     pub source: Incoming<String>,
 }
 
-/// A validated `POST /api/imports/preview` body.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NewImportPreview {
-    pub candidate_id: Option<String>,
-    pub raw_text: String,
-    /// Defaults to `paste_import`, the baseline's default for this endpoint.
-    pub source: ica_domain::MessageSource,
-}
-
 /// Validate a `POST /api/imports/preview` body.
 ///
 /// `raw_text` is `Field(min_length=1)` in the baseline, so an empty or
@@ -1503,26 +1497,6 @@ pub struct RawImportConfirm {
     pub records: Incoming<Vec<RawImportCorrection>>,
 }
 
-/// One validated per-record correction.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImportCorrection {
-    pub id: String,
-    pub sender_type: Option<ica_domain::SenderType>,
-    pub content: Option<String>,
-    pub message_time: Option<DateTime<Utc>>,
-    pub skip: bool,
-}
-
-/// A validated `POST /api/imports/{id}/confirm` body.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NewImportConfirm {
-    /// Required at confirm time: an import must never be filed against the
-    /// wrong candidate.
-    pub candidate_id: String,
-    pub conversation_id: Option<String>,
-    pub corrections: Vec<ImportCorrection>,
-}
-
 /// Validate a `POST /api/imports/{id}/confirm` body.
 pub fn import_confirm(raw: RawImportConfirm) -> Result<NewImportConfirm, ContractError> {
     let mut issues = Vec::new();
@@ -1586,14 +1560,6 @@ pub struct RawImportOcr {
     pub candidate_id: Incoming<String>,
     #[serde(default)]
     pub image_path: Incoming<String>,
-}
-
-/// A validated `POST /api/imports/ocr` body.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NewImportOcr {
-    pub candidate_id: Option<String>,
-    /// A server-side path, guarded against escaping the staging directory.
-    pub image_path: String,
 }
 
 /// Validate a `POST /api/imports/ocr` body (`image_path` is `min_length=1`).
