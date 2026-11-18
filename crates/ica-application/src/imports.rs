@@ -26,7 +26,7 @@ use crate::ports::{
     RepositoryError,
 };
 
-use crate::payload::ImportCorrection;
+use crate::payload::{ImportCorrection, NewImportOcr};
 pub use crate::payload::{NewImportConfirm, NewImportPreview};
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
@@ -213,4 +213,135 @@ pub async fn reject_import(
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Import session", session_id))?;
     Ok(updated)
+}
+
+// ── Screenshot OCR ──────────────────────────────────────────────────────────
+
+/// Result of a screenshot OCR call, before it is mapped to the wire DTO.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OcrOutcome {
+    pub session: ica_domain::ImportSession,
+    pub text: String,
+    /// The baseline hard-codes `"zh+en"`.
+    pub language: String,
+}
+
+/// Resolve `path` the way Python's `Path.resolve()` does for a file that may
+/// not exist yet: make it absolute, expand `.`/`..`, and follow symlinks where
+/// they can be followed.
+fn resolve_lenient(path: &std::path::Path) -> std::path::PathBuf {
+    if let Ok(canonical) = path.canonicalize() {
+        return canonical;
+    }
+    // The file may not exist (the caller only knows the path). Normalise
+    // lexically on top of the canonical parent where possible.
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("/"))
+            .join(path)
+    };
+    let mut out = std::path::PathBuf::new();
+    for component in absolute.components() {
+        use std::path::Component;
+        match component {
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// The baseline's OCR path guard (`_assert_ocr_path_allowed`).
+///
+/// The guard runs **before** the existence check, so a path outside the
+/// staging area is refused without disclosing whether the file is there. Two
+/// codes matter: `ocr_path_not_allowed` for a path outside the area (or a
+/// directory), and the plain 409 for a missing file.
+fn assert_ocr_path_allowed(
+    image_path: &str,
+    allowed_dir: &std::path::Path,
+) -> Result<std::path::PathBuf, ApplicationError> {
+    let resolved = resolve_lenient(std::path::Path::new(image_path));
+    let allowed = resolve_lenient(allowed_dir);
+
+    let mut details = std::collections::BTreeMap::new();
+    details.insert("allowed_prefix".to_string(), allowed.display().to_string());
+
+    if resolved.is_dir() {
+        return Err(ApplicationError::ConflictWithCode {
+            code: "ocr_path_not_allowed",
+            message: format!("OCR image path must be a file, not a directory: {image_path}"),
+            details: serde_json::json!({ "allowed_prefix": allowed.display().to_string() }),
+        });
+    }
+    if !resolved.starts_with(&allowed) {
+        return Err(ApplicationError::ConflictWithCode {
+            code: "ocr_path_not_allowed",
+            message: format!("OCR image path outside allowed directory: {image_path}"),
+            details: serde_json::json!({ "allowed_prefix": allowed.display().to_string() }),
+        });
+    }
+    Ok(resolved)
+}
+
+/// Run local OCR on a screenshot and archive the result (`ocr_screenshot`).
+///
+/// Order matters and is the baseline's:
+///  1. path guard (no I/O on the file, no existence disclosure);
+///  2. existence;
+///  3. engine availability — a missing engine is a readable error, never a 500
+///     or a panic;
+///  4. decode/read — a non-image is a 4xx `ocr_image_undecodable`;
+///  5. the staging file is deleted on **every** path, success or failure;
+///  6. the recognised text goes through the ordinary preview flow, so the user
+///     still confirms before anything reaches the timeline.
+pub async fn ocr_screenshot(
+    imports: &dyn ImportRepository,
+    ocr: &dyn crate::ports::OcrEngine,
+    request: NewImportOcr,
+    allowed_dir: &std::path::Path,
+) -> Result<OcrOutcome, ApplicationError> {
+    let resolved = assert_ocr_path_allowed(&request.image_path, allowed_dir)?;
+
+    if !resolved.exists() {
+        return Err(ApplicationError::ConflictWithCode {
+            code: "business_rule_violation",
+            message: format!("OCR image not found: {}", resolved.display()),
+            details: serde_json::json!({}),
+        });
+    }
+
+    ocr.ensure_available()?;
+
+    let text = match ocr.read_text(&resolved).await {
+        Ok(text) => text,
+        Err(error) => {
+            // The staging copy is dropped on the failure path too.
+            let _ = std::fs::remove_file(&resolved);
+            return Err(error);
+        }
+    };
+
+    let _ = std::fs::remove_file(&resolved);
+
+    let session = preview_import(
+        imports,
+        NewImportPreview {
+            candidate_id: request.candidate_id,
+            raw_text: text.clone(),
+            source: ica_domain::MessageSource::ScreenshotOcr,
+        },
+    )
+    .await?;
+
+    Ok(OcrOutcome {
+        session,
+        text,
+        language: "zh+en".to_string(),
+    })
 }

@@ -68,6 +68,14 @@ pub enum ContractError {
     Validation { message: String, details: Value },
     /// 409 `business_rule_violation`.
     Conflict { message: String, details: Value },
+    /// 409 with a caller-chosen code (`ocr_path_not_allowed`,
+    /// `ocr_image_undecodable`, …). The baseline's `BusinessRuleError` accepts
+    /// `code=`, so the code is part of the contract.
+    ConflictWithCode {
+        code: &'static str,
+        message: String,
+        details: Value,
+    },
     /// 503 `ai_provider_error` — the upstream AI provider failed or is not
     /// configured (the baseline's `AIProviderError`).
     ProviderUnavailable { message: String, details: Value },
@@ -133,11 +141,14 @@ impl ContractError {
 
     /// The wire vocabulary for this error — the `error.code` field every
     /// transport renders. The HTTP status codes are an adapter concern.
-    pub fn code(&self) -> &'static str {
+    pub fn code(&self) -> &str {
         match self {
             Self::NotFound { .. } => "not_found",
             Self::ValidationIssues { .. } | Self::Validation { .. } => "validation_error",
             Self::Conflict { .. } => "business_rule_violation",
+            // The caller chose this code (`ocr_path_not_allowed`, …), so it is
+            // not a `&'static str` literal.
+            Self::ConflictWithCode { code, .. } => code,
             Self::ProviderUnavailable { .. } => "ai_provider_error",
             Self::Http { .. } => "http_error",
             Self::Internal { .. } => "internal_error",
@@ -149,6 +160,7 @@ impl ContractError {
         match self {
             Self::ValidationIssues { issues } => serde_json::json!({ "errors": issues }),
             Self::Validation { details, .. } | Self::Conflict { details, .. } => details.clone(),
+            Self::ConflictWithCode { details, .. } => details.clone(),
             Self::ProviderUnavailable { details, .. } => details.clone(),
             Self::NotFound { .. } | Self::Http { .. } | Self::Internal { .. } => {
                 serde_json::json!({})
@@ -164,6 +176,7 @@ impl ContractError {
             Self::NotFound { message }
             | Self::Validation { message, .. }
             | Self::Conflict { message, .. }
+            | Self::ConflictWithCode { message, .. }
             | Self::ProviderUnavailable { message, .. }
             | Self::Http { message, .. } => message,
             Self::ValidationIssues { .. } => "Request payload failed validation",
@@ -189,6 +202,15 @@ impl From<ApplicationError> for ContractError {
             ApplicationError::ConflictValue { message, details } => {
                 ContractError::Conflict { message, details }
             }
+            ApplicationError::ConflictWithCode {
+                code,
+                message,
+                details,
+            } => ContractError::ConflictWithCode {
+                code,
+                message,
+                details,
+            },
             // The AI provider's 503: same free-form details shape.
             ApplicationError::ProviderUnavailable { message, details } => {
                 ContractError::ProviderUnavailable { message, details }

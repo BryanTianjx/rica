@@ -662,6 +662,24 @@ pub trait DataSnapshotRepository: Send + Sync {
         &self,
         data: serde_json::Map<String, serde_json::Value>,
     ) -> Result<SnapshotOutcome, RepositoryError>;
+
+    /// Write the `data.exported` audit row.
+    ///
+    /// Called only after the document exists — the baseline deliberately orders
+    /// the audit after key validation and sealing, so a refused export leaves
+    /// no success event. Only table names and row counts are recorded, never
+    /// the exported content.
+    async fn record_export_audit(
+        &self,
+        outcome: &crate::sync::ExportOutcome,
+    ) -> Result<(), RepositoryError>;
+
+    /// Write the `data.imported` audit row, with the counts it reports.
+    async fn record_import_audit(
+        &self,
+        outcome: &SnapshotOutcome,
+        tables: &[String],
+    ) -> Result<(), RepositoryError>;
 }
 
 /// Seals an export snapshot with AES-256-GCM (`X-Encrypt-Aes-Key`).

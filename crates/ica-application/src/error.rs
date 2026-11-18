@@ -31,6 +31,21 @@ pub enum ApplicationError {
     /// machine ships the settable-status list as a JSON array, exactly like
     /// the baseline's ``BusinessRuleError``.
     ConflictValue { message: String, details: Value },
+    /// A 409 with a **caller-chosen** error code.
+    ///
+    /// The baseline's ``BusinessRuleError`` takes ``code=`` and uses something
+    /// other than ``business_rule_violation`` in places: the OCR path guard
+    /// raises ``ocr_path_not_allowed`` and an undecodable image
+    /// ``ocr_image_undecodable``. The code is contract text, so it has to
+    /// travel with the error rather than being assumed.
+    ConflictWithCode {
+        /// A `&'static str` because every such code in the baseline is a
+        /// literal at the `raise` site; keeping it static lets the wire layer
+        /// pass it through without allocating.
+        code: &'static str,
+        message: String,
+        details: Value,
+    },
     /// The upstream AI provider failed or is unavailable (HTTP 503
     /// ``ai_provider_error``) — the baseline's ``AIProviderError``. The
     /// message is contract text; the details stay JSON for the same reason as
@@ -79,6 +94,7 @@ impl ApplicationError {
             | ApplicationError::Validation { message, .. }
             | ApplicationError::Conflict { message, .. }
             | ApplicationError::ConflictValue { message, .. }
+            | ApplicationError::ConflictWithCode { message, .. }
             | ApplicationError::ProviderUnavailable { message, .. }
             | ApplicationError::Unavailable { message } => message,
         }

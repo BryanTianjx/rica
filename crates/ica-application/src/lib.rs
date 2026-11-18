@@ -16,6 +16,7 @@ pub mod payload;
 pub mod ports;
 pub mod positions;
 pub mod send_records;
+pub mod sync;
 
 pub use candidates::{
     create_candidate, delete_candidate, get_candidate, get_candidate_detail, list_candidates,

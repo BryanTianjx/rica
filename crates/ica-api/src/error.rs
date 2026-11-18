@@ -81,6 +81,11 @@ impl IntoResponse for ApiError {
                 message,
                 details,
             ),
+            ContractError::ConflictWithCode {
+                code,
+                message,
+                details,
+            } => (StatusCode::CONFLICT, code, message, details),
             ContractError::Conflict { message, details } => (
                 StatusCode::CONFLICT,
                 "business_rule_violation",
