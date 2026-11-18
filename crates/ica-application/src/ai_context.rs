@@ -15,9 +15,7 @@ use crate::error::ApplicationError;
 use crate::ports::{CandidateRepository, MessageRepository, PositionRepository, RepositoryError};
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// Render a parsed instant the way Python's naive `datetime.isoformat()` does

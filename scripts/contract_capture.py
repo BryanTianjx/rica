@@ -473,6 +473,92 @@ CASES: list[dict] = [
     {"name": "drafts_final", "method": "GET", "path": "/api/drafts"},
     {"name": "dashboard_after_drafts", "method": "GET", "path": "/api/dashboard"},
 
+    # ── W4: imports, export, import, OCR ───────────────────────────────────
+    # NOTE: these use BOB, not ALICE: the W1 scenario deletes ALICE at
+    # `candidate_delete_with_children` (cascade), so a later case naming her
+    # would 404 on one side only.
+    # The pasted text is the parser's simplest non-empty shape: two senders,
+    # no timestamps. A preview PERSISTS the session and its records — it does
+    # NOT write to the timeline; only confirm does. (The earlier task draft
+    # claimed preview was "zero-write", which the baseline contradicts.)
+    {"name": "imports_preview", "method": "POST", "path": "/api/imports/preview",
+     "json": {"candidate_id": BOB, "raw_text": "候选人：你好，我对这个岗位感兴趣\n我：您好，请问方便聊聊吗"},
+     "capture": {"session_id": "id"}},
+    {"name": "imports_preview_unknown_candidate", "method": "POST",
+     "path": "/api/imports/preview",
+     "json": {"candidate_id": "00000000-0000-0000-0000-0000000000ff",
+              "raw_text": "候选人：你好"}},
+    # An empty page is a `failed` session, not an error response.
+    {"name": "imports_preview_empty", "method": "POST", "path": "/api/imports/preview",
+     "json": {"candidate_id": BOB, "raw_text": ""}},
+    {"name": "imports_preview_whitespace_only", "method": "POST",
+     "path": "/api/imports/preview",
+     "json": {"candidate_id": BOB, "raw_text": "   \n  \n "}},
+    # No candidate_id: the session is not filed against anyone yet.
+    {"name": "imports_preview_no_candidate", "method": "POST",
+     "path": "/api/imports/preview",
+     "json": {"raw_text": "候选人：没有候选人也可以解析"}},
+    {"name": "imports_get", "method": "GET", "path": "/api/imports/{session_id}"},
+    {"name": "imports_get_missing", "method": "GET", "path": "/api/imports/does-not-exist"},
+    # Confirm writes the timeline; a second confirm is a 409.
+    {"name": "imports_confirm", "method": "POST", "path": "/api/imports/{session_id}/confirm",
+     "json": {"candidate_id": BOB}},
+    {"name": "imports_confirm_twice", "method": "POST", "path": "/api/imports/{session_id}/confirm",
+     "json": {"candidate_id": BOB}},
+    # A session for a different candidate: confirm needs a candidate, and one
+    # that does not exist is a 404.
+    {"name": "imports_preview_other_candidate", "method": "POST",
+     "path": "/api/imports/preview",
+     "json": {"candidate_id": FRANK, "raw_text": "候选人：弗兰克的��息\n我：收到"},
+     "capture": {"other_session_id": "id"}},
+    {"name": "imports_confirm_unknown_candidate", "method": "POST",
+     "path": "/api/imports/{other_session_id}/confirm",
+     "json": {"candidate_id": "00000000-0000-0000-0000-0000000000ff"}},
+    {"name": "imports_confirm_missing_candidate_field", "method": "POST",
+     "path": "/api/imports/{other_session_id}/confirm", "json": {}},
+    # Reject clears the raw text; a rejected session can still be confirmed.
+    {"name": "imports_preview_to_reject", "method": "POST", "path": "/api/imports/preview",
+     "json": {"candidate_id": BOB, "raw_text": "候选人：将被拒绝\n我：好的"},
+     "capture": {"reject_session_id": "id"}},
+    {"name": "imports_reject", "method": "POST", "path": "/api/imports/{reject_session_id}/reject"},
+    {"name": "imports_get_after_reject", "method": "GET",
+     "path": "/api/imports/{reject_session_id}"},
+    {"name": "imports_confirm_after_reject", "method": "POST",
+     "path": "/api/imports/{reject_session_id}/confirm", "json": {"candidate_id": BOB}},
+    {"name": "imports_reject_missing", "method": "POST", "path": "/api/imports/does-not-exist/reject"},
+    # The OCR path guard runs before any I/O: an out-of-directory path is
+    # refused without disclosing whether the file exists.
+    {"name": "imports_ocr_outside_directory", "method": "POST", "path": "/api/imports/ocr",
+     "json": {"candidate_id": BOB, "image_path": "/etc/passwd"}},
+    {"name": "imports_ocr_missing_file", "method": "POST", "path": "/api/imports/ocr",
+     "json": {"candidate_id": BOB, "image_path": "/tmp/ica-contract-ocr/missing.png"}},
+    {"name": "imports_ocr_no_path", "method": "POST", "path": "/api/imports/ocr",
+     "json": {"candidate_id": BOB}},
+    # ── W4 export / import (last: they touch every table) ──────────────────
+    # The plaintext snapshot: `version` is pinned, `exported_at` is a STRING
+    # built with `isoformat()` (so `+00:00`, not the wire `Z`), and
+    # `import_sessions.raw_text` is excluded from the export.
+    {"name": "export_plaintext", "method": "POST", "path": "/api/export"},
+    # An unusable key is a 422 `invalid_encryption_key` — never a silent
+    # fallback to plaintext.
+    {"name": "export_bad_key", "method": "POST", "path": "/api/export",
+     "headers": {"X-Encrypt-Aes-Key": "not-a-valid-key"}},
+    {"name": "export_short_key", "method": "POST", "path": "/api/export",
+     "headers": {"X-Encrypt-Aes-Key": "c2hvcnQ="}},
+    # A sealed export returns the envelope; the plaintext must NOT be present.
+    {"name": "export_sealed", "method": "POST", "path": "/api/export",
+     "headers": {"X-Encrypt-Aes-Key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="}},
+    # Importing the snapshot back is an upsert, so re-importing changes
+    # nothing.
+    {"name": "import_snapshot", "method": "POST", "path": "/api/import",
+     "json": {"data": {}}},
+    {"name": "import_snapshot_empty", "method": "POST", "path": "/api/import",
+     "json": {"data": {}}},
+    {"name": "import_snapshot_unknown_table", "method": "POST", "path": "/api/import",
+     "json": {"data": {"no_such_table": [{"id": "x"}]}}},
+    {"name": "import_snapshot_no_data", "method": "POST", "path": "/api/import", "json": {}},
+    {"name": "import_snapshot_null_data", "method": "POST", "path": "/api/import",
+     "json": {"data": None}},
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
@@ -489,6 +575,9 @@ DB_TABLES = [
     "follow_up_policies",
     "generated_drafts",
     "audit_events",
+    # W4
+    "import_sessions",
+    "import_records",
 ]
 
 #: Columns that hold a JSON document; the diff compares them parsed, so the
@@ -549,7 +638,8 @@ def _one_request(opener, request, is_head: bool,
 
 
 def fetch(base_url: str, method: str, path: str, payload: dict | None,
-          timeout: float = 20.0, attempts: int = 4) -> dict[str, object]:
+          timeout: float = 20.0, attempts: int = 4,
+          extra_headers: dict[str, str] | None = None) -> dict[str, object]:
     """Issue one request and return status + decoded body (or raw text).
 
     A `HEAD` response carries no body by definition, so it is never read: the
@@ -569,6 +659,9 @@ def fetch(base_url: str, method: str, path: str, payload: dict | None,
     headers = {"accept": "application/json"}
     if data is not None:
         headers["content-type"] = "application/json"
+    # Extra request headers (e.g. the export's `X-Encrypt-Aes-Key`).
+    for name, value in (extra_headers or {}).items():
+        headers[name] = value
     is_head = method.upper() == "HEAD"
     request = urllib.request.Request(url, data=data, method=method, headers=headers)
     last_reset: ConnectionResetError | None = None
@@ -649,8 +742,22 @@ def main(argv: list[str]) -> int:
     failures = 0
 
     for case in CASES:
-        path = case["path"].format(**context)
-        result = fetch(args.base_url, case["method"], path, case.get("json"))
+        # A captured placeholder that was never filled (the capture step
+        # failed) must not abort the whole scenario: the missing value is
+        # itself a finding, and the remaining cases still have to run.
+        try:
+            path = case["path"].format(**context)
+        except KeyError as missing:
+            print(f"  {case['name']:42s} SKIPPED (no value for {missing})")
+            failures += 1
+            results[case["name"]] = {
+                "status": None,
+                "body": {"skipped": f"missing {missing}"},
+                "headers": {},
+            }
+            continue
+        result = fetch(args.base_url, case["method"], path, case.get("json"),
+                       extra_headers=case.get("headers"))
         results[case["name"]] = result
         body = result["body"]
         for key, field in case.get("capture", {}).items():

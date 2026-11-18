@@ -108,11 +108,11 @@ impl DataSnapshotRepository for SqliteStore {
 
         for (table, rows) in &data {
             let Some(spec) = BUSINESS_TABLES.iter().find(|spec| spec.name == table) else {
-                // An unknown table is skipped rather than fatal: the baseline
-                // reports it in `skipped` instead of refusing the batch.
-                if let Some(items) = rows.as_array() {
-                    outcome.skipped += items.len() as i64;
-                }
+                // The baseline walks `_BUSINESS_TABLES` and never looks at a
+                // table it does not know, so an unknown table is IGNORED — not
+                // counted as skipped, not an error. The audit's `tables` list
+                // is built from the payload's keys, so an unknown table still
+                // appears THERE, but nothing it contains is imported.
                 continue;
             };
 
@@ -199,15 +199,22 @@ impl DataSnapshotRepository for SqliteStore {
                 }
                 (Value::Object(counts), false)
             }
-            ExportOutcome::Sealed(_) => (Value::Object(Map::new()), true),
+            ExportOutcome::Sealed(sealed) => {
+                // The baseline takes the counts from the snapshot it read
+                // BEFORE sealing, so an encrypted export reports them too.
+                let mut counts = Map::new();
+                for (name, count) in &sealed.tables {
+                    counts.insert(name.clone(), Value::from(*count as i64));
+                }
+                (Value::Object(counts), true)
+            }
         };
 
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
         crate::audit::insert_audit(
             &mut tx,
-            crate::audit::AuditEntry::new(
+            crate::audit::AuditEntry::with_entity_type(
                 "data.exported",
-                "export",
                 "export",
                 "Exported a data snapshot",
             )
@@ -234,9 +241,8 @@ impl DataSnapshotRepository for SqliteStore {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
         crate::audit::insert_audit(
             &mut tx,
-            crate::audit::AuditEntry::new(
+            crate::audit::AuditEntry::with_entity_type(
                 "data.imported",
-                "import",
                 "import",
                 format!(
                     "Imported a data snapshot ({} new, {} updated, {} skipped)",

@@ -543,3 +543,444 @@ CREATE INDEX ix_send_records_owner_id ON send_records (owner_id);
 
 -- index: ix_send_records_tenant_id
 CREATE INDEX ix_send_records_tenant_id ON send_records (tenant_id);
+
+-- Appended: tables the first snapshot missed
+-- The browser subsystem's staging tables plus users. They are part of the
+-- baseline's schema; the first export came from a database that had never
+-- exercised them, and reject_import needs browser_candidate_extractions
+-- to exist for the route to answer at all.
+CREATE TABLE browser_actions (
+	session_id VARCHAR(36) NOT NULL, 
+	task_id VARCHAR(36), 
+	step_id VARCHAR(36), 
+	kind VARCHAR(16) NOT NULL, 
+	risk_level VARCHAR(2) NOT NULL, 
+	target_domain VARCHAR(253), 
+	target_url VARCHAR(2048), 
+	locator_json TEXT, 
+	value_length INTEGER, 
+	value_sha256 VARCHAR(64), 
+	state VARCHAR(20) NOT NULL, 
+	artifact_id VARCHAR(36), 
+	artifact_path VARCHAR(500), 
+	artifact_sha256 VARCHAR(64), 
+	artifact_bytes INTEGER, 
+	duration_ms INTEGER, 
+	error_code VARCHAR(64), 
+	result_json TEXT, 
+	started_at DATETIME, 
+	finished_at DATETIME, 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_actions_kind CHECK (kind IN ('navigate', 'click', 'fill', 'select', 'press', 'scroll', 'snapshot', 'screenshot', 'verify')), 
+	CONSTRAINT ck_browser_actions_state CHECK (state IN ('proposed', 'awaiting_approval', 'approved', 'executing', 'succeeded', 'failed', 'denied', 'cancelled')), 
+	CONSTRAINT ck_browser_actions_risk CHECK (risk_level IN ('L1', 'L2', 'L3', 'L4')), 
+	FOREIGN KEY(session_id) REFERENCES browser_sessions (id) ON DELETE CASCADE
+);
+
+CREATE TABLE browser_approvals (
+	session_id VARCHAR(36), 
+	task_id VARCHAR(36), 
+	action_id VARCHAR(36), 
+	request_type VARCHAR(16) NOT NULL, 
+	risk_level VARCHAR(2) NOT NULL, 
+	action_digest VARCHAR(64) NOT NULL, 
+	summary VARCHAR(300) NOT NULL, 
+	state VARCHAR(16) NOT NULL, 
+	requested_by VARCHAR(36) NOT NULL, 
+	requested_at DATETIME NOT NULL, 
+	decided_by VARCHAR(36), 
+	decided_at DATETIME, 
+	decision_note VARCHAR(300), 
+	expires_at DATETIME NOT NULL, 
+	consumed_at DATETIME, 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_approvals_type CHECK (request_type IN ('action', 'task', 'data_write')), 
+	CONSTRAINT ck_browser_approvals_state CHECK (state IN ('pending', 'approved', 'rejected', 'expired', 'consumed')), 
+	CONSTRAINT ck_browser_approvals_risk CHECK (risk_level IN ('L4')), 
+	FOREIGN KEY(session_id) REFERENCES browser_sessions (id) ON DELETE CASCADE, 
+	FOREIGN KEY(task_id) REFERENCES browser_tasks (id) ON DELETE SET NULL, 
+	FOREIGN KEY(action_id) REFERENCES browser_actions (id) ON DELETE SET NULL
+);
+
+CREATE TABLE browser_candidate_extraction_revisions (
+	extraction_id VARCHAR(36) NOT NULL, 
+	revision_no INTEGER NOT NULL, 
+	actor_id VARCHAR(36), 
+	changes_json TEXT NOT NULL, 
+	fields_json TEXT NOT NULL, 
+	note VARCHAR(500), 
+	id VARCHAR(36) NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_extraction_revision_no UNIQUE (extraction_id, revision_no), 
+	FOREIGN KEY(extraction_id) REFERENCES browser_candidate_extractions (id) ON DELETE CASCADE
+);
+
+CREATE TABLE browser_candidate_extractions (
+	session_id VARCHAR(36) NOT NULL, 
+	snapshot_action_id VARCHAR(36) NOT NULL, 
+	import_session_id VARCHAR(36), 
+	source_url VARCHAR(2048) NOT NULL, 
+	source_domain VARCHAR(253) NOT NULL, 
+	page_title VARCHAR(512), 
+	snapshot_sha256 VARCHAR(64) NOT NULL, 
+	snapshot_path VARCHAR(500) NOT NULL, 
+	snapshot_node_count INTEGER NOT NULL, 
+	snapshot_masked_fields INTEGER NOT NULL, 
+	fields_json TEXT NOT NULL, 
+	field_origin_json TEXT, 
+	missing_fields_json TEXT, 
+	position_hint VARCHAR(200), 
+	company_hint VARCHAR(200), 
+	mask_hits INTEGER NOT NULL, 
+	name_key VARCHAR(200) NOT NULL, 
+	identity_key VARCHAR(64) NOT NULL, 
+	duplicate_kind VARCHAR(16), 
+	duplicate_of_candidate_id VARCHAR(36), 
+	duplicate_evidence_json TEXT, 
+	status VARCHAR(16) NOT NULL, 
+	review_digest VARCHAR(64), 
+	reviewed_at DATETIME, 
+	reviewed_by_id VARCHAR(36), 
+	review_note VARCHAR(500), 
+	candidate_id VARCHAR(36), 
+	confirmed_at DATETIME, 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_extraction_status CHECK (status IN ('draft', 'approved', 'rejected', 'confirmed')), 
+	CONSTRAINT ck_extraction_duplicate_kind CHECK (duplicate_kind IS NULL OR duplicate_kind IN ('exact', 'name', 'content')), 
+	CONSTRAINT ck_extraction_has_url CHECK (length(source_url) > 0), 
+	CONSTRAINT ck_extraction_has_digest CHECK (length(snapshot_sha256) = 64), 
+	FOREIGN KEY(import_session_id) REFERENCES import_sessions (id) ON DELETE SET NULL, 
+	FOREIGN KEY(duplicate_of_candidate_id) REFERENCES candidates (id) ON DELETE SET NULL, 
+	FOREIGN KEY(candidate_id) REFERENCES candidates (id) ON DELETE SET NULL
+);
+
+CREATE TABLE browser_connector_sessions (
+	connector_id VARCHAR(36) NOT NULL, 
+	state VARCHAR(16) NOT NULL, 
+	browser_family VARCHAR(16) NOT NULL, 
+	browser_version VARCHAR(32), 
+	user_agent VARCHAR(500), 
+	key_epoch INTEGER NOT NULL, 
+	peer_process VARCHAR(64), 
+	frames_in INTEGER NOT NULL, 
+	frames_out INTEGER NOT NULL, 
+	tabs_seen INTEGER NOT NULL, 
+	actions_count INTEGER NOT NULL, 
+	started_at DATETIME, 
+	ended_at DATETIME, 
+	last_frame_at DATETIME, 
+	close_reason VARCHAR(32), 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_connector_sessions_state CHECK (state IN ('active', 'closed', 'blocked')), 
+	FOREIGN KEY(connector_id) REFERENCES browser_connectors (id) ON DELETE CASCADE
+);
+
+CREATE TABLE browser_connectors (
+	extension_id VARCHAR(64) NOT NULL, 
+	browser_family VARCHAR(16) NOT NULL, 
+	state VARCHAR(16) NOT NULL, 
+	key_epoch INTEGER NOT NULL, 
+	previous_key_epoch INTEGER, 
+	previous_key_expires_at DATETIME, 
+	pairing_nonce_sha256 VARCHAR(64), 
+	pairing_expires_at DATETIME, 
+	pairing_consumed_at DATETIME, 
+	paired_at DATETIME, 
+	rotated_at DATETIME, 
+	last_seen_at DATETIME, 
+	reject_count INTEGER NOT NULL, 
+	reject_window_started_at DATETIME, 
+	blocked_at DATETIME, 
+	note VARCHAR(200), 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_connectors_state CHECK (state IN ('pending', 'active', 'closed', 'blocked')), 
+	CONSTRAINT ck_browser_connectors_family CHECK (browser_family IN ('chrome', 'edge', 'chromium')), 
+	CONSTRAINT ck_browser_connectors_epoch CHECK (key_epoch >= 1 AND key_epoch <= 255)
+);
+
+CREATE TABLE browser_permissions (
+	profile_id VARCHAR(36), 
+	scope VARCHAR(16) NOT NULL, 
+	domain VARCHAR(253) NOT NULL, 
+	action_kind VARCHAR(16), 
+	risk_ceiling VARCHAR(2) NOT NULL, 
+	granted_by VARCHAR(36) NOT NULL, 
+	note VARCHAR(200), 
+	granted_at DATETIME NOT NULL, 
+	expires_at DATETIME, 
+	revoked_at DATETIME, 
+	revoked_by VARCHAR(36), 
+	revoke_reason VARCHAR(32), 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_permissions_scope CHECK (scope IN ('domain', 'action')), 
+	CONSTRAINT ck_browser_permissions_risk CHECK (risk_ceiling IN ('L1', 'L2', 'L3')), 
+	CONSTRAINT uq_browser_permission_grant UNIQUE (tenant_id, owner_id, profile_id, scope, domain, action_kind), 
+	FOREIGN KEY(profile_id) REFERENCES browser_profiles (id) ON DELETE CASCADE
+);
+
+CREATE TABLE browser_profiles (
+	name VARCHAR(64) NOT NULL, 
+	description VARCHAR(500), 
+	data_dir_name VARCHAR(64) NOT NULL, 
+	engine VARCHAR(16) NOT NULL, 
+	state VARCHAR(16) NOT NULL, 
+	lock_holder_pid INTEGER, 
+	lock_acquired_at DATETIME, 
+	last_used_at DATETIME, 
+	last_error_code VARCHAR(64), 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_browser_profile_name UNIQUE (tenant_id, owner_id, name), 
+	CONSTRAINT uq_browser_profile_dir UNIQUE (data_dir_name), 
+	CONSTRAINT ck_browser_profile_state CHECK (state IN ('idle', 'in_use', 'locked', 'corrupt'))
+);
+
+CREATE TABLE browser_sessions (
+	profile_id VARCHAR(36) NOT NULL, 
+	state VARCHAR(16) NOT NULL, 
+	viewport_json TEXT, 
+	page_url VARCHAR(2048), 
+	page_title VARCHAR(512), 
+	close_reason VARCHAR(32), 
+	error_code VARCHAR(64), 
+	started_at DATETIME, 
+	ended_at DATETIME, 
+	last_activity_at DATETIME, 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_sessions_state CHECK (state IN ('starting', 'ready', 'closing', 'closed', 'failed')), 
+	FOREIGN KEY(profile_id) REFERENCES browser_profiles (id) ON DELETE RESTRICT
+);
+
+CREATE TABLE browser_tabs (
+	connector_id VARCHAR(36) NOT NULL, 
+	connector_session_id VARCHAR(36), 
+	tab_id VARCHAR(64) NOT NULL, 
+	window_id VARCHAR(64), 
+	url VARCHAR(2048), 
+	origin VARCHAR(300), 
+	domain VARCHAR(253) NOT NULL, 
+	title VARCHAR(300), 
+	state VARCHAR(16) NOT NULL, 
+	granted_by VARCHAR(36) NOT NULL, 
+	granted_at DATETIME NOT NULL, 
+	expires_at DATETIME, 
+	revoked_at DATETIME, 
+	revoked_by VARCHAR(36), 
+	revoke_reason VARCHAR(32), 
+	last_seen_at DATETIME, 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_tabs_state CHECK (state IN ('granted', 'revoked', 'closed')), 
+	FOREIGN KEY(connector_id) REFERENCES browser_connectors (id) ON DELETE CASCADE, 
+	FOREIGN KEY(connector_session_id) REFERENCES browser_connector_sessions (id) ON DELETE SET NULL
+);
+
+CREATE TABLE browser_task_steps (
+	task_id VARCHAR(36) NOT NULL, 
+	sequence INTEGER NOT NULL, 
+	kind VARCHAR(16) NOT NULL, 
+	target_json TEXT, 
+	params_json TEXT, 
+	expect_json TEXT, 
+	risk_level VARCHAR(2) NOT NULL, 
+	state VARCHAR(20) NOT NULL, 
+	attempt INTEGER NOT NULL, 
+	action_id VARCHAR(36), 
+	result_json TEXT, 
+	error_code VARCHAR(64), 
+	started_at DATETIME, 
+	finished_at DATETIME, 
+	id VARCHAR(36) NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_browser_step_sequence UNIQUE (task_id, sequence), 
+	CONSTRAINT ck_browser_steps_state CHECK (state IN ('pending', 'running', 'awaiting_approval', 'completed', 'failed', 'skipped', 'cancelled', 'denied')), 
+	CONSTRAINT ck_browser_steps_kind CHECK (kind IN ('click', 'fill', 'select', 'press', 'scroll', 'navigate', 'snapshot', 'screenshot', 'verify')), 
+	CONSTRAINT ck_browser_steps_risk CHECK (risk_level IN ('L1', 'L2', 'L3', 'L4')), 
+	FOREIGN KEY(task_id) REFERENCES browser_tasks (id) ON DELETE CASCADE, 
+	FOREIGN KEY(action_id) REFERENCES browser_actions (id) ON DELETE SET NULL
+);
+
+CREATE TABLE browser_tasks (
+	session_id VARCHAR(36) NOT NULL, 
+	intent VARCHAR(500) NOT NULL, 
+	intent_sha256 VARCHAR(64) NOT NULL, 
+	plan_json TEXT NOT NULL, 
+	plan_sha256 VARCHAR(64) NOT NULL, 
+	state VARCHAR(20) NOT NULL, 
+	risk_level VARCHAR(2) NOT NULL, 
+	current_step INTEGER NOT NULL, 
+	steps_count INTEGER NOT NULL, 
+	executed_steps INTEGER NOT NULL, 
+	cancel_requested_at DATETIME, 
+	started_at DATETIME, 
+	finished_at DATETIME, 
+	error_code VARCHAR(64), 
+	error_message VARCHAR(500), 
+	id VARCHAR(36) NOT NULL, 
+	owner_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL, 
+	tenant_id VARCHAR(36) DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_browser_tasks_state CHECK (state IN ('pending', 'running', 'awaiting_approval', 'completed', 'failed', 'cancelled', 'expired')), 
+	CONSTRAINT ck_browser_tasks_risk CHECK (risk_level IN ('L1', 'L2', 'L3', 'L4')), 
+	FOREIGN KEY(session_id) REFERENCES browser_sessions (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_browser_actions_domain ON browser_actions (tenant_id, target_domain);
+
+CREATE INDEX ix_browser_actions_owner_id ON browser_actions (owner_id);
+
+CREATE INDEX ix_browser_actions_session ON browser_actions (session_id, created_at);
+
+CREATE INDEX ix_browser_actions_task ON browser_actions (task_id);
+
+CREATE INDEX ix_browser_actions_tenant_id ON browser_actions (tenant_id);
+
+CREATE INDEX ix_browser_approvals_owner_id ON browser_approvals (owner_id);
+
+CREATE INDEX ix_browser_approvals_state_time ON browser_approvals (state, expires_at);
+
+CREATE INDEX ix_browser_approvals_tenant_id ON browser_approvals (tenant_id);
+
+CREATE UNIQUE INDEX uq_browser_approval_pending ON browser_approvals (action_digest) WHERE state = 'pending';
+
+CREATE INDEX ix_browser_candidate_extraction_revisions_extraction_id ON browser_candidate_extraction_revisions (extraction_id);
+
+CREATE INDEX ix_browser_candidate_extractions_candidate_id ON browser_candidate_extractions (candidate_id);
+
+CREATE INDEX ix_browser_candidate_extractions_duplicate_of_candidate_id ON browser_candidate_extractions (duplicate_of_candidate_id);
+
+CREATE INDEX ix_browser_candidate_extractions_identity_key ON browser_candidate_extractions (identity_key);
+
+CREATE INDEX ix_browser_candidate_extractions_import_session_id ON browser_candidate_extractions (import_session_id);
+
+CREATE INDEX ix_browser_candidate_extractions_name_key ON browser_candidate_extractions (name_key);
+
+CREATE INDEX ix_browser_candidate_extractions_owner_id ON browser_candidate_extractions (owner_id);
+
+CREATE INDEX ix_browser_candidate_extractions_session_id ON browser_candidate_extractions (session_id);
+
+CREATE INDEX ix_browser_candidate_extractions_snapshot_action_id ON browser_candidate_extractions (snapshot_action_id);
+
+CREATE INDEX ix_browser_candidate_extractions_status ON browser_candidate_extractions (status);
+
+CREATE INDEX ix_browser_candidate_extractions_tenant_id ON browser_candidate_extractions (tenant_id);
+
+CREATE INDEX ix_extraction_candidate ON browser_candidate_extractions (candidate_id, confirmed_at);
+
+CREATE INDEX ix_extraction_identity ON browser_candidate_extractions (tenant_id, identity_key);
+
+CREATE INDEX ix_extraction_owner ON browser_candidate_extractions (tenant_id, owner_id, status);
+
+CREATE INDEX ix_browser_connector_sessions_connector ON browser_connector_sessions (connector_id, state);
+
+CREATE INDEX ix_browser_connector_sessions_owner_id ON browser_connector_sessions (owner_id);
+
+CREATE INDEX ix_browser_connector_sessions_started ON browser_connector_sessions (started_at);
+
+CREATE INDEX ix_browser_connector_sessions_tenant_id ON browser_connector_sessions (tenant_id);
+
+CREATE INDEX ix_browser_connectors_extension ON browser_connectors (extension_id);
+
+CREATE INDEX ix_browser_connectors_owner_id ON browser_connectors (owner_id);
+
+CREATE INDEX ix_browser_connectors_state ON browser_connectors (tenant_id, owner_id, state);
+
+CREATE INDEX ix_browser_connectors_tenant_id ON browser_connectors (tenant_id);
+
+CREATE INDEX ix_browser_permissions_lookup ON browser_permissions (tenant_id, owner_id, domain, revoked_at);
+
+CREATE INDEX ix_browser_permissions_owner_id ON browser_permissions (owner_id);
+
+CREATE INDEX ix_browser_permissions_tenant_id ON browser_permissions (tenant_id);
+
+CREATE INDEX ix_browser_profiles_owner ON browser_profiles (tenant_id, owner_id);
+
+CREATE INDEX ix_browser_profiles_owner_id ON browser_profiles (owner_id);
+
+CREATE INDEX ix_browser_profiles_state ON browser_profiles (state);
+
+CREATE INDEX ix_browser_profiles_tenant_id ON browser_profiles (tenant_id);
+
+CREATE INDEX ix_browser_sessions_owner ON browser_sessions (tenant_id, owner_id);
+
+CREATE INDEX ix_browser_sessions_owner_id ON browser_sessions (owner_id);
+
+CREATE INDEX ix_browser_sessions_profile ON browser_sessions (profile_id);
+
+CREATE INDEX ix_browser_sessions_tenant_id ON browser_sessions (tenant_id);
+
+CREATE UNIQUE INDEX uq_browser_session_active ON browser_sessions (profile_id) WHERE state IN ('starting', 'ready', 'closing');
+
+CREATE INDEX ix_browser_tabs_connector ON browser_tabs (connector_id, state);
+
+CREATE INDEX ix_browser_tabs_domain ON browser_tabs (tenant_id, owner_id, domain);
+
+CREATE INDEX ix_browser_tabs_owner_id ON browser_tabs (owner_id);
+
+CREATE INDEX ix_browser_tabs_tenant_id ON browser_tabs (tenant_id);
+
+CREATE UNIQUE INDEX uq_browser_tab_grant_active ON browser_tabs (connector_id, tab_id) WHERE state = 'granted';
+
+CREATE INDEX ix_browser_steps_state ON browser_task_steps (state);
+
+CREATE INDEX ix_browser_steps_task ON browser_task_steps (task_id, sequence);
+
+CREATE INDEX ix_browser_tasks_owner ON browser_tasks (tenant_id, owner_id, state);
+
+CREATE INDEX ix_browser_tasks_owner_id ON browser_tasks (owner_id);
+
+CREATE INDEX ix_browser_tasks_session ON browser_tasks (session_id);
+
+CREATE INDEX ix_browser_tasks_state_time ON browser_tasks (state, created_at);
+
+CREATE INDEX ix_browser_tasks_tenant_id ON browser_tasks (tenant_id);
+

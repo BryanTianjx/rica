@@ -28,9 +28,7 @@ pub struct ListMessages {
 }
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// Conversations, `last_message_at DESC NULLS LAST`, with the real total.

@@ -36,9 +36,7 @@ pub const SEND_RECORD_SUMMARY_MAX: usize = 200;
 const DEFAULT_POLICY_NAME: &str = "default";
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// The active policy, falling back to the built-in defaults.

@@ -27,9 +27,7 @@ pub struct ListSendRecords {
 }
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// Send records, newest send first (`sent_at DESC, created_at DESC`).

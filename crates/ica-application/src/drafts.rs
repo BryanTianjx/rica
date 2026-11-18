@@ -16,19 +16,7 @@ use crate::payload::{DraftFilter, DraftPatch, NewDraftGeneration, NewDraftGroupS
 use crate::ports::{DraftGenerator, DraftRepository, RepositoryError};
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    // A business-rule failure is a 409 `business_rule_violation`, not a 500:
-    // the follow-up state machine refusing an unreachable transition is the
-    // baseline's `BusinessRuleError`, and its message plus details are
-    // contract text.
-    if let Some(details) = error.conflict_details() {
-        return ApplicationError::Conflict {
-            message: error.message().to_string(),
-            details: details.clone(),
-        };
-    }
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// One page of drafts for the approval centre.

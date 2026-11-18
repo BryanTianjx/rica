@@ -41,7 +41,9 @@ uuid = { version = "1", features = ["v4"] }
 # ── HTTP ──────────────────────────────────────────────────────────────────
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# `preserve_order` keeps a JSON object's insertion order, which the baseline's
+# `json.dumps(metadata)` relies on — it does NOT sort the keys.
+serde_json = { version = "1", features = ["preserve_order"] }
 # Query-string decoding for the `ApiQuery` extractor. Both are already in the
 # dependency tree through axum; declaring them keeps the last-value-wins
 # semantics explicit instead of reaching into axum's internals.

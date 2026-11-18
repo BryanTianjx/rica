@@ -316,10 +316,12 @@ impl ImportRepository for SqliteStore {
                 .await
                 .map_err(repo_error)?;
         if candidate.is_none() {
-            return Err(RepositoryError::conflict(
-                format!("Candidate '{candidate_id}' was not found"),
-                std::collections::BTreeMap::new(),
-            ));
+            // The baseline calls `get_candidate_accessible`, which raises
+            // `NotFoundError` — a 404 with this exact message. A conflict
+            // (409) would be the wrong envelope for "no such candidate".
+            return Err(RepositoryError::not_found(format!(
+                "Candidate '{candidate_id}' was not found"
+            )));
         }
 
         let conversation =
@@ -400,8 +402,13 @@ impl ImportRepository for SqliteStore {
             saved.push(message_id);
         }
 
+        // Confirming blanks `raw_text`: the verbatim page is the richest PII
+        // payload in the database and nothing reads it after confirmation —
+        // the saved messages come from the parsed records. The baseline drops
+        // it in the SAME transaction that commits the import, so a crash
+        // cannot leave it behind.
         sqlx::query(
-            "UPDATE import_sessions SET status = 'confirmed', confirmed_at = ?, updated_at = ? \
+            "UPDATE import_sessions SET status = 'confirmed', confirmed_at = ?, raw_text = '', updated_at = ? \
              WHERE id = ?",
         )
         .bind(&now)
@@ -418,7 +425,14 @@ impl ImportRepository for SqliteStore {
                 "import_session",
                 session_id,
                 format!("Confirmed import with {} message(s)", saved.len()),
-            ),
+            )
+            // The baseline's metadata keys, in its insertion order: Python's
+            // `json.dumps` does not sort them.
+            .with_metadata(json!({
+                "saved": saved.len(),
+                "skipped": skipped,
+                "duplicates": duplicates,
+            })),
         )
         .await
         .map_err(repo_error)?;

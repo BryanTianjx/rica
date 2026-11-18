@@ -11,7 +11,7 @@ use ica_domain::{CandidateStatus, FollowUpTaskStatus, Message};
 
 use crate::error::ApplicationError;
 use crate::follow_ups::{DATA_RETENTION_DAYS, RAW_TEXT_TTL_DAYS};
-use crate::ports::DashboardRepository;
+use crate::ports::{DashboardRepository, RepositoryError};
 
 /// The states whose tasks the workbench section counts and lists.
 pub const PENDING_STATUSES: [FollowUpTaskStatus; 4] = [
@@ -113,10 +113,8 @@ async fn run_maintenance(dashboard: &dyn DashboardRepository) -> Result<(), Appl
     Ok(())
 }
 
-fn unavailable(error: crate::ports::RepositoryError) -> ApplicationError {
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+fn unavailable(error: RepositoryError) -> ApplicationError {
+    error.application_error()
 }
 
 /// The nine candidate statuses, in enumeration order — the dashboard's status

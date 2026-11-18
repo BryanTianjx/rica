@@ -177,6 +177,46 @@ MESSAGES: list[tuple] = [
 ]
 
 # (id, candidate_id, status, sent_at)
+# ── W4: import sessions and their records ────────────────────────────────
+# The export comparison needs import_sessions to carry a row whose
+# `raw_text` must be EXCLUDED from the export — so the exclusion is proved by
+# the data, not only by the code.
+IMPORT_SESSIONS: list[tuple] = [
+    # (id, candidate_id, source, raw_text, status, detected_duplicates,
+    #  confirmed_at, error_message, created_at)
+    ("ffffffff-0000-0000-0000-000000000001", ALICE, "paste_import",
+     "候选人：种子数据里的原文\n我：回复", "previewed", 0, None, None,
+     "2026-11-10 11:00:00.000000"),
+    ("ffffffff-0000-0000-0000-000000000002", BOB, "paste_import",
+     "", "rejected", 0, None, None, "2026-11-10 11:05:00.000000"),
+    ("ffffffff-0000-0000-0000-000000000003", ALICE, "paste_import",
+     "候选人：已确认\n我：好的", "confirmed", 1, "2026-11-10 11:10:00.000000",
+     None, "2026-11-10 11:10:00.000000"),
+    # A `failed` session: the parse produced nothing.
+    ("ffffffff-0000-0000-0000-000000000004", ALICE, "paste_import",
+     "", "failed", 0, None, "no messages parsed", "2026-11-10 11:15:00.000000"),
+]
+
+# (id, session_id, sequence, sender_type, content, message_time, status,
+#  duplicate_of_message_id, content_hash, validation_messages)
+IMPORT_RECORDS: list[tuple] = [
+    ("ffffffff-1111-0000-0000-000000000001",
+     "ffffffff-0000-0000-0000-000000000001", 0, "Candidate",
+     "种子数据里的原文", None, "pending", None, "hash-seed-1", None),
+    ("ffffffff-1111-0000-0000-000000000002",
+     "ffffffff-0000-0000-0000-000000000001", 1, "Recruiter",
+     "回复", None, "pending", None, "hash-seed-2", None),
+    ("ffffffff-1111-0000-0000-000000000003",
+     "ffffffff-0000-0000-0000-000000000003", 0, "Candidate",
+     "已确认", None, "pending", None, "hash-seed-3", None),
+    # A duplicate record: `duplicate_of_message_id` is set, which the export
+    # must carry verbatim.
+    ("ffffffff-1111-0000-0000-000000000004",
+     "ffffffff-0000-0000-0000-000000000003", 1, "Candidate",
+     "重复的消息", None, "duplicate",
+     "bbbbbbbb-0000-0000-0000-000000000001", "hash-seed-4", "重复内容"),
+]
+
 SEND_RECORDS: list[tuple] = [
     ("cccccccc-0000-0000-0000-000000000001", ALICE, "sent", "2026-11-10 10:00:00.000000"),
     ("cccccccc-0000-0000-0000-000000000002", ALICE, "candidate_replied", "2026-11-11 10:00:00.000000"),
@@ -277,6 +317,28 @@ def main(argv: list[str]) -> int:
             " VALUES (?, ?, ?, ?, ?, ?, 'boss', 'manual', NULL,"
             " '2026-11-10 10:00:00.000000', '2026-11-10 10:00:00.000000')",
             MESSAGES,
+        )
+        connection.executemany(
+            "INSERT INTO import_sessions (id, candidate_id, source, raw_text, status,"
+            " detected_duplicate_count, confirmed_at, error_message, created_at,"
+            " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7],
+                 row[8], row[8])
+                for row in IMPORT_SESSIONS
+            ],
+        )
+        connection.executemany(
+            "INSERT INTO import_records (id, session_id, sequence, sender_type,"
+            " content, message_time, status, duplicate_of_message_id, content_hash,"
+            " validation_messages, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7],
+                 row[8], row[9], "2026-11-10 11:00:00.000000",
+                 "2026-11-10 11:00:00.000000")
+                for row in IMPORT_RECORDS
+            ],
         )
         connection.executemany(
             "INSERT INTO send_records (id, candidate_id, task_id, draft_id, channel, target,"

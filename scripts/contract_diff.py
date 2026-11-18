@@ -77,9 +77,9 @@ IMPROVEMENT_TOTALS = {
 # ── Normalisation ──────────────────────────────────────────────────────────
 
 
-def _uuid_map(capture: dict) -> dict[str, str]:
-    """Assign a placeholder to every UUID, in a side-independent order."""
-    mapping: dict[str, str] = {}
+def _collect_uuids(capture: dict) -> set[str]:
+    """Every UUID that appears anywhere in one capture."""
+    found: set[str] = set()
 
     def register(value: Any) -> None:
         if isinstance(value, dict):
@@ -90,9 +90,68 @@ def _uuid_map(capture: dict) -> dict[str, str]:
                 register(item)
         elif isinstance(value, str):
             for match in UUID_PATTERN.finditer(value):
+                found.add(match.group(0).lower())
+
+    for name in sorted(capture.get("cases", {})):
+        register(capture["cases"][name].get("body"))
+    for table in sorted(capture.get("db_state", {})):
+        for row in capture["db_state"][table]:
+            register(row)
+    return found
+
+
+def _uuid_map(left: dict, right: dict) -> dict[str, str]:
+    """Assign a placeholder to every UUID, using a SHARED order.
+
+    The mapping used to be built per capture, so the same logical entity could
+    get `<uuid:84>` on the Python side and `<uuid:85>` on the Rust side, and
+    every row carrying an `owner_id` looked like a difference. The mapping is
+    now built from BOTH captures at once: a UUID that appears in only one side
+    is still mapped (to a placeholder of its own), and one that appears in both
+    gets the SAME placeholder.
+
+    The order is the sorted union of both sides' UUIDs, which is
+    side-independent by construction.
+    """
+    every = _collect_uuids(left) | _collect_uuids(right)
+    return {token: f"<uuid:{index}>" for index, token in enumerate(sorted(every), 1)}
+
+
+
+def _side_local_uuid_map(capture: dict, shared: dict[str, str],
+                          other: dict) -> dict[str, str]:
+    """Placeholders for the UUIDs that exist in only ONE capture.
+
+    Those are the ids the run itself generated (a created candidate, a
+    confirmed message, a new draft) — the two sides legitimately produce
+    different random ids, so comparing the values is meaningless. Each such
+    UUID is replaced by `<new-uuid:N>`, numbered by the order in which it
+    FIRST APPEARS in that side's own capture. The N-th new id on the left and
+    the N-th new id on the right are the same entity, because the scenario
+    creates them in the same order.
+
+    A UUID present in BOTH captures is NOT side-local: it is a seeded id, and
+    the shared mapping already handles it.
+    """
+    other_uuids = _collect_uuids(other)
+    mapping: dict[str, str] = {}
+    counter = 0
+
+    def register(value: Any) -> None:
+        nonlocal counter
+        if isinstance(value, dict):
+            for key in sorted(value):
+                register(value[key])
+        elif isinstance(value, list):
+            for item in value:
+                register(item)
+        elif isinstance(value, str):
+            for match in UUID_PATTERN.finditer(value):
                 token = match.group(0).lower()
-                if token not in mapping:
-                    mapping[token] = f"<uuid:{len(mapping) + 1}>"
+                if token in other_uuids or token in mapping:
+                    continue
+                counter += 1
+                mapping[token] = f"<new-uuid:{counter}>"
 
     for name in sorted(capture.get("cases", {})):
         register(capture["cases"][name].get("body"))
@@ -100,7 +159,6 @@ def _uuid_map(capture: dict) -> dict[str, str]:
         for row in capture["db_state"][table]:
             register(row)
     return mapping
-
 
 def _parse_timestamp(value: str) -> datetime | None:
     candidate = value.strip()
@@ -121,14 +179,22 @@ def _parse_timestamp(value: str) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-def _normaliser(capture: dict):
-    mapping = _uuid_map(capture)
+def _normaliser(capture: dict, mapping: dict[str, str] | None = None,
+                side_local: dict[str, str] | None = None):
+    if mapping is None:
+        mapping = _uuid_map(capture, capture)
+    side_local = side_local or {}
     started_at = _parse_timestamp(capture.get("started_at", "")) or datetime.now(UTC)
     threshold = started_at - timedelta(seconds=60)
 
     def replace_uuids(text: str) -> str:
         def substitute(match: re.Match[str]) -> str:
             token = match.group(0).lower()
+            # A side-local (run-generated) id first: it must win over the
+            # shared mapping, because the shared map would give the same
+            # placeholder to a DIFFERENT seeded id on the other side.
+            if token in side_local:
+                return side_local[token]
             return mapping.get(token, "<uuid>")
 
         return UUID_PATTERN.sub(substitute, text)
@@ -146,6 +212,38 @@ def _normaliser(capture: dict):
         return value
 
     return norm
+
+
+#: The sealed-export envelope's fields. `iv` and `ciphertext` are fresh on every
+#: call — a reused GCM nonce under one key is a real break, so comparing their
+#: VALUES would fail every run for a reason that is not a contract difference.
+#: Their LENGTHS are contract, though: a 96-bit nonce and a 128-bit tag.
+SEALED_VOLATILE_FIELDS = ("iv", "ciphertext")
+SEALED_LENGTH_FIELDS = ("iv", "tag")
+
+
+def normalise_sealed_envelope(body: Any) -> Any:
+    """Replace the volatile parts of a sealed export with their shape.
+
+    The envelope is `{alg, iv, tag, ciphertext}`. The algorithm name and the
+    tag's length are contract; the nonce and the ciphertext bytes are not, and
+    cannot be — they differ on every call by design.
+    """
+    if not isinstance(body, dict):
+        return body
+    if not {"alg", "iv", "tag", "ciphertext"} <= set(body):
+        return body
+
+    normalised = dict(body)
+    for field in SEALED_VOLATILE_FIELDS:
+        value = normalised.get(field)
+        if isinstance(value, str):
+            normalised[field] = f"<{field}:{len(value)}>"
+    for field in SEALED_LENGTH_FIELDS:
+        value = normalised.get(field)
+        if isinstance(value, str):
+            normalised[field] = f"<{field}:{len(value)}>"
+    return normalised
 
 
 def normalise_envelope(body: Any, status: int) -> Any:
@@ -201,8 +299,12 @@ def diff_case(name: str, left: dict, right: dict, norm) -> list[str]:
             f"location: python={left.get('location')!r} rust={right.get('location')!r}"
         )
 
-    left_body = normalise_envelope(norm(left.get("body")), left["status"])
-    right_body = normalise_envelope(norm(right.get("body")), right["status"])
+    left_body = normalise_sealed_envelope(
+        normalise_envelope(norm(left.get("body")), left["status"])
+    )
+    right_body = normalise_sealed_envelope(
+        normalise_envelope(norm(right.get("body")), right["status"])
+    )
 
     left_shape = field_set(left_body)
     right_shape = field_set(right_body)
@@ -400,8 +502,14 @@ def main(argv: list[str]) -> int:
         rs = json.load(handle)
 
     py_cases, rs_cases = py["cases"], rs["cases"]
-    py_norm = _normaliser(py)
-    rs_norm = _normaliser(rs)
+    # ONE mapping for both sides: a UUID that means the same thing on both
+    # sides must normalise to the same placeholder, or every row carrying it
+    # reads as a difference.
+    shared = _uuid_map(py, rs)
+    py_local = _side_local_uuid_map(py, shared, rs)
+    rs_local = _side_local_uuid_map(rs, shared, py)
+    py_norm = _normaliser(py, shared, py_local)
+    rs_norm = _normaliser(rs, shared, rs_local)
 
     only_py = sorted(set(py_cases) - set(rs_cases))
     only_rs = sorted(set(rs_cases) - set(py_cases))

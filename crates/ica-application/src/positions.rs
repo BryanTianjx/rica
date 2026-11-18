@@ -4,7 +4,7 @@ use ica_domain::{Page, Position};
 
 use crate::error::ApplicationError;
 use crate::payload::{NewPosition, PositionPatch};
-use crate::ports::{PositionFilter, PositionRepository};
+use crate::ports::{PositionFilter, PositionRepository, RepositoryError};
 
 /// A validated ``GET /api/positions`` request.
 ///
@@ -19,10 +19,8 @@ pub struct ListPositions {
     pub limit: usize,
 }
 
-fn unavailable(error: crate::ports::RepositoryError) -> ApplicationError {
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+fn unavailable(error: RepositoryError) -> ApplicationError {
+    error.application_error()
 }
 
 /// List one page of positions.

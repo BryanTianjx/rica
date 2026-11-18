@@ -30,15 +30,7 @@ use crate::payload::{ImportCorrection, NewImportOcr};
 pub use crate::payload::{NewImportConfirm, NewImportPreview};
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    if let Some(details) = error.conflict_details() {
-        return ApplicationError::Conflict {
-            message: error.message().to_string(),
-            details: details.clone(),
-        };
-    }
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// Parse pasted text into a preview (`preview_import`).

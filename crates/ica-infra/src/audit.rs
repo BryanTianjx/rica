@@ -13,6 +13,8 @@
 
 use chrono::Utc;
 use serde_json::Value;
+
+use crate::json_fmt::python_json;
 use sqlx::SqliteConnection;
 
 use crate::store::{new_uuid, to_sql_timestamp, DEFAULT_TENANT_ID, LOCAL_ACTOR};
@@ -46,6 +48,26 @@ impl<'a> AuditEntry<'a> {
         }
     }
 
+    /// An event with an entity TYPE but no id.
+    ///
+    /// The baseline's export audit is `record_audit(event_type="data.exported",
+    /// entity_type="export", summary=...)` — no `entity_id`, so the column is
+    /// NULL. Passing a placeholder id would put a string there that the
+    /// baseline leaves empty.
+    pub fn with_entity_type(
+        event_type: &'a str,
+        entity_type: &'a str,
+        summary: impl Into<String>,
+    ) -> Self {
+        Self {
+            event_type,
+            entity_type: Some(entity_type),
+            entity_id: None,
+            summary: summary.into(),
+            metadata: None,
+        }
+    }
+
     /// An event with no entity (summary only), like the baseline's sweep audit.
     pub fn without_entity(event_type: &'a str, summary: impl Into<String>) -> Self {
         Self {
@@ -72,7 +94,12 @@ pub async fn insert_audit(
     // `json.dumps(metadata, ensure_ascii=False)` in Python. The exact byte
     // layout is normalised by the contract diff (both sides are parsed back to
     // JSON), but the value must be identical.
-    let metadata_json = entry.metadata.map(|value| value.to_string());
+    // The baseline stores `json.dumps(metadata, ensure_ascii=False)`: the
+    // DEFAULT separators (`", "` and `": "`) and the INSERTION order of the
+    // keys — it does NOT sort them. `serde_json`'s compact output would put
+    // `{"a":1}` where the baseline puts `{"a": 1}`, and `preserve_order` plus
+    // an explicit separator walk reproduces the baseline byte for byte.
+    let metadata_json = entry.metadata.map(|value| python_json(&value));
 
     sqlx::query(concat!(
         "INSERT INTO audit_events (id, event_type, entity_type, entity_id, actor,",

@@ -35,6 +35,15 @@ pub struct SealedSnapshot {
     pub iv: String,
     pub tag: String,
     pub ciphertext: String,
+    /// The row count per exported table.
+    ///
+    /// The baseline's `data.exported` audit records "which tables, how many
+    /// rows" — and it takes that from the snapshot it read BEFORE sealing, so
+    /// an ENCRYPTED export still reports the same counts. The counts travel
+    /// with the sealed outcome for exactly that reason: the audit row is
+    /// written after sealing, and it must not be blank just because the
+    /// document went out as ciphertext.
+    pub tables: std::collections::BTreeMap<String, usize>,
 }
 
 /// What `export_data` produced: plaintext, or the sealed envelope.
@@ -45,15 +54,7 @@ pub enum ExportOutcome {
 }
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    if let Some(details) = error.conflict_details() {
-        return ApplicationError::Conflict {
-            message: error.message().to_string(),
-            details: details.clone(),
-        };
-    }
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// Export every business table the caller may see (`export_data`).
@@ -75,6 +76,13 @@ pub async fn export_data(
     let outcome = match encrypt_key {
         None => ExportOutcome::Plain(snapshot),
         Some(key) => {
+            // The row counts are taken from the snapshot BEFORE sealing: the
+            // baseline's audit records them for an encrypted export too.
+            let tables: std::collections::BTreeMap<String, usize> = snapshot
+                .data
+                .iter()
+                .filter_map(|(name, value)| value.as_array().map(|rows| (name.clone(), rows.len())))
+                .collect();
             let document = serde_json::json!({
                 "version": snapshot.version,
                 "exported_at": snapshot.exported_at,
@@ -85,6 +93,7 @@ pub async fn export_data(
                 iv,
                 tag,
                 ciphertext,
+                tables,
             })
         }
     };
@@ -102,7 +111,11 @@ pub async fn import_data(
     snapshots: &dyn DataSnapshotRepository,
     data: serde_json::Map<String, serde_json::Value>,
 ) -> Result<SnapshotOutcome, ApplicationError> {
-    let tables: Vec<String> = data.keys().cloned().collect();
+    // The baseline's audit records `sorted(payload.data.keys())` — the
+    // payload's OWN keys, including a table the import ignored. Sorted, so
+    // the order does not depend on the JSON object's key order.
+    let mut tables: Vec<String> = data.keys().cloned().collect();
+    tables.sort();
     let outcome = snapshots.import_tables(data).await.map_err(unavailable)?;
     snapshots
         .record_import_audit(&outcome, &tables)

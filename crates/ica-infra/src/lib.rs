@@ -14,6 +14,7 @@ pub mod export_crypto;
 pub mod export_tables;
 pub mod follow_ups;
 pub mod imports;
+pub mod json_fmt;
 pub mod ocr;
 pub mod repository;
 pub mod send_records;

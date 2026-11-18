@@ -221,6 +221,10 @@ def start_rust_port() -> subprocess.Popen:
     env["DATABASE_URL"] = f"sqlite:///{WORK / 'rust.db'}"
     env["PORT"] = RUST_PORT
     env["HOST"] = "127.0.0.1"
+    # The OCR staging directory is part of the contract: `ocr_path_not_allowed`
+    # reports `details.allowed_prefix`, so both sides must resolve against the
+    # SAME root or the envelopes differ on a path rather than on behaviour.
+    env["ICA_DATA_DIR"] = str(WORK / "python-data")
     log = (WORK / "rust.log").open("w")
     process = subprocess.Popen(
         [str(Path(cargo_target_dir()) / "debug" / "ica-server")],

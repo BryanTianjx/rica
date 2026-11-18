@@ -44,6 +44,11 @@ pub struct RepositoryError {
     /// `Some` when this is a business-rule failure (409), `None` when it is
     /// a genuine persistence failure (500).
     conflict_details: Option<BTreeMap<String, String>>,
+    /// Whether the row the caller asked for does not exist. The baseline's
+    /// `NotFoundError` is a 404, and it is a DIFFERENT outcome from both a
+    /// 409 and a 500 — `get_candidate_accessible` raises it when a candidate
+    /// id does not resolve.
+    not_found: bool,
 }
 
 impl RepositoryError {
@@ -51,6 +56,7 @@ impl RepositoryError {
         Self {
             message: message.into(),
             conflict_details: None,
+            not_found: false,
         }
     }
 
@@ -59,7 +65,22 @@ impl RepositoryError {
         Self {
             message: message.into(),
             conflict_details: Some(details),
+            not_found: false,
         }
+    }
+
+    /// The row does not exist: the baseline's `NotFoundError` (404).
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            conflict_details: None,
+            not_found: true,
+        }
+    }
+
+    /// Whether this is a "no such row" failure (404).
+    pub fn is_not_found(&self) -> bool {
+        self.not_found
     }
 
     pub fn message(&self) -> &str {
@@ -75,6 +96,31 @@ impl RepositoryError {
     /// persistence failure (500).
     pub fn is_conflict(&self) -> bool {
         self.conflict_details.is_some()
+    }
+}
+
+impl RepositoryError {
+    /// Map a persistence failure onto the application-layer error.
+    ///
+    /// The three shapes must stay distinct, because the baseline's envelopes
+    /// are distinct: a missing row is a **404**, a business-rule refusal is a
+    /// **409**, and anything else is a **500**. Collapsing "not found" into
+    /// either of the others would ship the wrong status code.
+    pub fn application_error(&self) -> crate::error::ApplicationError {
+        if self.is_not_found() {
+            return crate::error::ApplicationError::NotFound {
+                message: self.message.clone(),
+            };
+        }
+        if let Some(details) = &self.conflict_details {
+            return crate::error::ApplicationError::Conflict {
+                message: self.message.clone(),
+                details: details.clone(),
+            };
+        }
+        crate::error::ApplicationError::Unavailable {
+            message: self.message.clone(),
+        }
     }
 }
 

@@ -18,9 +18,7 @@ pub struct ListCandidates {
 }
 
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    ApplicationError::Unavailable {
-        message: error.message().to_string(),
-    }
+    error.application_error()
 }
 
 /// List one page of candidates, `updated_at DESC`, with the real total.

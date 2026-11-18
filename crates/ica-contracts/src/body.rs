@@ -1592,12 +1592,27 @@ pub struct RawImportPayload {
 }
 
 /// Validate a `POST /api/import` body. `data` defaults to an empty map.
+///
+/// A MISSING `data` is the default; an EXPLICIT `null` is not. The baseline's
+/// pydantic model is `data: dict[...] = Field(default_factory=dict)`, so the
+/// default applies only when the key is absent — `"data": null` is a type
+/// error (`dict_type`), a 422.
 pub fn import_payload(
     raw: RawImportPayload,
 ) -> Result<serde_json::Map<String, serde_json::Value>, ContractError> {
     Ok(match raw.data {
         Incoming::Value(map) => map,
-        Incoming::Absent | Incoming::Null => serde_json::Map::new(),
+        Incoming::Absent => serde_json::Map::new(),
+        Incoming::Null => {
+            return Err(ContractError::ValidationIssues {
+                issues: vec![ValidationIssue::new(
+                    "dict_type",
+                    vec!["body", "data"],
+                    "Input should be a valid dictionary",
+                    "null",
+                )],
+            });
+        }
     })
 }
 

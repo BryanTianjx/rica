@@ -6,13 +6,25 @@ mod support;
 use chrono::{TimeZone, Utc};
 use ica_infra::{connect, parse_sqlite_datetime, table_names, DatabaseUrl};
 
-const EXPECTED_TABLES: [&str; 20] = [
+const EXPECTED_TABLES: [&str; 32] = [
     "ai_model_configs",
     "ai_model_routing",
     "ai_usage_daily",
     "alembic_version",
     "app_settings",
     "audit_events",
+    "browser_actions",
+    "browser_approvals",
+    "browser_candidate_extraction_revisions",
+    "browser_candidate_extractions",
+    "browser_connector_sessions",
+    "browser_connectors",
+    "browser_permissions",
+    "browser_profiles",
+    "browser_sessions",
+    "browser_tabs",
+    "browser_task_steps",
+    "browser_tasks",
     "candidates",
     "conversations",
     "follow_up_policies",
