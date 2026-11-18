@@ -385,6 +385,20 @@ pub async fn select_draft_from_group(
         ));
     }
 
+    // Guard before the write, like approve / reject / copy: the baseline
+    // rejects the siblings and advances the task in one transaction, so a
+    // refused transition must leave the whole group untouched. Without this,
+    // `supersede_others` would commit and the siblings would stay `rejected`
+    // even though the request failed.
+    if let Some(task_id) = &selected.task_id {
+        ensure_transition_reachable(
+            follow_ups,
+            task_id,
+            ica_domain::FollowUpTaskStatus::Reviewing,
+        )
+        .await?;
+    }
+
     // The others are marked rejected WITHOUT touching the shared task: only
     // the selected draft owns the task transition.
     drafts

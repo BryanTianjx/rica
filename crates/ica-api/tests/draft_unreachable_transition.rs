@@ -134,3 +134,60 @@ async fn copy_on_an_unreachable_task_is_409_and_leaves_the_draft_alone() {
         "the draft must keep its status when the transition is refused"
     );
 }
+
+/// Insert two `generated` drafts in one comparison group, both bound to Bob's
+/// `Completed` task `t-3`, so selecting one would advance the task to
+/// `Reviewing`.
+async fn group_on_a_completed_task(pool: &sqlx::SqlitePool, group_id: &str, ids: [&str; 2]) {
+    for id in ids {
+        sqlx::query(concat!(
+            "INSERT INTO generated_drafts (id, candidate_id, task_id, message_type, tone,",
+            " status, objective, message_text, alternatives_json, context_references_json,",
+            " uncertainties_json, warnings_json, validation_status, validation_messages_json,",
+            " quality_status, provider, model, prompt_version, is_edited, approved_at,",
+            " copied_at, rejected_at, draft_group_id, cost_cents, prompt_tokens,",
+            " completion_tokens, routing_decision_json, created_at, updated_at)",
+            " VALUES (?, 'c-2', 't-3', 'reply', 'friendly', 'generated', NULL, 'draft body',",
+            " NULL, NULL, NULL, NULL, 'Passed', NULL, NULL, NULL, NULL, NULL, 0, NULL,",
+            " NULL, NULL, ?, NULL, NULL, NULL, NULL, ?, ?)"
+        ))
+        .bind(id)
+        .bind(group_id)
+        .bind("2026-11-10 09:00:00.000000")
+        .bind("2026-11-10 09:00:00.000000")
+        .execute(pool)
+        .await
+        .expect("insert grouped draft");
+    }
+}
+
+#[tokio::test]
+async fn select_from_a_group_on_an_unreachable_task_is_409_and_touches_no_sibling() {
+    let (app, guard) = w1_app().await;
+    let pool = pool_for(&guard).await;
+    group_on_a_completed_task(&pool, "g-unreachable", ["d-group-a", "d-group-b"]).await;
+
+    let response = post(
+        app,
+        "/api/draft-groups/g-unreachable/select",
+        r#"{"draft_id": "d-group-a"}"#,
+    )
+    .await;
+
+    assert_eq!(response.status, 409);
+    assert_eq!(response.body["error"]["code"], "business_rule_violation");
+    assert_eq!(
+        response.body["error"]["message"],
+        "A task in state Completed cannot reach Reviewing"
+    );
+
+    // The baseline rejects the siblings and advances the task in one
+    // transaction; a refused transition must leave the whole group alone.
+    for id in ["d-group-a", "d-group-b"] {
+        assert_eq!(
+            draft_row(&pool, id).await,
+            Some(("generated".to_string(), false, false, false)),
+            "{id} must keep its status when the transition is refused"
+        );
+    }
+}
