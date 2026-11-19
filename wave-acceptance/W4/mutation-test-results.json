@@ -1,0 +1,23 @@
+{
+  "purpose": "prove the new regressions kill their mutations (the first audit's lesson: green suites that assert nothing)",
+  "mutations": [
+    {
+      "target": "crates/ica-infra/src/time.rs — remove the bare-date branch of parse_sqlite_datetime",
+      "expected": "LWW P2-1 regression goes red",
+      "observed": "test a_bare_date_updated_at_still_wins_the_lww_race ... FAILED (0 passed / 1 failed)",
+      "killed": true
+    },
+    {
+      "target": "crates/ica-infra/src/ocr_rapid.rs — remove the DetInputLimits::unrestricted() assignment in engine_config",
+      "expected": "OCR F1 config regression goes red",
+      "observed": "test the_detector_runs_unrestricted_like_the_baseline ... FAILED (0 passed / 1 failed)",
+      "killed": true
+    },
+    {
+      "target": "remaining regressions (validator rules, id minting, content_hash, bool equality, raw_text, timestamp text)",
+      "expected": "each asserts the baseline's exact value (message text, counts, stored bytes), not merely 'not a 500'",
+      "observed": "assertions compare concrete baseline-measured values; full per-test mutation sweeps not re-run this round (each needs a workspace rebuild over 9p)",
+      "killed": "not individually swept"
+    }
+  ]
+}

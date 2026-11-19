@@ -1,0 +1,27 @@
+{
+  "measured_at": "2026-11-20",
+  "implementation_commit": "66a053450f02383766163af06a8de10b456d982f",
+  "quality_gates": {
+    "command": "bash scripts/check.sh",
+    "result": "all 5 gates passed",
+    "tests": {"passed": 344, "failed": 0, "ignored": 0, "previous_W4_candidate": 335, "delta": "+9 regression tests"},
+    "endpoint_reconciliation": {"implemented": 45, "missing": 23, "contract_total": 68, "extra": 0}
+  },
+  "cross_language_comparison": {
+    "command": "python3 scripts/contract_verify.py (baseline venv python, WORK=/tmp/reaudit-cv3)",
+    "cases": {"matched": 220, "total": 222},
+    "failures": [
+      {"case": "dashboard_after_drafts", "cause": "frozen baseline 9ed173c added dashboard.calendar; W2 shipped against d39e321", "owner": "G0 baseline governance (registered drift, not a W4 defect)"},
+      {"case": "dashboard_default", "cause": "same", "owner": "G0 baseline governance"}
+    ],
+    "database_state": "all 11 business tables PASS (positions, candidates, conversations, messages, send_records, follow_up_tasks, follow_up_policies, generated_drafts, import_records, import_sessions, audit_events)",
+    "declared_improvements": "IMP-1/2/3/4 asserted with concrete values on both sides"
+  },
+  "ocr_wide_image_parity": {
+    "purpose": "audit OCR F1 acceptance requires >= 1000px-wide multi-line screenshots",
+    "probe": "1400x240 PNG, three text lines, both services live, POST /api/imports/ocr",
+    "python": "'Candidate: hi there\nRecruiter: welcome aboard\nEmail: zhang@example.com'",
+    "rust": "identical, char-for-char",
+    "verdict": "PARITY: OK"
+  }
+}

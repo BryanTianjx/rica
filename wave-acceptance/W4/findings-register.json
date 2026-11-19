@@ -1,0 +1,29 @@
+{
+  "register": [
+    {"id": "P0-1", "severity": "P0", "finding": "partial-column snapshot rows 500", "status": "CLOSED", "evidence": "first audit round; live probe 200 imported:1, defaults match"},
+    {"id": "P0-2", "severity": "P0", "finding": "LWW used >=, equal timestamps overwrote", "status": "CLOSED", "evidence": "export->import idempotent: skipped=44 conflicts=0 both sides"},
+    {"id": "P0-3", "severity": "P0", "finding": "id-less rows dropped", "status": "CLOSED", "evidence": "minted UUID imported:1 both sides (see also N-1/N-2 fixes)"},
+    {"id": "P0-4", "severity": "P0", "finding": "import payload validation missing rules; details.errors stringified", "status": "CLOSED by 66a0534", "evidence": "w4_reaudit_regressions::positions_import_validates_like_the_baseline_and_lists_its_problems; mutation-verified"},
+    {"id": "P0-5", "severity": "P0", "finding": "append-only send_records rewritten", "status": "CLOSED", "evidence": "skipped=1 conflicts=1, row untouched, both sides"},
+    {"id": "P1-1..P1-8", "severity": "P1", "finding": "conflict counting / confirm 404 / cross-candidate 422 / source+channel inheritance / last_message_at / candidate_id backfill / OCR staging cleanup", "status": "CLOSED", "evidence": "first audit round live probes, one confirm exercising P1-4/5/6/7 together"},
+    {"id": "P2-1(P2-1)", "severity": "P2", "finding": "OCR stub always 503 (superseded by real engine)", "status": "CLOSED", "evidence": "real engine parity; residual F1 fixed below"},
+    {"id": "P2-2", "severity": "P2", "finding": "encrypted export plaintext key order", "status": "CLOSED", "evidence": "decrypt + compare: sorted/compact both sides"},
+    {"id": "N-1", "severity": "P0(new)", "finding": "id:null -> 500", "status": "CLOSED by 66a0534", "evidence": "an_id_of_null_mints_a_uuid_instead_of_a_500"},
+    {"id": "N-2", "severity": "P1(new)", "finding": "id:\"\" -> empty primary key", "status": "CLOSED by 66a0534", "evidence": "an_empty_string_id_is_treated_as_no_id"},
+    {"id": "N-3", "severity": "P1(new)", "finding": "content_hash not recomputed after corrections", "status": "CLOSED by 66a0534", "evidence": "a_corrected_content_gets_a_hash_that_matches_its_text"},
+    {"id": "N-4", "severity": "P3(new)", "finding": "byte-level envelope differences (details key order, input rendering, loc index, DB timestamp text)", "status": "CLOSED by 66a0534 (input/loc/index/timestamp); details key order for cross-candidate 422 left to W7 which touches that error path", "evidence": "imported_timestamps_land_in_the_baselines_sqlite_text; error.rs Value-typed envelope"},
+    {"id": "LWW-P1-1", "severity": "P1(blocking)", "finding": "422 envelope not equivalent (errors string; input double-encoded; loc index string)", "status": "CLOSED by 66a0534", "evidence": "see P0-4/N-4; contract doc 7 updated"},
+    {"id": "LWW-P1-2", "severity": "P1", "finding": "frozen baseline added confirm-candidate + 2 guards; Rust absent", "status": "ASSIGNED to W7", "evidence": "D-1 ruling: re-anchor 9ed173c, three diffs form the W7 wave"},
+    {"id": "LWW-P2-1", "severity": "P2", "finding": "date-only updated_at discarded", "status": "CLOSED by 66a0534", "evidence": "a_bare_date_updated_at_still_wins_the_lww_race; mutation-verified"},
+    {"id": "LWW-P2-2", "severity": "P2", "finding": "numeric bool payload phantom conflict", "status": "CLOSED by 66a0534", "evidence": "a_numeric_boolean_does_not_report_a_phantom_conflict"},
+    {"id": "LWW-P2-3", "severity": "P2", "finding": "import_sessions.raw_text silently ignored", "status": "CLOSED by 66a0534", "evidence": "an_import_can_rewrite_a_sessions_raw_text"},
+    {"id": "LWW-P2-4", "severity": "P2", "finding": "empty-string id inserted as PK", "status": "CLOSED by 66a0534", "evidence": "same fix as N-2"},
+    {"id": "LWW-P3-1/2/3", "severity": "P3", "finding": "OCR OnceLock failure cache / lock poisoning / model-dir hardcoded fallback", "status": "OPEN, ASSIGNED to OCR-01 (01-04, engine ownership items)", "evidence": "code-reading findings; not W4 contract behaviour"},
+    {"id": "OCR-F1", "severity": "P1(blocking)", "finding": "detector input clamped (4096/2048^2/Downscale); line breaks differ on >= 760px images", "status": "CLOSED by 66a0534", "evidence": "the_detector_runs_unrestricted_like_the_baseline (mutation-verified) + live 1400px probe PARITY OK"},
+    {"id": "OCR-F2", "severity": "P3", "finding": "inference failure 409 vs baseline 500 (unconstructable trigger)", "status": "OPEN, ASSIGNED to OCR-01 backlog (needs injection test)", "evidence": "code-reading only"},
+    {"id": "OCR-F3", "severity": "P3", "finding": "undecodable-image details.reason wording", "status": "OPEN, ASSIGNED to OCR-01 backlog", "evidence": "probe C6/C7/C8"},
+    {"id": "OCR-F4", "severity": "P3", "finding": "503 message constant differs", "status": "CLOSED by 66a0534", "evidence": "baseline constant copied byte-for-byte"},
+    {"id": "OCR-F5/F6", "severity": "P2", "finding": "failure cached in OnceLock / poisoned lock", "status": "OPEN, ASSIGNED to OCR-01 (engine lifecycle ownership)", "evidence": "code-reading"},
+    {"id": "OCR-F7", "severity": "observation", "finding": "strip vs trim whitespace set (unreachable)", "status": "ACCEPTED AS-IS", "evidence": "U+001C..1E cannot appear in OCR output"}
+  ]
+}

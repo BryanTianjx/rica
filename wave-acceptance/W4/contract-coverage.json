@@ -1,0 +1,25 @@
+{
+  "implementation_commit": "66a053450f02383766163af06a8de10b456d982f",
+  "anchor": {
+    "baseline_sha": "9ed173cdc6736f1213fc5697537c7f2e3a433709",
+    "note": "D-1 (user, 2026-11-19): re-anchored from d39e321; the frozen baseline's commit message declares it the Python terminal state. Every conclusion here is bound to this SHA."
+  },
+  "contract_routes": {"implemented": 45, "contract_total": 68, "missing": "W5 15 + W6 8"},
+  "comparison_cases": {"total": 222, "matched": 220, "known_failures": 2},
+  "covered_boundaries": [
+    "the 222-case set covers R0/W1/W2/W3/W4 routes including write-path side effects and the final state of 11 tables",
+    "declared improvements IMP-1..IMP-4 are asserted with both sides' concrete values"
+  ],
+  "uncovered_boundaries": [
+    "browser_extract source sessions: zero cases in the comparison set (the frozen baseline's confirm/reject guards for them are W7's scope)",
+    "POST /api/imports/{session_id}/confirm-candidate: route absent in Rust by scope ruling (ADR-0003 D-2 keeps it out of the 68; behaviour owned by W7)",
+    "4 ai/models routes: out of scope per ADR-0003 D-2",
+    "the 5 /api/browser/candidate-extractions routes: pending the user's D-decision (W7 card section 5)"
+  ],
+  "residual_divergences": [
+    {"id": "DASH-CALENDAR", "desc": "dashboard responses lack the calendar block the frozen baseline added", "owner": "G0 / W2 owner", "visible": true},
+    {"id": "OCR-F3", "desc": "ocr_image_undecodable details.reason wording differs from Pillow's", "severity": "P3", "owner": "OCR-01 backlog"},
+    {"id": "OCR-F2/F5/F6", "desc": "inference-failure status (409 vs baseline 500, unconstructable), OnceLock failure caching, lock poisoning", "severity": "P2/P3 robustness", "owner": "OCR-01 backlog"},
+    {"id": "IMPORT-TS-TEXT", "desc": "row timestamps now land in baseline SQLite text; text written BEFORE this fix (none in the migration path - the port wrote wire shape only from W4 snapshots) is not migrated", "severity": "note"}
+  ]
+}
