@@ -20,9 +20,9 @@ use axum::{middleware, Json, Router};
 
 use crate::body;
 use crate::dto::{
-    CandidateDetailRead, CandidateRead, ContextPreviewRead, ConversationRead, DashboardRead,
-    DraftCopyResponse, DraftGroupRead, DraftRead, EncryptedExportResponse, ExportResponse,
-    FollowUpDecisionRead, FollowUpPolicyRead, FollowUpTaskRead, HealthResponse,
+    CandidateDetailRead, CandidateRead, ContextPreviewRead, ConversationRead, DashboardCalendar,
+    DashboardRead, DraftCopyResponse, DraftGroupRead, DraftRead, EncryptedExportResponse,
+    ExportResponse, FollowUpDecisionRead, FollowUpPolicyRead, FollowUpTaskRead, HealthResponse,
     ImportConfirmResult, ImportOcrResult, ImportResult, ImportSessionRead, MessageRead,
     PageResponse, PositionRead, SendRecordRead, TimelineEntryRead,
 };
@@ -605,6 +605,11 @@ async fn dashboard(State(state): State<AppState>) -> Result<Json<DashboardRead>,
             .collect(),
         position_total: snapshot.position_total,
         open_position_count: snapshot.open_position_count,
+        calendar: DashboardCalendar {
+            month: snapshot.calendar_month,
+            messages_by_day: snapshot.calendar_messages_by_day.into_iter().collect(),
+            followups_by_day: snapshot.calendar_followups_by_day.into_iter().collect(),
+        },
     }))
 }
 

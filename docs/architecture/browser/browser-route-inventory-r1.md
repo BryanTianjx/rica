@@ -129,3 +129,17 @@ B0 须对 10 条无 UI 调用路由逐条查证调用方（浏览器扩展 / MCP
 1. B0 完成本表的待填列（Agent/MCP 调用、集合归属、W7/BW0 归属、保留/废弃）。
 2. B0 输出字段级差异报告（现有 12 张表 vs 提议的 11 张）。
 3. B0 结论确定后立 **BW0** 卡（Browser API Compatibility Wave），确定实际迁移范围。
+
+## 7. B0-10 归属结论（2026-11-20，详见 b0-deliverables-r1.md §10）
+
+- **集合 C 判定：为空（维持现状，全部保留待迁移）。** 10 条无 UI 调用路由
+  逐条查证为浏览器扩展（MV3 + native messaging）侧调用，有真实调用方；
+  「废弃或合并」不适用。
+- **归属：39 条全部归 BW0**（D-3/D-11），按上列分组分批迁移；
+  不入 68 条契约统计（方案 §1.3），每条路由的契约以基线 `9ed173c` 实测为准。
+- **`candidate-extractions` 5 条**：随 BW0（B0 卡 §10 的裁决）——W7 默认范围
+  （confirm-candidate 依赖链）已完成，5 条上游 CRUD 与 browser.py 其余路由
+  同模块同 schema 族，随 BW0 保持「波次职责不重叠」。
+- **迁移顺序建议**（BW0 内部，供卡面拆分参考）：Read 类（tasks/permissions/
+  approvals/audit 查询）→ 任务/动作写路径 → Connector 10 条（扩展侧联调）→
+  Candidate Extractions 5 条（含修订表写入）。

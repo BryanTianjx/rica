@@ -206,6 +206,12 @@ async fn ocr_refuses_a_path_outside_the_staging_directory() {
 
 #[tokio::test]
 async fn ocr_inside_the_staging_directory_reports_an_undecodable_image() {
+    // Since OCR-01-04 the engine does NOT implicitly fall back to the
+    // baseline's Python install — point it at the models explicitly.
+    std::env::set_var(
+        "RAPIDOCR_MODEL_DIR",
+        "/mnt/o/ica/backend/.venv/lib/python3.12/site-packages/rapidocr/models",
+    );
     let (state, dir) = desktop_app().await;
     let staging = dir.path().join("ocr");
     std::fs::create_dir_all(&staging).expect("create staging");

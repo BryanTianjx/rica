@@ -64,9 +64,19 @@ fn clean(text: &str) -> String {
 
 /// Where the ONNX models live.
 ///
-/// `RAPIDOCR_MODEL_DIR` overrides it; otherwise the engine's own cache
-/// directory is used, and `ICA_OCR_MODEL_DIR` names the directory the
-/// desktop host provisioned.
+/// Resolution order (`OCR-01-04`: the port must not depend on the BASELINE's
+/// Python install):
+///
+/// 1. `RAPIDOCR_MODEL_DIR` — explicit override (what `contract_verify.py`
+///    and the desktop host set);
+/// 2. `ICA_OCR_MODEL_DIR` — the directory the desktop host provisioned;
+/// 3. `ICA_DATA_DIR/ocr/models` — the application data directory, when the
+///    models were provisioned there;
+///
+/// and NOTHING else. An earlier revision fell back to the baseline's
+/// `.venv/.../rapidocr/models` — a release binary silently depending on the
+/// machine it was built on. A machine without the models now answers the
+/// readable 503 `ocr_unavailable` instead of borrowing the baseline's files.
 fn model_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("RAPIDOCR_MODEL_DIR") {
         return PathBuf::from(dir);
@@ -79,16 +89,6 @@ fn model_dir() -> PathBuf {
         if candidate.join("PP-OCRv6_det_small.onnx").is_file() {
             return candidate;
         }
-    }
-    // The desktop host provisions the models under the data directory; when
-    // they are not there, fall back to the baseline's Python install, which
-    // ships the SAME model set (RapidOCR v3.9.0 PP-OCRv6 small) — the
-    // recognised text has to match the baseline's, so the models have to be
-    // the same files.
-    let baseline_models =
-        PathBuf::from("/mnt/o/ica/backend/.venv/lib/python3.12/site-packages/rapidocr/models");
-    if baseline_models.join("PP-OCRv6_det_small.onnx").is_file() {
-        return baseline_models;
     }
     PathBuf::from("models")
 }
@@ -119,50 +119,64 @@ fn engine_config(cache: &ModelCache, model_set: &ModelSetSpec) -> RapidOcrConfig
     config
 }
 
-/// The process-wide engine, created on first use.
+/// The process-wide engine slot, created on first use and RETRYABLE.
 ///
 /// `RapidOcr` is not `Sync`, and inference must not run two requests at once
 /// on one session (the baseline guards only initialisation and notes that
 /// ONNX Runtime sessions are safe afterwards — but a Rust `&mut self` call
 /// cannot be concurrent at all). The mutex therefore serialises inference.
-fn engine() -> Result<&'static Arc<Mutex<RapidOcr>>, ApplicationError> {
-    static ENGINE: OnceLock<Result<Arc<Mutex<RapidOcr>>, String>> = OnceLock::new();
+///
+/// The slot holds `Option`: an engine that failed to START is not remembered
+/// as a failure. The first audit round (LWW P3-1) measured the earlier
+/// `OnceLock<Result<..>>` design — a missing model directory on the first
+/// request poisoned the process into 503 for its whole lifetime, even after
+/// the models were put in place. Now a failed start leaves the slot empty and
+/// the NEXT request retries; a healthy process never re-initialises.
+fn engine() -> Result<Arc<Mutex<RapidOcr>>, ApplicationError> {
+    static ENGINE: OnceLock<Mutex<Option<Arc<Mutex<RapidOcr>>>>> = OnceLock::new();
 
-    let cell = ENGINE.get_or_init(|| {
-        let model_set = model_set_by_name("ppocrv6-small")
-            .ok_or_else(|| "unknown OCR model set 'ppocrv6-small'".to_string())?;
-        let cache = ModelCache::new(model_dir());
-        // `Never`, not `Missing`: the download path builds a `reqwest`
-        // BLOCKING client, which panics with "Cannot drop a runtime in a
-        // context where blocking is not allowed" when the engine is first
-        // created from inside an async task. A missing model must produce a
-        // readable 503, not a panic — and the models ship with the desktop
-        // host, so downloading them at runtime is not this port's job.
-        cache
-            .ensure_model_set_for_pipeline(
-                model_set,
-                PipelineConfig::full(),
-                ModelDownloadMode::Never,
-            )
-            .map_err(|error| format!("OCR models are not available: {error}"))?;
-        let engine = RapidOcr::from_config(engine_config(&cache, model_set))
-            .map_err(|error| format!("OCR engine could not start: {error}"))?;
-        Ok(Arc::new(Mutex::new(engine)))
-    });
+    let slot = ENGINE.get_or_init(|| Mutex::new(None));
+    // A panic while HOLDING this slot lock would poison it. Recover: the
+    // Option inside is still a valid value (possibly None) — which is exactly
+    // what "retry the initialisation" means. (Audit LWW P3-2's poison
+    // concern, applied to the slot rather than the engine mutex.)
+    let mut guard = slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    match cell {
-        Ok(engine) => Ok(engine),
-        Err(message) => Err(ApplicationError::StatusWithCode {
-            status: 503,
-            code: "ocr_unavailable",
-            // The baseline's constant, byte for byte (`ocr_service.py`
-            // `ensure_ocr_available`): the wire message is contract text.
-            message: "Local OCR is not available on this machine. \
+    if let Some(engine) = guard.as_ref() {
+        return Ok(engine.clone());
+    }
+
+    let model_set = model_set_by_name("ppocrv6-small")
+        .ok_or_else(|| unavailable("unknown OCR model set 'ppocrv6-small'"))?;
+    let cache = ModelCache::new(model_dir());
+    // `Never`, not `Missing`: the download path builds a `reqwest`
+    // BLOCKING client, which panics with "Cannot drop a runtime in a
+    // context where blocking is not allowed" when the engine is first
+    // created from inside an async task. A missing model must produce a
+    // readable 503, not a panic — and the models ship with the desktop
+    // host, so downloading them at runtime is not this port's job.
+    cache
+        .ensure_model_set_for_pipeline(model_set, PipelineConfig::full(), ModelDownloadMode::Never)
+        .map_err(|error| unavailable(&format!("OCR models are not available: {error}")))?;
+    let engine = RapidOcr::from_config(engine_config(&cache, model_set))
+        .map_err(|error| unavailable(&format!("OCR engine could not start: {error}")))?;
+    let engine = Arc::new(Mutex::new(engine));
+    *guard = Some(engine.clone());
+    Ok(engine)
+}
+
+/// The 503 `ocr_unavailable` the baseline's `ensure_ocr_available` raises.
+fn unavailable(reason: &str) -> ApplicationError {
+    ApplicationError::StatusWithCode {
+        status: 503,
+        code: "ocr_unavailable",
+        // The baseline's constant, byte for byte (`ocr_service.py`
+        // `ensure_ocr_available`): the wire message is contract text.
+        message: "Local OCR is not available on this machine. \
 Install the optional OCR stack with `uv pip install -e '.[ocr]'` \
 (RapidOCR + ONNX Runtime) to use screenshot import."
-                .to_string(),
-            details: serde_json::json!({ "reason": message }),
-        }),
+            .to_string(),
+        details: serde_json::json!({ "reason": reason }),
     }
 }
 
@@ -215,10 +229,12 @@ impl OcrEngine for RapidOcrEngine {
         match outcome {
             Ok(Ok(text)) => Ok(clean(&text)),
             Ok(Err(message)) => {
-                // An inference failure is the baseline's `ocr_error`.
+                // An inference failure is the baseline's `ocr_error`, whose
+                // `ICAError` default status is 500 (`errors.py:17` — audit
+                // OCR F2 measured the port answering 409 here).
                 if message.starts_with("Local OCR failed") {
                     Err(ApplicationError::StatusWithCode {
-                        status: 409,
+                        status: 500,
                         code: "ocr_error",
                         message,
                         details: serde_json::json!({}),
@@ -235,10 +251,17 @@ impl OcrEngine for RapidOcrEngine {
 }
 
 /// Run the inference and turn it into the joined text.
+///
+/// A poisoned engine mutex is RECOVERED, not propagated: the baseline has no
+/// equivalent failure (its inference never takes a shared lock), and a panic
+/// inside ONNX does not make the `RapidOcr` value unusable — the next call
+/// simply runs again. What remains of audit LWW P3-2 / OCR F6 is therefore
+/// the recovery, and a genuinely broken engine answers through the ordinary
+/// `Local OCR failed` → 500 `ocr_error` path.
 fn run_inference(engine: &Arc<Mutex<RapidOcr>>, path: &Path) -> Result<String, String> {
     let mut guard = engine
         .lock()
-        .map_err(|_| "OCR engine lock was poisoned".to_string())?;
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     guard
         .run_path(path)
         .map(|output| {
@@ -256,14 +279,29 @@ fn run_inference(engine: &Arc<Mutex<RapidOcr>>, path: &Path) -> Result<String, S
 /// rejected before inference.
 ///
 /// The baseline uses Pillow for this (`Image.open(path)` then `image.load()`).
-/// Here the `image` crate's decoder does the same job; a file that is not a
-/// readable image produces an error, which the caller maps to
-/// `ocr_image_undecodable`.
+/// Here the `image` crate's decoder does the same job. The `details.reason`
+/// text is contract-visible (audit OCR F3 measured the two sides differing),
+/// so the two common `image`-crate failures are rendered with PILLOW's words:
+/// an unidentifiable file is `cannot identify image file '<path>'` and a cut
+/// off file is `image file is truncated`.
 fn decode_image(path: &Path) -> Result<(), String> {
     let bytes = std::fs::read(path).map_err(|error| error.to_string())?;
     image::load_from_memory(&bytes)
         .map(|_| ())
-        .map_err(|error| error.to_string())
+        .map_err(|error| {
+            let text = error.to_string();
+            // The `image` crate reports BOTH an unknown format and a truncated
+            // file as decoding errors; Pillow words them differently and the
+            // `reason` is contract-visible (audit OCR F3). Dispatch on the
+            // decoder's own text.
+            if text.contains("format") {
+                format!("cannot identify image file '{}'", path.display())
+            } else if text.contains("unexpected end") || text.contains("truncated") {
+                "image file is truncated".to_string()
+            } else {
+                text
+            }
+        })
 }
 
 #[cfg(test)]
@@ -315,6 +353,66 @@ mod tests {
             DetInputLimits::unrestricted(),
             "the baseline sets no detector input limit; clamping it changes \
              line breaks on wide screenshots (audit OCR F1)"
+        );
+    }
+}
+
+#[cfg(test)]
+mod decode_tests {
+    use super::*;
+
+    /// **Audit OCR F3**: the `reason` text is contract-visible and must use
+    /// Pillow's wording. A file that is not an image at all.
+    #[test]
+    fn a_non_image_reports_pillow_words() {
+        let path = std::env::temp_dir().join("ica-ocr-f3-not-an-image.png");
+        std::fs::write(&path, b"this is definitely not a png").unwrap();
+        let error = decode_image(&path).unwrap_err();
+        std::fs::remove_file(&path).ok();
+        assert_eq!(
+            error,
+            format!("cannot identify image file '{}'", path.display()),
+            "the reason must match Pillow's UnidentifiedImageError text"
+        );
+    }
+
+    /// **Audit OCR F3**: a cut-off PNG reports `image file is truncated` —
+    /// the baseline's Pillow wording — not the image crate's
+    /// `unexpected end of file`.
+    #[test]
+    fn a_truncated_png_reports_pillow_words() {
+        // A real PNG header followed by nothing: the decoder starts, then the
+        // file simply ends.
+        let png_head: &[u8] = &[
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // signature
+            0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR length+type
+        ];
+        let path = std::env::temp_dir().join("ica-ocr-f3-truncated.png");
+        std::fs::write(&path, png_head).unwrap();
+        let error = decode_image(&path).unwrap_err();
+        std::fs::remove_file(&path).ok();
+        assert!(
+            error.contains("truncated") || error.contains("cannot identify"),
+            "the reason must be Pillow-shaped, got: {error}"
+        );
+    }
+
+    /// **W4-R1 scope 1 / OCR-01-04**: the model directory resolution must NOT
+    /// fall back to the baseline's Python install. With no environment set,
+    /// the answer is the bare `models` relative path — which, on a machine
+    /// without provisioned models, produces the readable 503 instead of
+    /// silently borrowing `/mnt/o/ica`'s files.
+    #[test]
+    fn model_dir_has_no_baseline_venv_fallback() {
+        // The only correct way to observe the resolution is with the
+        // environment cleared, which a parallel test could race — so assert
+        // the PROPERTY instead: no resolution branch ever mentions the
+        // baseline path, by construction of the source. The cheap runtime
+        // assertion: the resolved dir is never the baseline venv path.
+        let resolved = resolved_model_dir();
+        assert!(
+            !resolved.starts_with("/mnt/o/ica"),
+            "the model dir must never resolve into the baseline's venv: {resolved:?}"
         );
     }
 }

@@ -447,6 +447,18 @@ pub struct DashboardRead {
     pub recent_messages: Vec<MessageRead>,
     pub position_total: i64,
     pub open_position_count: i64,
+    /// The workbench calendar (BROWSER-05 increment, frozen baseline):
+    /// per-day dynamics for the current UTC month.
+    pub calendar: DashboardCalendar,
+}
+
+/// `DashboardCalendar`: the UTC month prefix plus the two per-day maps the
+/// frontend calendar renders.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DashboardCalendar {
+    pub month: String,
+    pub messages_by_day: std::collections::BTreeMap<String, i64>,
+    pub followups_by_day: std::collections::BTreeMap<String, i64>,
 }
 
 /// The `Page<T>` envelope: rows plus the metadata the UI pages with.

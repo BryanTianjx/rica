@@ -600,6 +600,11 @@ pub async fn dashboard(state: &DesktopState) -> Result<dto::DashboardRead, IpcEr
             .collect(),
         position_total: snapshot.position_total,
         open_position_count: snapshot.open_position_count,
+        calendar: dto::DashboardCalendar {
+            month: snapshot.calendar_month,
+            messages_by_day: snapshot.calendar_messages_by_day.into_iter().collect(),
+            followups_by_day: snapshot.calendar_followups_by_day.into_iter().collect(),
+        },
     })
 }
 

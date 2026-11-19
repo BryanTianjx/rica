@@ -507,6 +507,14 @@ pub struct NewFollowUpTaskRow {
 /// baseline runs on the same read path.
 #[async_trait]
 pub trait DashboardRepository: Send + Sync {
+    /// Message counts per UTC day for the workbench calendar
+    /// (`dashboard.py` 的 `messages_by_day`): days are
+    /// `date(coalesce(message_time, created_at))`, only on/after `month_start`.
+    async fn messages_by_day(
+        &self,
+        month_start: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<(String, i64)>, RepositoryError>;
+
     /// Hard-delete candidates `archived` and stale past `cutoff` (FK cascade
     /// removes their children). Returns the deleted count.
     async fn expire_old_candidates(&self, cutoff: DateTime<Utc>) -> Result<u64, RepositoryError>;

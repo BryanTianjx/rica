@@ -898,6 +898,23 @@ impl DashboardRepository for SqliteStore {
         Ok(result.rows_affected())
     }
 
+    async fn messages_by_day(
+        &self,
+        month_start: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<(String, i64)>, RepositoryError> {
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        // `func.date(coalesce(...))` renders `YYYY-MM-DD`; the window filter
+        // uses the same coalesced instant the baseline groups by.
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT date(COALESCE(message_time, created_at)) AS day, COUNT(*)              FROM messages              WHERE COALESCE(message_time, created_at) >= ?              GROUP BY day",
+        )
+        .bind(to_sql_timestamp(&month_start))
+        .fetch_all(&mut *connection)
+        .await
+        .map_err(repo_error)?;
+        Ok(rows)
+    }
+
     async fn candidate_total(&self) -> Result<i64, RepositoryError> {
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM candidates WHERE archived = 0")

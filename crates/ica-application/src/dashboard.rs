@@ -6,7 +6,7 @@
 //! idempotent and run *before* the counts, exactly like
 //! `run_maintenance` in the baseline.
 
-use chrono::{Duration, Utc};
+use chrono::{Datelike, Duration, Timelike, Utc};
 use ica_domain::{CandidateStatus, FollowUpTaskStatus, Message};
 
 use crate::error::ApplicationError;
@@ -39,6 +39,12 @@ pub struct DashboardSnapshot {
     pub recent_messages: Vec<Message>,
     pub position_total: i64,
     pub open_position_count: i64,
+    /// The workbench calendar (`DashboardCalendar`): the UTC month prefix and
+    /// the two per-day count maps (BROWSER-05 design increment, part of the
+    /// frozen baseline `9ed173c`).
+    pub calendar_month: String,
+    pub calendar_messages_by_day: Vec<(String, i64)>,
+    pub calendar_followups_by_day: Vec<(String, i64)>,
 }
 
 /// Aggregate the recruiter's current state.
@@ -76,6 +82,37 @@ pub async fn dashboard(
     let position_total = dashboard.position_total().await.map_err(unavailable)?;
     let open_position_count = dashboard.open_position_count().await.map_err(unavailable)?;
 
+    // The workbench calendar: this UTC month, message counts per day, and the
+    // pending tasks' recommended days within the month. All UTC — the message
+    // columns store UTC, exactly like the baseline's comment says.
+    let now = Utc::now();
+    let month_start = now
+        .with_day(1)
+        .and_then(|d| d.with_hour(0))
+        .and_then(|d| d.with_minute(0))
+        .and_then(|d| d.with_second(0))
+        .and_then(|d| d.with_nanosecond(0))
+        .expect("the first day of the current month is always valid");
+    let month_prefix = month_start.format("%Y-%m").to_string();
+    let calendar_messages_by_day = dashboard
+        .messages_by_day(month_start)
+        .await
+        .map_err(unavailable)?;
+    let calendar_followups_by_day = {
+        let mut counts: std::collections::BTreeMap<String, i64> = std::collections::BTreeMap::new();
+        for task in &pending_follow_ups {
+            let Some(recommended) = task.recommended_at else {
+                continue;
+            };
+            let day = recommended.format("%Y-%m-%d").to_string();
+            if !day.starts_with(&month_prefix) {
+                continue;
+            }
+            *counts.entry(day).or_insert(0) += 1;
+        }
+        counts.into_iter().collect()
+    };
+
     Ok(DashboardSnapshot {
         candidate_total,
         candidate_status_counts,
@@ -86,6 +123,9 @@ pub async fn dashboard(
         recent_messages,
         position_total,
         open_position_count,
+        calendar_month: month_prefix,
+        calendar_messages_by_day,
+        calendar_followups_by_day,
     })
 }
 

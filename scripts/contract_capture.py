@@ -689,6 +689,54 @@ CASES: list[dict] = [
      "path": "/api/imports/b0000000-0000-0000-0000-000000000001/reject",
      "json": {}},
 
+    # ── W4-R2/R3: the import VALIDATION error paths, now IN the comparison ──
+    # The second audit's lesson: 220/222 was green while
+    # `import_validation_error` had ZERO coverage — the envelope was wrong and
+    # three validator rules were missing, invisibly. These cases compare the
+    # full 422 envelope family on both sides (status + code + message + the
+    # details key set), and the state diff proves the refusal wrote NOTHING.
+
+    # A row whose `status` is not a PositionStatus: 422, nothing written.
+    {"name": "import_positions_bad_status", "method": "POST", "path": "/api/import",
+     "json": {"data": {"positions": [{"name": "Rule Probe", "status": "bogus"}]}}},
+    # A non-string `location` and a non-boolean `archived`: 422 each.
+    {"name": "import_positions_bad_location", "method": "POST", "path": "/api/import",
+     "json": {"data": {"positions": [{"name": "Rule Probe", "location": 123}]}}},
+    {"name": "import_positions_bad_archived", "method": "POST", "path": "/api/import",
+     "json": {"data": {"positions": [{"name": "Rule Probe", "archived": "yes"}]}}},
+    # A 201-character name has its own message.
+    {"name": "import_positions_name_too_long", "method": "POST", "path": "/api/import",
+     "json": {"data": {"positions": [{"name": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"}]}}},
+    # A negative salary has its own message.
+    {"name": "import_positions_negative_salary", "method": "POST", "path": "/api/import",
+     "json": {"data": {"positions": [{"name": "Rule Probe", "salary_min": -5}]}}},
+    # A SQLite-dump boolean (0/1) is READABLE — 200, imported.
+    {"name": "import_positions_dump_archived_ok", "method": "POST", "path": "/api/import",
+     "json": {"data": {"positions": [{"name": "Dump Bool", "archived": 0}]}}},
+    # A table whose value is not a LIST: pydantic answers before any import
+    # logic, and the audit measured the envelope double-encoding here.
+    {"name": "import_table_not_a_list", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": "oops"}}},
+    # A list ELEMENT that is not an object: the loc index is a NUMBER.
+    {"name": "import_row_not_an_object", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [1, 2]}}},
+    # `"id": null` mints a UUID (audit N-1: was a 500).
+    {"name": "import_row_null_id_mints_uuid", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{"id": None, "name": "Null Id Row"}]}}},
+    # `"id": ""` is also "no id" (audit N-2 / LWW P2-4).
+    {"name": "import_row_empty_id_mints_uuid", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{"id": "", "name": "Empty Id"}]}}},
+    # A bare-date `updated_at` WINS the LWW race (audit LWW P2-1).
+    {"name": "import_lww_bare_date_wins", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{
+         "id": "c0000000-0000-0000-0000-000000000003", "name": "Carol BARE DATE",
+         "updated_at": "2033-01-01"}]}}},
+    # A numeric boolean is not a phantom conflict (audit LWW P2-2).
+    {"name": "import_lww_numeric_bool_no_conflict", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{
+         "id": "c0000000-0000-0000-0000-000000000001", "archived": 0,
+         "updated_at": "2033-01-01"}]}}},
+
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
