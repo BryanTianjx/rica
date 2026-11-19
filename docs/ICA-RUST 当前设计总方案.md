@@ -16,10 +16,10 @@
 | 维度 | 实测值 | 复算命令 |
 | --- | --- | --- |
 | Rust 代码量 | 24,780 行（7 crate） | `for c in crates/*/; do ... wc -l; done` |
-| 测试 | **348 passed / 0 failed / 0 ignored**（含 W4 复审回归 + W7 domain 4 条） | `cargo test --workspace` |
+| 测试 | **351 passed / 0 failed / 0 ignored**（W4 复审回归 + W7 domain + OCR 收敛测试） | `cargo test --workspace` |
 | 已实现端点 | **45** 条 `/api/*`（另有 `/health` 不计入契约） | `python3 scripts/endpoint_reconciliation.py` |
 | 契约端点总数 | **68** 条（`R0 + W1…W6`） | `python3 scripts/endpoint_reconciliation.py` |
-| 跨语言对拍 | **234/236 cases matched**（对拍集扩到 236：+14 条 W7 负向路径），2 条 dashboard 失败 | `bash scripts/contract_verify.sh` |
+| 跨语言对拍 | **248/248 cases matched, 0 failure**（对拍集 248：+14 W7 守卫 + 12 导入校验/error 路径；dashboard calendar 已对齐） | `bash scripts/contract_verify.sh` |
 | 桌面 IPC 命令 | 47 个（W7 增 `imports_confirm_candidate`） | `grep -c '^pub async fn' crates/ica-desktop/src/commands.rs` |
 | 完成波次 | R0 / W1 / W1.5 / W1.6 / W2 / W2.5 / W3 | `git tag --list` |
 | 未完成端点 | 23 条（W5 15 + W6 8） | 契约文档 §1 |
@@ -28,10 +28,10 @@
 | 端点对账 | 45 + 23 = 68 ✓，额外路由 0 | `python3 scripts/endpoint_reconciliation.py` |
 | 契约外增量 | 5 条：4 条 `ai/models` CRUD（Python-only，AI-EXT 所有）+ `confirm-candidate`（**W7 已实现**，对账登记 auxiliary） | ADR-0003 D-2 补充裁决 |
 
-**当前处境一句话**：后端迁移的**主体已建成且可验证**（**45/68** 契约端点 + confirm-candidate 辅助路由、348 测试、对拍 234/236）。
-W4 复审（2026-11-19 独立审计，VERDICT: FAIL）点名的全部阻断项已于 2026-11-20 修复并补回归测试；
-`w4-done` 的建立以修复后 SHA 上的验收记录为准。新增的 Browser / Agent / Frontend 三条产品线
-**尚未开工**——14 张卡已批准但一张都没派发。
+**当前处境一句话**：迁移主体全部可验证（**45/68** 契约端点 + confirm-candidate 辅助路由、**351 测试、对拍 248/248 全对**——对冻结基线 `9ed173c` 首次零失败）。
+W4 已放行（`w4-done`）；W7 默认范围、OCR-01 收敛、G0 治理交付物、B0 准入包均已完成。
+Browser（B1/B2 受 D-5 约束）与 BW0（39 条）等待各自前置；G3 的集成路径需按实测能力盘点修订；
+W5/W6 是剩余的两条迁移波次。
 
 ---
 
