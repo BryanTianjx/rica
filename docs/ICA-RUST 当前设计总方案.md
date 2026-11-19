@@ -1,6 +1,7 @@
-# ICA-RUST 当前设计总方案
+# ICA-RUST Engineering Architecture & Delivery Baseline R1.0
 
-**状态：** 现状快照 + 待办总账
+**状态：** 工程基线（现状快照 + 待办总账 + 架构边界 + 验收体系）
+**前身：** 《ICA-RUST 当前设计总方案》（2026-11-19 架构评审后升格）
 **基准日期：** 2026-11-19
 **仓库：** `/mnt/o/ICA-RUST`（独立 git 库，43 个提交，HEAD `4cbb736`）
 **Python 基线：** `/mnt/o/ica` @ `9ed173c`（**契约锚点为 `d39e321`，见 §6.1 的未闭合矛盾**）
@@ -16,16 +17,17 @@
 | --- | --- | --- |
 | Rust 代码量 | 24,780 行（7 crate） | `for c in crates/*/; do ... wc -l; done` |
 | 测试 | **335 passed / 0 failed / 0 ignored** | `cargo test --workspace` |
-| 已实现端点 | **46** 条路由 | `grep -cE '^\s*"/(api\|health)' crates/ica-api/src/routes.rs` |
-| 契约端点总数 | **68** 条（`R0 + W1…W6`） | `docs/rust-migration-contract.md` §2 |
+| 已实现端点 | **45** 条 `/api/*`（另有 `/health` 不计入契约） | `python3 scripts/endpoint_reconciliation.py` |
+| 契约端点总数 | **68** 条（`R0 + W1…W6`） | `python3 scripts/endpoint_reconciliation.py` |
 | 跨语言对拍 | **220/222 cases matched**，2 条 dashboard 失败 | `bash scripts/contract_verify.sh` |
 | 桌面 IPC 命令 | 46 个 | `grep -c '^pub async fn' crates/ica-desktop/src/commands.rs` |
 | 完成波次 | R0 / W1 / W1.5 / W1.6 / W2 / W2.5 / W3 | `git tag --list` |
 | 未完成端点 | 23 条（W5 15 + W6 8） | 契约文档 §1 |
 | 卡片台账 | 23 张（3 完成 / 14 已批准未开工 / 1 READY / 1 待批 / 1 BLOCKED / 3 取消） | `woticketflow_cli.py work-item list` |
-| 质量门 | 4 关全绿 | `bash scripts/check.sh` |
+| 质量门 | 4 关全绿（**自动化门禁，不等于独立验收** — 见 ADR-0005） | `bash scripts/check.sh` |
+| 端点对账 | 45 + 23 = 68 ✓，额外路由 0 | `python3 scripts/endpoint_reconciliation.py` |
 
-**当前处境一句话**：后端迁移的**主体已建成且可验证**（46/68 端点、335 测试、对拍 220/222），
+**当前处境一句话**：后端迁移的**主体已建成且可验证**（**45/68** 端点、335 测试、对拍 220/222），
 但**W4 未通过独立验收**，且新增的 Browser / Agent / Frontend 三条产品线**尚未开工**——
 14 张卡已批准但一张都没派发。
 
@@ -263,6 +265,432 @@ Browser Workspace → 审批体系 → 集成验收），其中阶段 0 已在 B
 
 ---
 
+### 4.5 架构成熟度分层（评审 §1.1）
+
+八个维度的当前状态：
+
+| 维度 | 状态 | 判断 |
+| --- | --- | --- |
+| Rust 分层架构 | 已实现 | 7-crate 分层方向正确，编译期强制 |
+| 业务契约迁移 | 部分完成 | 45/68 端点，W5/W6 未动 |
+| 跨语言等价性 | 部分完成 | 对拍覆盖存在明显盲区 |
+| 数据持久化 | 已实现主体 | 需补恢复、并发、一致性验收 |
+| Tauri 桌面架构 | 已实现主体 | IPC 与 HTTP 双适配仍需验证 |
+| Browser Subsystem | 方案阶段 | 数据模型与执行边界待明确 |
+| Hermes Agent | 方案阶段 | 权限与执行隔离需形成正式契约 |
+| 前端架构 | 过渡方案 | 代码归属与 BackendClient 未闭合 |
+
+### 三个成熟度层次
+
+**第一层 · 业务核心** —— 主体已建成
+
+```
+Domain / Application / Contracts · SQLite / Repository / Encryption
+Axum API / Tauri IPC · 原 Python 业务契约迁移
+```
+
+**第二层 · 自动化执行** —— 待建设
+
+```
+Browser Runtime · Browser Session · 操作审批与执行状态机 · 页面抽取与候选人采集
+```
+
+**第三层 · 智能体协作** —— 待验证
+
+```
+Hermes Runtime · MCP Tool Gateway · Agent Context/Memory
+Agent Planning/Execution · Human-in-the-loop
+```
+
+**这三个层次不应该同时进入大规模开发。**
+
+> **业务核心负责正确性，Browser 负责受控执行，Agent 负责智能决策。**
+> 不要让 Hermes 或 Browser Runtime 逐渐演变成第二套 ICA 业务后端。
+
+---
+
+### 4.6 Endpoint Reconciliation Matrix（评审 §2.1 · P0-01）
+
+### 审计修正
+
+此前总方案写「已实现 46 条」，并列出「46 + 23 = 69」的矛盾。
+**根因是我的计数错误**：`GET /health` 被计入了——它**不属于** 68 条业务契约。
+
+正确数字是 **45 / 68**。逐条对账结果：
+
+```
+Rust /api 路由 (method,path) 对    45
+契约表行数                          68
+★ 交集                             45    ← 全部已实现路由都在契约表内，无遗漏
+Rust 有、契约表无                    0    ← 没有「多实现」的野路由
+契约表有、Rust 无                   23    ← 正是 W5(15) + W6(8)
+
+45 + 23 = 68  ✓
+```
+
+**对账工具已固化**：`scripts/endpoint_reconciliation.py`，
+从路由器源码与契约表生成矩阵，不猜、不手数。
+
+```bash
+python3 scripts/endpoint_reconciliation.py                          # 人读表
+python3 scripts/endpoint_reconciliation.py --json                   # 机读
+python3 scripts/endpoint_reconciliation.py --out <path>             # 生成文档
+```
+
+矩阵产出在 `docs/migration/reconciliation/endpoint-matrix-r1.md`，
+含契约 ID、Python 路由、Method、波次、模块、实现状态、验证状态、范围、基线 SHA。
+
+### 三个覆盖率指标（评审要求）
+
+| 指标 | 当前值 | 含义 |
+| --- | --- | --- |
+| Contract Coverage | 45/68 | 契约端点实现率 |
+| Implementation Coverage | 45/68 | 实际路由实现率 |
+| Verification Coverage | 45/68 | 已通过独立验证的契约比例 |
+
+**三个指标当前同值，是因为所有已实现端点都已进对拍且通过。**
+W4 三份审计 FAIL 之后，Verification Coverage 应当**低于** Implementation Coverage
+——那才是真实状态。**不要用一个「已完成端点数」代表这三个指标。**
+
+---
+
+### 4.7 五级质量门与不可变验收记录（评审 §2.4 · ADR-0005）
+
+当前看起来矛盾：
+
+```
+scripts/check.sh  四关全绿   →  335 passed / 0 failed
+三份独立审计       全部 FAIL   →  W4 不可放行
+```
+
+**这不是逻辑矛盾，是质量门的职责没区分。** `check.sh` 是自动化质量门，
+**不构成独立验收**。
+
+| 级别 | 名称 | 内容 | 失败含义 |
+| --- | --- | --- | --- |
+| Q0 | Build Gate | 编译、依赖、静态检查 | 代码不能编译或违反静态规则 |
+| Q1 | Unit Gate | 单元测试 | 单元行为错误 |
+| Q2 | Integration Gate | API/数据库/IPC 集成 | 组件协作错误 |
+| Q3 | Compatibility Gate | Python/Rust 跨语言对拍 | 已覆盖路径上不等价 |
+| Q4 | Independent Acceptance | 独立审计、缺陷关闭、放行 | **不可放行** |
+
+**规则：** Q0–Q3 全绿**不构成**放行依据；Q4 必须由非实现方执行；
+Q3 的通过率不是等价性证明，必须附带覆盖边界声明。
+
+每个波次产出一份**不可变验收记录**（绑定确切 SHA，不只靠 tag）：
+
+```
+wave-acceptance/W4/
+  implementation-commit.txt  baseline-commit.txt  test-results.json
+  contract-coverage.json     findings-register.json  mutation-test-results.json
+  independent-review.md      acceptance-decision.md
+```
+
+---
+
+### 4.8 基线的四层概念与变更处置（评审 §2.3 · ADR-0006）
+
+2026-11-19 一天内基线 HEAD 动了两次（`d39e321` → `20b252d` → `9ed173c`）。
+「终态」是基线方的自我声明，**不是机制保证**。
+
+**四个「基线」不是同一件事：**
+
+| 概念 | 含义 | 谁决定它变 |
+| --- | --- | --- |
+| Baseline Anchor | Python 源码事实锚点（git SHA） | 基线仓库自然演进 |
+| Contract Baseline | 冻结的业务契约（68 条 + 波次 + declared improvements） | **人工裁决** |
+| Test Fixture Baseline | 对拍样本与测试数据 | 种子脚本 + 契约用例 |
+| Implementation Baseline | Rust 当前实现版本（git SHA） | 每次提交 |
+
+**核心规则：Python 基线更新不自动改变冻结契约。**
+
+基线每次变化产生一份 **Baseline Diff Report**，逐项人工裁决：
+
+| 裁决 | 含义 | 后果 |
+| --- | --- | --- |
+| Accept | 接受基线行为变化 | 更新契约 + 夹具 + 迁移计划 |
+| Reject | 不接受 | 登记 known divergence，Rust 保持冻结行为 |
+| Deferred | 暂缓 | 记入待办，不影响当前波次放行 |
+| Out of Scope | 不属迁移范围 | 排除出契约表并记录理由 |
+
+**这也修正了 §6.1 的逻辑**：重锚后仍是 220/222，只能说明当前样本没产生新差异，
+**不能据此证明三处差异不影响契约**。三处差异的实际处置由 W7 承接，
+裁决记录在 G0-02 的 Baseline Diff Report 里。
+
+---
+
+### 4.9 统一执行网关 Execution Gateway（评审 §3.1 · ADR-0004）
+
+此前总架构图只画了组件关系，没有表达控制流、数据流、权限流。
+引入 **ICA Runtime Architecture**：
+
+```
+                  ICA Desktop
+                 Tauri 2 + React
+                       │
+                 BackendClient
+                       │
+              IPC Adapter / HTTP Adapter
+                       │
+                ICA API Gateway
+                       │
+                ICA Application
+                 /           \
+                /             \
+          Domain Services   Policy Engine
+                |             |
+           Repository     Approval Service
+                |             |
+             SQLite      Execution Gateway
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+               Hermes Runtime      Browser Runtime
+                    │                   │
+                 MCP Client        Playwright
+                    │                   │
+              ICA MCP Server       Chromium
+                    │
+             Controlled Tools
+```
+
+**四条不可跨越的边界：**
+
+1. **ICA Application 是唯一业务规则执行主体。**
+2. **Policy Engine 负责每次操作的权限与业务约束判断**——每次重新判，
+   不信任上游声明。
+3. **Hermes 只能通过受控工具访问业务能力**——MCP 白名单不是安全边界。
+4. **Browser Runtime 不能绕过 ICA Application 直接改业务数据库。**
+
+**Execution Gateway** 是 Agent 与 Browser 之间的统一受控执行入口：
+校验一次性审批凭证、重新计算操作摘要比对、幂等去重、记录审计与 correlation id。
+
+**首期不单独部署、不新增 crate**，先作为 `ica-application` 内部应用服务实现——
+符合 Local-first / Single-user 约束，不需要为 Agent 引入
+PostgreSQL、Redis、消息队列或分布式基础设施。
+
+---
+
+### 4.10 跨语言对拍的五层验证（评审 §2.2）
+
+当前对拍是**单一维度**的（响应体匹配）。评审建议升级为五层：
+
+| 层 | 内容 |
+| --- | --- |
+| L1 HTTP | Method、Path、Status、Headers、Response |
+| L2 Schema | JSON 类型、字段缺省、null、数组结构 |
+| L3 Validation | 422、错误位置、错误信息 |
+| L4 Persistence | **最终 SQLite 数据状态** |
+| L5 Behavior | 状态迁移、副作用、幂等性、异常恢复 |
+
+**L4 与 L5 特别重要**——同一个 API 返回完全相同的 JSON，
+并不意味着两个实现的数据库最终状态一致。
+
+**评审指出的具体盲区（已实测确认）：**
+
+```
+contract_capture.py 定义 235 个场景
+  browser_extract      0 命中
+  confirm-candidate    0 命中
+import 载荷只有「空 data」与「完整 candidate 行」两种形态
+  → 无 positions 校验 / 无部分列 / 无无 id 行
+metadata_json 是解析后比较，不是字节比较
+```
+
+即 **220/222 全绿恰恰因为用例集没覆盖出问题的路径**。
+「全绿」在这里是覆盖不足的表现，不是等价性的证明。
+
+**Contract Test Coverage Matrix**（评审要求）每条契约至少标明：
+正常路径、参数边界、无效输入、权限拒绝、数据库异常、并发场景、
+最终持久化结果、修复前失败的回归用例。
+
+---
+
+### 4.11 OCR 等价性定义到引擎行为层（评审 §7.1）
+
+已确认的事实：模型文件 SHA256 一致、模型版本相同，
+但**小图测试覆盖不到真实差异**，757 px 附近存在稳定分叉。
+
+> **不能继续用「同模型文件」推导「OCR 行为等价」。**
+
+**OCR Differential Test Matrix** 建议维度：
+
+| 维度 | 测试范围 |
+| --- | --- |
+| 图片宽度 | 757 px 上下边界及多档宽度 |
+| 图片高度 | 不同纵横比 |
+| 输入格式 | PNG、JPEG 等 |
+| 图像质量 | 模糊、低分辨率、压缩 |
+| 文字内容 | 中英文、数字、特殊字符 |
+| 预处理 | Resize、Padding、Normalization |
+| 检测器 | 输入限制、检测框 |
+| 识别器 | 文本和置信度 |
+| 后处理 | 字符过滤、文本拼接 |
+| 持久化 | 最终落库文本 |
+
+最终应区分 **Detection Parity / Recognition Parity /
+Post-processing Parity / Persistence Parity**——
+不要只比较最终 OCR 文本，否则很难定位差异产生的位置。
+
+---
+
+### 4.12 统一审计事件模型与 correlation id（评审 §6.3）
+
+所有自动化操作统一记录：
+
+```
+AuditEvent
+├── event_id        ├── correlation_id    ├── actor_type    ├── actor_id
+├── action          ├── resource_type     ├── resource_id   ├── policy_decision
+├── approval_id     ├── execution_id      ├── timestamp     ├── result   └── error
+```
+
+**`correlation_id` 是关键**——完整因果链：
+
+```
+Agent Task → MCP Tool Call → Approval → Browser Execution → Business Update
+```
+
+整条链路必须能用同一个标识追溯。否则排查「Agent 为什么改了这条候选人记录」
+「某条消息为什么没发送」「Browser 为什么执行失败」，
+就得在三个独立日志系统之间人工拼接。
+
+---
+
+### 4.13 数据域划分与生命周期（评审 §4）
+
+| 数据域 | 主要内容 | 管理主体 |
+| --- | --- | --- |
+| Core Business | Candidates、Positions、Conversations、Messages | ICA Domain |
+| Automation | Browser Sessions、Extracted Data、Execution Records | ICA Application |
+| Agent | Agent Sessions、Tool Calls、Agent Tasks | ICA Application |
+| Governance | Approvals、Audit Events、Policies | ICA Application |
+
+**原则：不要因为增加 Hermes 和 Browser 就重复创建候选人、消息、职位等核心实体。**
+
+```
+Browser Page → Extraction Result → Candidate Extraction → Normalization
+             → Validation → User Confirmation → Core Candidate
+```
+
+- 抽取记录与正式候选人记录必须区分。
+- 抽取失败不能破坏原始数据。
+- 用户确认前不产生正式业务副作用。
+- 重复候选人识别**复用现有 duplicate 机制**。
+
+**Audit Event 不应与普通业务记录采用相同的更新策略**——
+审批记录、执行记录与最终结果要能相互关联，形成完整审计链。
+
+
+---
+
+### 4.14 Phase 0–4 工程路线图（评审 §8）
+
+把「迁移收敛」与「新产品能力建设」明确分开。
+
+### Phase 0 — Migration Trust Recovery（当前最高优先级）
+
+```
+W4-R1 / W4-R2 / W4-R3（并行）→ W4-R4 → 独立复审 → W4 正式验收
+Endpoint Reconciliation（已建工具，见 §4.6）
+```
+
+**退出条件：W4 独立验收 PASS。**
+
+### Phase 1 — Migration Convergence
+
+```
+G0 基线治理（Baseline Diff Report + 契约文档改写）
+OCR-01（模型目录脱钩）
+W7（浏览器抽取写路径）
+AI-EXT（契约先行，实施另立波次）
+补建 W5 / W6 Work Items
+68 条契约完成情况闭环
+```
+
+**退出条件：契约清单、基线、波次台账一致。**
+
+### Phase 2 — Runtime Foundation
+
+```
+B0 Browser 平台准入（含表结构字段级差异报告）
+Browser 数据模型差异审计
+G3 Hermes POC
+F0-AUDIT + 前端仓库归属裁决
+统一 Execution Gateway 契约（ADR-0004）
+```
+
+**退出条件：Browser 准入、Agent 权限、前端归属明确。**
+
+### Phase 3 — Controlled Automation
+
+```
+BW0 Browser 路由迁移 → B1 Browser Runtime → B2 Session Management
+→ B3 页面交互 → B4 数据抽取与确认 → B5 审批和执行 → B6 审计与恢复
+```
+
+**退出条件：Browser 执行、审批、异常恢复完整闭环。**
+
+### Phase 4 — Agent-native ICA
+
+```
+Hermes Runtime 正式集成 → MCP Tool Gateway → Agent Task Lifecycle
+→ Agent Memory/Context → Browser + Agent 协同 → 前端统一交互工作台
+```
+
+**退出条件：Agent 可受控完成端到端业务任务。**
+
+> **不要把 Phase 4 理解为「Agent 能操作招聘网站」。**
+>
+> 真正的目标是：
+>
+> ```
+> 用户提出任务 → Agent 理解和规划 → ICA 校验业务规则 → Browser 执行允许的操作
+> → 用户审批敏感动作 → ICA 更新业务数据 → 全链路可追溯
+> ```
+>
+> 这才是 ICA 与普通浏览器自动化工具的差异化价值。
+
+### 各阶段退出条件
+
+| 阶段 | 不可缺少的退出条件 |
+| --- | --- |
+| Phase 0 | W4 独立验收 PASS |
+| Phase 1 | 契约清单、基线、波次台账一致 |
+| Phase 2 | Browser 准入、Agent 权限、前端归属明确 |
+| Phase 3 | Browser 执行、审批、异常恢复完整闭环 |
+| Phase 4 | Agent 可受控完成端到端业务任务 |
+
+---
+
+### 4.15 D-1 并行歧义的澄清（评审 §2.6）
+
+§3.2 的 D-1 写「先恢复 W4 工程可信度，再开放任何新产品线」，
+而 §7 又说 G3 与 F0-AUDIT 可以立即开始。**这需要明确区分。**
+
+**建议的裁决口径：**
+
+> **允许**不触碰 W4 实现、不改变迁移契约的**调查与架构审计**；
+> **暂不允许** Browser Runtime、Agent 业务功能及前端通信改造**进入正式实施**。
+
+| 工作 | 允许并行？ | 理由 |
+| --- | --- | --- |
+| G3（Hermes POC，仅 `ica.ping`） | ✅ | 只读验证运行时能力，不碰业务数据与契约 |
+| F0-AUDIT（前端接口耦合审计） | ✅ | 只读审计，不改代码 |
+| B0（架构准入与裁决） | ✅ | 产出决策与文档，不写实现 |
+| AI-EXT（契约文档） | ✅ | 只产出契约文档 |
+| W4-R1～R4 | ✅ | 本身就是要先做的 |
+| B1/B2/BW0（实现） | ❌ | 等 Phase 2/3 门槛 |
+| 前端 F0（实现） | ❌ | 等 F0-AUDIT 结论 + 前端归属裁决 |
+| W5/W6 实现 | ❌ | 等 Phase 1 闭环 |
+
+**这样既不会浪费时间，也不会破坏 W4 的验收边界。**
+本条需要一次显式裁决（写入 ADR-0003 的补充或新 ADR），
+在裁决前按上表的「建议口径」执行。
+
+
+---
+
 ## 5. 权威文档地图
 
 | 文档 | 作用 |
@@ -270,6 +698,10 @@ Browser Workspace → 审批体系 → 集成验收），其中阶段 0 已在 B
 | `docs/rust-migration-contract.md` | **契约主文档**：68 条端点表、波次划分、分层规则、declared improvements |
 | `docs/adr/ADR-0002-rust-backend-migration-reinstated.md` | Rust 迁移决议（含 R1：wire 契约上移 `ica-contracts`） |
 | `docs/adr/ADR-0003-governance-decisions-20261119.md` | **治理裁决 D-1…D-11**（2026-11-19） |
+| `docs/adr/ADR-0004-ica-runtime-architecture.md` | Runtime 边界与 Execution Gateway（**Proposed**） |
+| `docs/adr/ADR-0005-five-tier-quality-gates.md` | 五级质量门与不可变验收记录（**Proposed**） |
+| `docs/adr/ADR-0006-baseline-layers-and-change-handling.md` | 基线四层概念与变更处置（**Proposed**） |
+| `docs/migration/reconciliation/endpoint-matrix-r1.md` | **端点对账矩阵**（生成物，勿手改） |
 | `docs/contract-baseline/w{2,3,4}-python-facts.md` | 各波次的 Python 基线实测事实 |
 | `docs/architecture/browser/browser-route-inventory-r1.md` | 39 条 browser 路由逐条盘点 |
 | `docs/architecture/frontend/frontend-architecture-r1.md` | 前端过渡架构 |
@@ -324,7 +756,28 @@ Browser Workspace → 审批体系 → 集成验收），其中阶段 0 已在 B
 `duplicate_*` 三列是同一件事的两种建模。裁决 D-8 已定「复用现有表，禁止平行建模」，
 但**字段级差异报告尚未产出**（B0-08）。
 
-### 6.7 三份审计报告已归档
+### 6.7 端点数字已纠正，但口径曾出错
+
+此前写「已实现 46 条」，并出现「46 + 23 = 69」的矛盾。
+**根因是计数错误**：`GET /health` 不属于 68 条业务契约，被误计。
+
+逐条对账：**45 + 23 = 68 ✓**，额外路由 0。
+对账工具已固化（`scripts/endpoint_reconciliation.py`），
+从此所有统计数字从矩阵生成，不再手工数（见 §4.6）。
+
+### 6.8 D-1 的并行口径尚未裁决
+
+§3.2 的「先恢复 W4 再开放新产品线」与「G3/F0-AUDIT 可立即开始」存在歧义。
+§4.15 给了建议口径（允许只读调查与审计，不允许实现进入），但**需要一次显式裁决**。
+
+### 6.9 三份 ADR 处于 Proposed
+
+ADR-0004（Runtime 边界与 Execution Gateway）、
+ADR-0005（五级质量门与不可变验收记录）、
+ADR-0006（基线四层概念与变更处置）**均为提案，未批准**。
+它们约束后续所有卡片的判据口径，批准前不应视为既定设计。
+
+### 6.10 三份审计报告已归档
 
 `/tmp` 不持久，所以三份报告已复制进 `docs/audits/w4-independent/`：
 
@@ -341,35 +794,31 @@ README.md            10 KB   审计任务单与范围
 
 ## 7. 建议推进顺序
 
-裁决原文的顺序 + 我的补充：
+**权威路线图见 §4.14（Phase 0–4）**，本节只补充执行细则。
 
 ```
-第一批  W4-R1 / R2 / R3（并行） → W4-R4 → 独立复审 → w4-done
-        ↑ 阻断一切。W4 未可信之前，不开新产品线。
+Phase 0  Migration Trust Recovery   ← 当前，最高优先级
+         W4-R1/R2/R3 → W4-R4 → 独立复审 → W4 正式验收
+         Endpoint Reconciliation（工具已就绪，见 §4.6）
 
-第二批  G0（基线治理，含契约文档锚点改写）
-        OCR-01（模型目录脱钩）
-        W7（浏览器抽取写路径）
-        AI-EXT（契约文档先行，实施另立波次）
-        ← 补建 W5 / W6 的 Work Item
+Phase 1  Migration Convergence
+         G0 · OCR-01 · W7 · AI-EXT · 补建 W5/W6 Work Items
 
-第三批  B0（准入）→ 路由盘点 → BW0 立项
-        ← B1 / B2 在 B0 验收后才可实施（D-5）
+Phase 2  Runtime Foundation
+         B0 · G3 · F0-AUDIT · Execution Gateway 契约（ADR-0004）
 
-第四批  G3（Hermes POC，可与前两批并行）
-        F0-AUDIT → 前端归属裁决 → F0
+Phase 3  Controlled Automation
+         BW0 → B1 → B2 → B3 → B4 → B5 → B6
 
-第五批  B1 → B2 → B3 → B4 → B5 → B6 → B7
-        B7 只作为 V2.0 规划能力，不进近期实施（D-6）
-
-        另轨  UI R2.0 阶段 1（Shell + Design System）
-              ← 纯前端工作，与后端迁移无冲突，可与第一~四批并行；
-                但阶段 0 已在 B0 / F0-AUDIT 里，不要重复做
+Phase 4  Agent-native ICA
+         Hermes 集成 → MCP Gateway → Agent 生命周期 → Browser+Agent 协同
 ```
 
-**并行性**：G3 与 F0-AUDIT 不依赖 W4 返工，可立即开始。
-但它们**尚未建 Kanban 卡**——按「等所有方案确定」的指令，14 张已批准的卡
-一张都没派发。
+**并行规则见 §4.15**（D-1 并行歧义的澄清口径）：
+允许只读调查与架构审计并行，不允许实现进入。
+
+**另轨（纯前端，与后端无冲突）**：UI R2.0 阶段 1（Shell + Design System）。
+但 UI R2.0 的阶段 0 已在 B0 / F0-AUDIT 里覆盖，**不要重复做**。
 
 ---
 
@@ -409,6 +858,10 @@ WORK=/tmp/verify OUT_DIR=/tmp/verify-out bash scripts/contract_verify.sh
 # 端点映射
 PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH -u PYTHONHOME \
   /mnt/o/ica/backend/.venv/bin/python scripts/check_endpoint_map.py
+
+# 端点对账矩阵（所有统计数字的唯一来源）
+python3 scripts/endpoint_reconciliation.py
+python3 scripts/endpoint_reconciliation.py --out docs/migration/reconciliation/endpoint-matrix-r1.md
 
 # 卡片台账
 C="python3 ~/.hermes/skills/software-development/woticketflow/scripts/woticketflow_cli.py"

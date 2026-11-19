@@ -173,6 +173,54 @@ def main() -> int:
     print(f"tests: {passed} passed / {failed} failed")
 
     print()
+    print("== 5/5 endpoint reconciliation ==")
+    # The endpoint counts quoted in the plans must come from ONE source, not
+    # from separate greps. This gate fails when the router and the contract
+    # table disagree, or when the generated matrix is stale.
+    # Captured, NOT echoed: the JSON payload is machine data, and the gate
+    # prints its own one-line summary.
+    result = subprocess.run(
+        [sys.executable, "scripts/endpoint_reconciliation.py", "--json"],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout
+    if result.returncode != 0:
+        print("   FAILED: the endpoint reconciliation script did not run")
+        print((result.stderr or output)[-2000:])
+        return result.returncode
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        print("   FAILED: the endpoint reconciliation script produced no JSON")
+        print(output[-2000:])
+        return 1
+    counts = data["counts"]
+    implemented = counts["implemented"]
+    missing = counts["missing"]
+    total = counts["contract_total"]
+    extra = counts["extra_routes"]
+    print(
+        f"   contract={total} implemented={implemented} missing={missing} "
+        f"extra={extra}"
+    )
+    if implemented + missing != total:
+        print(
+            f"   FAILED: {implemented} + {missing} != {total} — the endpoint "
+            "counts do not reconcile"
+        )
+        return 1
+    if extra:
+        print(
+            f"   FAILED: {extra} route(s) exist in the router but not in the "
+            "contract table"
+        )
+        return 1
+    print("   ok: implemented + missing == contract total, no extra routes")
+
+    print()
     print("All gates passed.")
     return 0
 
