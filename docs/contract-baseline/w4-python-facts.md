@@ -209,3 +209,68 @@ git diff --stat -- backend/app/api/imports.py   backend/app/application/conversa
 
 > 提醒后续会话：对拍复制的是基线**工作树**（含未提交改动），
 > 所以每次交付都要写清「对的是哪个版本的基线」。
+
+## 12. 独立审计发现（第一轮 FAIL，已修）
+
+第四方子代理对 `w4-candidate`(72a33ed) 的独立审计结论是 **FAIL**：
+**29 条 W4 契约用例全绿，但仍有 15 项真差异**。
+
+> 这就是本节最重要的一条：**对拍门只证明它的用例清单覆盖到的那点行为**。
+> W4 的 import 用例全部发 `{"data": {}}`，于是整个 upsert / LWW 矩阵零覆盖，
+> 一个"只实现了 newer-wins 就跳过"的端口能全绿通过。
+
+### 12.1 `POST /api/import` 的真实语义（基线 `_import_row`，六条规则）
+
+| 情况 | 行为 |
+| --- | --- |
+| 新行 | 全量导入，`imported += 1` |
+| 已存行 + 快照 `updated_at` **更新** | 写业务列 + 推进 `updated_at`，`updated += 1` |
+| 已存行 + **相等** | 不写；业务数据不同则 `conflicts += 1`；`skipped += 1` |
+| 已存行 + **更旧** | 不写；业务数据不同则 `conflicts += 1`；`skipped += 1` |
+| 已存行 + **快照无 `updated_at`** | 不写；业务数据不同则 `conflicts += 1`；`skipped += 1` |
+| **append-only 表**（`send_records`） | 已存行**永不重写**，不论时间戳；数据不同则 `conflicts += 1`；`skipped += 1` |
+
+补充事实：
+
+- **只写 payload 里出现的列**。基线 `_apply_fields_only` 遍历 `record.items()`，
+  没提到的列由模型默认值或 DDL DEFAULT 补。写 NULL 会撞 NOT NULL
+  （实测：`{"id":…,"name":"x"}` → `NOT NULL constraint failed: candidates.source`）。
+- **无 `id` 的行会铸一个 UUID**（`_get_or_create`），不是跳过。跳过等于静默丢数据。
+- **写入前整批校验**（`_validate_payload`）：表值必须是数组（`list_type`）、
+  元素必须是对象（`dict_type`）、`positions` 行要能通过 `PositionRead` 契约
+  （`import_validation_error`）。失败不写任何一行。
+- `messages.channel = conversation.channel`、`messages.source = session.source`、
+  `messages.content_hash = content_hash(content)`（**按修正后的 content 重算**）。
+- `confirm` 尾部：`session.candidate_id = candidate.id`、
+  `conversations.last_message_at = max(有时间的消息的 message_time)`，
+  且**只在非 None 时才写**（`if latest is not None`）——写裸 MAX 会把原值清空。
+- `ensure_conversation`：会话不存在 → **404**；属于别的候选人 → **422**
+  （不是 409）。两者是不同的信封。
+
+### 12.2 模型默认值不在 DDL 里
+
+`candidates.source` 这类 NOT NULL 列**没有 SQL DEFAULT**，默认值在 ORM 模型层。
+所以"只写出现的列"必须配一张默认值表：
+`scripts/gen_column_defaults.py` 从 `Base.metadata` 生成
+`crates/ica-infra/src/column_defaults.rs`（118 列）。
+`created_at` / `updated_at` 的默认值是 **callable**（now），生成器跳过它们，
+由 Rust 侧在缺列时填当前时间。
+
+### 12.3 OCR：引擎存在性也是契约的一部分
+
+基线 venv **装着** rapidocr + Pillow（`OCR_AVAILABLE=True`），所以本机同一请求：
+基线对一张坏图回 **409 `ocr_image_undecodable`**，Rust 恒回 **503 `ocr_unavailable`**。
+这属于「有意缩小范围」，必须按 IMP 登记，不能靠一句注释带过。
+路径守卫本身两侧一致（越界 409 `ocr_path_not_allowed`，不泄漏存在性）。
+
+**暂存文件必须在所有路径删除**：基线的 `try/finally: _discard_ocr_file(...)`
+连引擎缺失那条也覆盖。早期实现把 `ensure_available()?` 放在删除之前，
+于是**每个 503 都残留一份截图**（PRIV-04 同类）。
+
+### 12.4 对拍工具不可并发
+
+`contract_verify.py` 的 `/tmp/ica-py-baseline` 是硬编码路径、默认端口 8010/8011。
+两个会话同时跑时，后启动者在 `rsync` 中途 import → `ModuleNotFoundError` → 进程死，
+而 `wait_for_health()` 会连上**先到者**并打印 "python is up"，
+于是 capture 打到别人的库上——表现为几十处「契约差异」，实际是夹具污染。
+规避：用 `WORK` / `PY_PORT` / `RUST_PORT` 隔离；这两个环境变量现在都支持。
