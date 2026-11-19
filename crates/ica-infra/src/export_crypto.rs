@@ -88,11 +88,10 @@ impl ExportSealer for AesGcmSealer {
     ) -> Result<(String, String, String), ApplicationError> {
         let key_bytes = decode_key(key_b64)?;
 
-        // Compact, sorted-key JSON — the same bytes Python seals.
-        let plaintext =
-            serde_json::to_vec(document).map_err(|error| ApplicationError::Unavailable {
-                message: format!("export document could not be serialised: {error}"),
-            })?;
+        // Compact, sorted-key JSON — the same bytes Python seals. `to_vec`
+        // would keep INSERTION order (the crate enables `preserve_order` for
+        // the audit column), so the sorted form is asked for explicitly.
+        let plaintext = crate::json_fmt::python_json_sorted_compact(document).into_bytes();
 
         let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
         let cipher = Aes256Gcm::new(key);

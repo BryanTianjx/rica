@@ -125,23 +125,27 @@ async fn ensure_conversation(
     connection: &mut SqliteConnection,
     candidate_id: &str,
     conversation_id: Option<&str>,
-) -> Result<String, RepositoryError> {
+) -> Result<(String, String), RepositoryError> {
     if let Some(id) = conversation_id {
-        let owner: Option<String> =
-            sqlx::query_scalar("SELECT candidate_id FROM conversations WHERE id = ?")
+        let found: Option<(String, String)> =
+            sqlx::query_as("SELECT candidate_id, channel FROM conversations WHERE id = ?")
                 .bind(id)
                 .fetch_optional(&mut *connection)
                 .await
                 .map_err(repo_error)?;
-        match owner {
+        match found {
             None => {
-                return Err(RepositoryError::conflict(
-                    format!("Conversation '{id}' was not found"),
-                    std::collections::BTreeMap::new(),
-                ));
+                // A missing conversation is a 404: the baseline resolves it
+                // through `get_or_404`, not through a business rule.
+                return Err(RepositoryError::not_found(format!(
+                    "Conversation '{id}' was not found"
+                )));
             }
-            Some(owner) if owner != candidate_id => {
-                return Err(RepositoryError::conflict(
+            Some((owner, _)) if owner != candidate_id => {
+                // Belonging to another candidate is a VALIDATION failure (422),
+                // not a business-rule conflict (409) — the baseline raises
+                // `ValidationError` with both ids in `details`.
+                return Err(RepositoryError::invalid(
                     "Conversation does not belong to the given candidate".to_string(),
                     [
                         ("conversation_id".to_string(), id.to_string()),
@@ -151,20 +155,20 @@ async fn ensure_conversation(
                     .collect(),
                 ));
             }
-            Some(_) => return Ok(id.to_string()),
+            Some((_, channel)) => return Ok((id.to_string(), channel)),
         }
     }
 
-    let existing: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM conversations WHERE candidate_id = ? AND is_active = 1 \
+    let existing: Option<(String, String)> = sqlx::query_as(
+        "SELECT id, channel FROM conversations WHERE candidate_id = ? AND is_active = 1 \
          ORDER BY last_message_at IS NULL, last_message_at DESC LIMIT 1",
     )
     .bind(candidate_id)
     .fetch_optional(&mut *connection)
     .await
     .map_err(repo_error)?;
-    if let Some(id) = existing {
-        return Ok(id);
+    if let Some((id, channel)) = existing {
+        return Ok((id, channel));
     }
 
     let id = new_uuid();
@@ -183,7 +187,9 @@ async fn ensure_conversation(
     .execute(&mut *connection)
     .await
     .map_err(repo_error)?;
-    Ok(id)
+    // A conversation created by an import is a boss conversation, which is
+    // also the channel its messages inherit.
+    Ok((id, "boss".to_string()))
 }
 
 #[async_trait]
@@ -324,8 +330,19 @@ impl ImportRepository for SqliteStore {
             )));
         }
 
-        let conversation =
+        // The session's `source` is copied onto every message this confirm
+        // writes (`source=session.source` in the baseline) — an OCR-driven
+        // import must not claim its messages came from a paste.
+        let session_source: Option<String> =
+            sqlx::query_scalar("SELECT source FROM import_sessions WHERE id = ?")
+                .bind(session_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(repo_error)?;
+
+        let (conversation, channel) =
             ensure_conversation(&mut tx, candidate_id, conversation_id.as_deref()).await?;
+        let source = session_source.unwrap_or_else(|| "paste_import".to_string());
 
         let rows: Vec<RecordRow> = sqlx::query_as(&format!(
             "SELECT {RECORD_COLUMNS} FROM import_records WHERE session_id = ? \
@@ -382,7 +399,7 @@ impl ImportRepository for SqliteStore {
                 "INSERT INTO messages (id, candidate_id, conversation_id, sender_type, content, \
                  message_time, channel, source, content_hash, import_record_id, created_at, \
                  updated_at, owner_id, tenant_id) \
-                 VALUES (?, ?, ?, ?, ?, ?, 'boss', 'paste_import', ?, ?, ?, ?, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .bind(&message_id)
             .bind(candidate_id)
@@ -390,6 +407,11 @@ impl ImportRepository for SqliteStore {
             .bind(&sender_type)
             .bind(&content)
             .bind(&message_time)
+            // Inherited from the conversation and the session, not hard-coded:
+            // an OCR import must record `screenshot_ocr`, and a LinkedIn
+            // conversation must record `linkedin`.
+            .bind(&channel)
+            .bind(&source)
             .bind(&row.content_hash)
             .bind(&row.id)
             .bind(&now)
@@ -408,12 +430,36 @@ impl ImportRepository for SqliteStore {
         // it in the SAME transaction that commits the import, so a crash
         // cannot leave it behind.
         sqlx::query(
-            "UPDATE import_sessions SET status = 'confirmed', confirmed_at = ?, raw_text = '', updated_at = ? \
+            // Confirming also files the session against the candidate
+            // (`session.candidate_id = candidate.id` in the baseline).
+            "UPDATE import_sessions SET status = 'confirmed', confirmed_at = ?, raw_text = '', candidate_id = ?, updated_at = ? \
              WHERE id = ?",
         )
         .bind(&now)
+        .bind(candidate_id)
         .bind(&now)
         .bind(session_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(repo_error)?;
+
+        // The conversation's `last_message_at` is the newest message in it, so
+        // confirming must move it. The baseline recomputes it with
+        // `max(message_time)` at the end of confirm; leaving it alone makes
+        // `GET /api/conversations` order conversations wrongly and makes the
+        // exported snapshot differ.
+        // `COALESCE` is load-bearing: the baseline only assigns when it found
+        // a message WITH a timestamp (`if latest is not None`). Writing the
+        // bare MAX would blank a conversation whose imported messages carry no
+        // time, losing the previous activity stamp.
+        sqlx::query(
+            "UPDATE conversations SET last_message_at = COALESCE(\
+             (SELECT MAX(message_time) FROM messages WHERE conversation_id = ?), \
+             last_message_at), updated_at = ? WHERE id = ?",
+        )
+        .bind(&conversation)
+        .bind(&now)
+        .bind(&conversation)
         .execute(&mut *tx)
         .await
         .map_err(repo_error)?;

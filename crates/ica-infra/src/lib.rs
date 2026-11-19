@@ -7,6 +7,7 @@
 
 pub mod audit;
 pub mod candidates;
+pub mod column_defaults;
 pub mod conversations;
 pub mod db;
 pub mod drafts;

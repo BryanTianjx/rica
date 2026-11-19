@@ -1600,7 +1600,7 @@ pub struct RawImportPayload {
 pub fn import_payload(
     raw: RawImportPayload,
 ) -> Result<serde_json::Map<String, serde_json::Value>, ContractError> {
-    Ok(match raw.data {
+    let map = match raw.data {
         Incoming::Value(map) => map,
         Incoming::Absent => serde_json::Map::new(),
         Incoming::Null => {
@@ -1613,7 +1613,40 @@ pub fn import_payload(
                 )],
             });
         }
-    })
+    };
+
+    // The baseline's model is `data: dict[str, list[dict[str, Any]]]`, so
+    // pydantic rejects a table whose value is not a LIST (`list_type`) and a
+    // list element that is not an OBJECT (`dict_type`) before any import logic
+    // runs. Accepting either would silently turn a malformed snapshot into a
+    // "0 rows imported" success.
+    let mut issues: Vec<ValidationIssue> = Vec::new();
+    for (table, value) in &map {
+        let Some(rows) = value.as_array() else {
+            issues.push(ValidationIssue::new(
+                "list_type",
+                vec!["body", "data", table.as_str()],
+                "Input should be a valid list",
+                &value.to_string(),
+            ));
+            continue;
+        };
+        for (index, row) in rows.iter().enumerate() {
+            if !row.is_object() {
+                issues.push(ValidationIssue::new(
+                    "dict_type",
+                    vec!["body", "data", table.as_str(), &index.to_string()],
+                    "Input should be a valid dictionary",
+                    &row.to_string(),
+                ));
+            }
+        }
+    }
+    if !issues.is_empty() {
+        return Err(ContractError::ValidationIssues { issues });
+    }
+
+    Ok(map)
 }
 
 #[cfg(test)]

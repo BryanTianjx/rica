@@ -41,22 +41,39 @@ pub struct PositionFilter {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepositoryError {
     message: String,
-    /// `Some` when this is a business-rule failure (409), `None` when it is
-    /// a genuine persistence failure (500).
-    conflict_details: Option<BTreeMap<String, String>>,
-    /// Whether the row the caller asked for does not exist. The baseline's
-    /// `NotFoundError` is a 404, and it is a DIFFERENT outcome from both a
-    /// 409 and a 500 — `get_candidate_accessible` raises it when a candidate
-    /// id does not resolve.
-    not_found: bool,
+    kind: RepositoryErrorKind,
+}
+
+/// Which envelope this failure must become.
+///
+/// The three non-500 cases are genuinely different responses in the baseline
+/// and must not be collapsed: `NotFoundError` is a 404, `BusinessRuleError` a
+/// 409, `ValidationError` a 422. Storing them as separate data (instead of "a
+/// details map means 409") is what lets a 404 and a 422 both carry details and
+/// still be told apart.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RepositoryErrorKind {
+    /// A persistence failure: 500, message not echoed.
+    Unavailable,
+    /// The row does not exist: 404.
+    NotFound,
+    /// A business-rule refusal: 409 with `details`.
+    Conflict(BTreeMap<String, String>),
+    /// A validation refusal: 422 with `details` and a caller-chosen code.
+    ///
+    /// The code matters: an import payload that cannot be read back is
+    /// `import_validation_error`, not the generic `validation_error`.
+    Invalid {
+        code: &'static str,
+        details: BTreeMap<String, String>,
+    },
 }
 
 impl RepositoryError {
     pub fn unavailable(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
-            conflict_details: None,
-            not_found: false,
+            kind: RepositoryErrorKind::Unavailable,
         }
     }
 
@@ -64,8 +81,7 @@ impl RepositoryError {
     pub fn conflict(message: impl Into<String>, details: BTreeMap<String, String>) -> Self {
         Self {
             message: message.into(),
-            conflict_details: Some(details),
-            not_found: false,
+            kind: RepositoryErrorKind::Conflict(details),
         }
     }
 
@@ -73,14 +89,40 @@ impl RepositoryError {
     pub fn not_found(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
-            conflict_details: None,
-            not_found: true,
+            kind: RepositoryErrorKind::NotFound,
+        }
+    }
+
+    /// A validation refusal: the baseline's `ValidationError` (422).
+    pub fn invalid(message: impl Into<String>, details: BTreeMap<String, String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: RepositoryErrorKind::Invalid {
+                code: "validation_error",
+                details,
+            },
+        }
+    }
+
+    /// A validation refusal carrying a specific code (`import_validation_error`).
+    pub fn invalid_with_code(
+        code: &'static str,
+        message: impl Into<String>,
+        details: BTreeMap<String, String>,
+    ) -> Self {
+        Self {
+            message: message.into(),
+            kind: RepositoryErrorKind::Invalid { code, details },
         }
     }
 
     /// Whether this is a "no such row" failure (404).
     pub fn is_not_found(&self) -> bool {
-        self.not_found
+        matches!(self.kind, RepositoryErrorKind::NotFound)
+    }
+
+    pub fn kind(&self) -> &RepositoryErrorKind {
+        &self.kind
     }
 
     pub fn message(&self) -> &str {
@@ -89,13 +131,16 @@ impl RepositoryError {
 
     /// The business-rule details, when this is a 409 rather than a 500.
     pub fn conflict_details(&self) -> Option<&BTreeMap<String, String>> {
-        self.conflict_details.as_ref()
+        match &self.kind {
+            RepositoryErrorKind::Conflict(details) => Some(details),
+            _ => None,
+        }
     }
 
     /// Whether this is a business-rule failure (409) rather than a
     /// persistence failure (500).
     pub fn is_conflict(&self) -> bool {
-        self.conflict_details.is_some()
+        matches!(self.kind, RepositoryErrorKind::Conflict(_))
     }
 }
 
@@ -107,19 +152,24 @@ impl RepositoryError {
     /// **409**, and anything else is a **500**. Collapsing "not found" into
     /// either of the others would ship the wrong status code.
     pub fn application_error(&self) -> crate::error::ApplicationError {
-        if self.is_not_found() {
-            return crate::error::ApplicationError::NotFound {
+        match &self.kind {
+            RepositoryErrorKind::NotFound => crate::error::ApplicationError::NotFound {
                 message: self.message.clone(),
-            };
-        }
-        if let Some(details) = &self.conflict_details {
-            return crate::error::ApplicationError::Conflict {
+            },
+            RepositoryErrorKind::Conflict(details) => crate::error::ApplicationError::Conflict {
                 message: self.message.clone(),
                 details: details.clone(),
-            };
-        }
-        crate::error::ApplicationError::Unavailable {
-            message: self.message.clone(),
+            },
+            RepositoryErrorKind::Invalid { code, details } => {
+                crate::error::ApplicationError::ValidationWithCode {
+                    code,
+                    message: self.message.clone(),
+                    details: serde_json::json!(details),
+                }
+            }
+            RepositoryErrorKind::Unavailable => crate::error::ApplicationError::Unavailable {
+                message: self.message.clone(),
+            },
         }
     }
 }

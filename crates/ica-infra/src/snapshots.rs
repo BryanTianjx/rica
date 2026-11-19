@@ -11,7 +11,7 @@
 //! transaction, and a row that would violate tenancy is refused before anything
 //! is written.
 
-use chrono::SecondsFormat;
+use chrono::{SecondsFormat, Utc};
 use ica_application::{DataSnapshotRepository, RepositoryError, SnapshotOutcome};
 use serde_json::{Map, Value};
 use sqlx::{Row, SqlitePool};
@@ -26,7 +26,7 @@ use crate::export_tables::{ColKind, BUSINESS_TABLES};
 /// the baseline refuses even when the incoming `updated_at` is newer. The
 /// conflict is still REPORTED, so the caller learns the snapshot disagreed.
 const APPEND_ONLY_TABLES: &[&str] = &["send_records"];
-use crate::store::{repo_error, SqliteStore};
+use crate::store::{repo_error, to_sql_timestamp, SqliteStore};
 
 /// Render a SQLite timestamp the way Python's `isoformat()` does.
 ///
@@ -112,6 +112,12 @@ impl DataSnapshotRepository for SqliteStore {
         &self,
         data: Map<String, Value>,
     ) -> Result<SnapshotOutcome, RepositoryError> {
+        // Validate the whole payload BEFORE the transaction starts, so an
+        // invalid snapshot writes nothing at all. The baseline's
+        // `_validate_payload` does the same and answers
+        // 422 `import_validation_error`.
+        validate_import_payload(&data)?;
+
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
         let mut outcome = SnapshotOutcome::default();
 
@@ -136,11 +142,16 @@ impl DataSnapshotRepository for SqliteStore {
                     continue;
                 };
 
-                let Some(id) = object.get("id").and_then(|value| value.as_str()) else {
-                    // No id: the baseline cannot upsert it, so it is skipped.
-                    outcome.skipped += 1;
-                    continue;
+                // A row without an `id` cannot match a stored row, so it is
+                // always an insert — and the baseline MINTS its primary key
+                // (`_get_or_create`: "a snapshot row without an `id` gets a
+                // freshly generated UUID"). Skipping it instead silently drops
+                // data from a hand-written or third-party snapshot.
+                let id_owned = match object.get("id").and_then(|value| value.as_str()) {
+                    Some(existing) => existing.to_string(),
+                    None => crate::store::new_uuid(),
                 };
+                let id = id_owned.as_str();
 
                 let existing_updated_at: Option<String> = sqlx::query_scalar(&format!(
                     "SELECT updated_at FROM {} WHERE id = ?",
@@ -362,6 +373,80 @@ async fn business_data_differs(
     Ok(false)
 }
 
+/// Reject a snapshot whose rows could never be read back (`_validate_payload`).
+///
+/// Runs BEFORE the transaction opens, so an invalid payload writes nothing.
+/// The baseline validates `positions` rows against the `PositionRead` contract
+/// (`_position_problems`); the other tables are only shape-checked, which
+/// `ica-contracts::body::import_payload` has already done.
+fn validate_import_payload(data: &Map<String, Value>) -> Result<(), RepositoryError> {
+    let mut problems: Vec<serde_json::Value> = Vec::new();
+
+    if let Some(rows) = data.get("positions").and_then(|value| value.as_array()) {
+        for (index, row) in rows.iter().enumerate() {
+            let Some(record) = row.as_object() else {
+                continue;
+            };
+
+            let name = record.get("name");
+            let name_ok = name
+                .and_then(|value| value.as_str())
+                .map(|text| !text.trim().is_empty() && text.chars().count() <= 200)
+                .unwrap_or(false);
+            if !name_ok {
+                problems.push(serde_json::json!({
+                    "table": "positions",
+                    "index": index,
+                    "field": "name",
+                    "message": "name is required and must be a string",
+                    "value": name.cloned().unwrap_or(Value::Null),
+                }));
+            }
+
+            // `bool` is not a salary, and a negative one cannot be read back.
+            for field in ["salary_min", "salary_max"] {
+                let Some(value) = record.get(field) else {
+                    continue;
+                };
+                if value.is_null() {
+                    continue;
+                }
+                let valid = value
+                    .as_i64()
+                    .map(|number| number >= 0)
+                    // `true`/`false` serialise as booleans, so `as_i64` is None
+                    // for them and they land here as invalid — matching the
+                    // baseline's explicit bool check.
+                    .unwrap_or(false);
+                if !valid {
+                    problems.push(serde_json::json!({
+                        "table": "positions",
+                        "index": index,
+                        "field": field,
+                        "message": format!("{field} must be an integer"),
+                        "value": value.clone(),
+                    }));
+                }
+            }
+        }
+    }
+
+    if problems.is_empty() {
+        return Ok(());
+    }
+
+    let mut details = std::collections::BTreeMap::new();
+    details.insert(
+        "errors".to_string(),
+        serde_json::to_string(&problems).unwrap_or_else(|_| "[]".to_string()),
+    );
+    Err(RepositoryError::invalid_with_code(
+        "import_validation_error",
+        "Import payload contains rows that could not be read back; nothing was written",
+        details,
+    ))
+}
+
 /// Insert one row. Returns `false` when the row cannot be written as-is (a
 /// missing required column), which the caller counts as a conflict — the
 /// baseline does the same for an incomplete row.
@@ -372,20 +457,55 @@ async fn insert_row(
     id: &str,
 ) -> Result<bool, RepositoryError> {
     let mut columns: Vec<&str> = Vec::new();
-    let mut placeholders: Vec<&str> = Vec::new();
+    let mut placeholders: Vec<String> = Vec::new();
     let mut values: Vec<Value> = Vec::new();
 
     for (name, kind) in spec.columns {
-        let value = object.get(*name).cloned().unwrap_or(Value::Null);
-        // A NOT NULL text column with no value cannot be inserted.
-        if value.is_null() && is_required_text(spec.name, name) {
-            return Ok(false);
-        }
+        // Only the columns the snapshot MENTIONS get a value. For the rest the
+        // INSERT leaves the column out, so the DDL's DEFAULT (or the ORM
+        // default from `column_defaults`) applies — exactly what the baseline's
+        // `_apply_fields_only` produces by iterating `record.items()`.
+        //
+        // Writing NULL for an unmentioned column instead would violate NOT NULL
+        // on a partial row: measured, `{"id":…,"name":"x"}` answered 500
+        // `NOT NULL constraint failed: candidates.source`.
+        let Some(value) = object.get(*name) else {
+            // No value given: supply what the ORM would have supplied.
+            //
+            //   * a static default from `column_defaults` (JSON literal);
+            //   * `created_at` / `updated_at`, whose model default is a
+            //     CALLABLE (`datetime.now`) and therefore cannot be a literal;
+            //   * otherwise omit the column and let SQLite apply its own
+            //     DEFAULT (or report a genuine NOT NULL violation, which is
+            //     what the baseline would do without an ORM default).
+            if *name == "id" {
+                continue;
+            }
+            if let Some(literal) = crate::column_defaults::column_default(spec.name, name) {
+                columns.push(name);
+                placeholders.push(literal.to_string());
+                continue;
+            }
+            if matches!(*name, "created_at" | "updated_at") {
+                columns.push(name);
+                placeholders.push("?".to_string());
+                values.push(Value::String(to_sql_timestamp(&Utc::now())));
+            }
+            continue;
+        };
+
         columns.push(name);
-        placeholders.push("?");
-        values.push(coerce_for_write(value, *kind));
+        placeholders.push("?".to_string());
+        values.push(coerce_for_write(value.clone(), *kind));
     }
-    let _ = id;
+
+    // The id is always written: a snapshot row without one gets a fresh UUID,
+    // because a record with no lookup key cannot match a stored row
+    // (`_get_or_create`: "a snapshot row without an `id` gets a freshly
+    // generated UUID").
+    columns.push("id");
+    placeholders.push("?".to_string());
+    values.push(Value::String(id.to_string()));
 
     let sql = format!(
         "INSERT INTO {} ({}) VALUES ({})",
@@ -442,24 +562,6 @@ async fn update_row(
     }
     query.bind(id).execute(&mut *tx).await.map_err(repo_error)?;
     Ok(true)
-}
-
-/// Columns that are NOT NULL in the schema; a missing value there cannot be
-/// written.
-fn is_required_text(table: &str, column: &str) -> bool {
-    matches!(
-        (table, column),
-        ("candidates", "name")
-            | ("positions", "name")
-            | ("conversations", "candidate_id")
-            | ("messages", "candidate_id")
-            | ("import_sessions", "source")
-            | ("import_records", "session_id")
-            | ("follow_up_tasks", "candidate_id")
-            | ("audit_events", "event_type")
-            | ("app_settings", "key")
-            | ("ai_model_configs", "model_id")
-    )
 }
 
 /// Turn a JSON value back into something SQLite stores: booleans become 0/1 and

@@ -313,18 +313,18 @@ pub async fn ocr_screenshot(
         });
     }
 
-    ocr.ensure_available()?;
-
-    let text = match ocr.read_text(&resolved).await {
-        Ok(text) => text,
-        Err(error) => {
-            // The staging copy is dropped on the failure path too.
-            let _ = std::fs::remove_file(&resolved);
-            return Err(error);
-        }
-    };
-
+    // The staging copy is dropped on EVERY path from here on — success, a
+    // decode failure, or the engine simply not being installed. The baseline
+    // wraps the whole read in `try/finally: _discard_ocr_file(...)`, so a
+    // screenshot never lingers in the upload area; returning early on
+    // `ensure_available` used to leak one file per 503.
+    let read = async {
+        ocr.ensure_available()?;
+        ocr.read_text(&resolved).await
+    }
+    .await;
     let _ = std::fs::remove_file(&resolved);
+    let text = read?;
 
     let session = preview_import(
         imports,
