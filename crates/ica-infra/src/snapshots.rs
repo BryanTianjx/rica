@@ -202,6 +202,8 @@ impl DataSnapshotRepository for SqliteStore {
             ExportOutcome::Sealed(sealed) => {
                 // The baseline takes the counts from the snapshot it read
                 // BEFORE sealing, so an encrypted export reports them too.
+                // `sealed.tables` is already in the baseline's declaration
+                // order; inserting into an order-preserving `Map` keeps it.
                 let mut counts = Map::new();
                 for (name, count) in &sealed.tables {
                     counts.insert(name.clone(), Value::from(*count as i64));

@@ -43,7 +43,13 @@ pub struct SealedSnapshot {
     /// with the sealed outcome for exactly that reason: the audit row is
     /// written after sealing, and it must not be blank just because the
     /// document went out as ciphertext.
-    pub tables: std::collections::BTreeMap<String, usize>,
+    ///
+    /// A `Vec` and NOT a `BTreeMap`: the audit column is TEXT, so the KEY
+    /// ORDER of this object is part of the bytes. The baseline builds it with
+    /// a dict comprehension over its table list, which keeps
+    /// `_BUSINESS_TABLES` declaration order — a `BTreeMap` would sort the keys
+    /// alphabetically and produce a different, unequal string.
+    pub tables: Vec<(String, usize)>,
 }
 
 /// What `export_data` produced: plaintext, or the sealed envelope.
@@ -78,7 +84,8 @@ pub async fn export_data(
         Some(key) => {
             // The row counts are taken from the snapshot BEFORE sealing: the
             // baseline's audit records them for an encrypted export too.
-            let tables: std::collections::BTreeMap<String, usize> = snapshot
+            // Declaration order, not alphabetical — see the field's doc.
+            let tables: Vec<(String, usize)> = snapshot
                 .data
                 .iter()
                 .filter_map(|(name, value)| value.as_array().map(|rows| (name.clone(), rows.len())))
