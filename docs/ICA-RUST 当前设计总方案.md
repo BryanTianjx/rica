@@ -26,6 +26,7 @@
 | 卡片台账 | 23 张（3 完成 / 14 已批准未开工 / 1 READY / 1 待批 / 1 BLOCKED / 3 取消） | `woticketflow_cli.py work-item list` |
 | 质量门 | 4 关全绿（**自动化门禁，不等于独立验收** — 见 ADR-0005） | `bash scripts/check.sh` |
 | 端点对账 | 45 + 23 = 68 ✓，额外路由 0 | `python3 scripts/endpoint_reconciliation.py` |
+| 契约外增量 | 5 条：4 条 `ai/models` CRUD + `confirm-candidate` | ADR-0003 D-2 补充裁决 |
 
 **当前处境一句话**：后端迁移的**主体已建成且可验证**（**45/68** 端点、335 测试、对拍 220/222），
 但**W4 未通过独立验收**，且新增的 Browser / Agent / Frontend 三条产品线**尚未开工**——
@@ -155,8 +156,11 @@ OCR-REPORT.md       FAIL   「逐字符一致」不成立（检测器输入限�
 | AI-EXT | AI Models Extension Contract（4 条 `ai/models`，单独立波次） | 5 | APPROVED |
 | W7 | 浏览器抽取写路径迁移（`confirm-candidate` + 33/9 列表） | 8 | APPROVED |
 
-**W5 + W6 共 23 条端点尚未立项**——契约表已划定归属，但**没有对应的 Work Item**。
-这是台账上的一个真实缺口。
+**W5 + W6 共 23 条端点**：已由 `ICA-RUST-W5-W6` 承接（2026-11-20 批准）。
+范围固定 23 条：AI 6 + Settings/Audit/Backups 9 + Auth 5 + Shares 3。
+
+> 4 条 `ai/models` CRUD 归 `AI-EXT`，但它们在**契约表外**，
+> 不在 23 条之内，因此 W5-W6 不扣减（见 §4.6 与 ADR-0003 D-2 补充）。
 
 ### 3.4 第三批：Browser Subsystem（准入中）
 
@@ -351,6 +355,24 @@ python3 scripts/endpoint_reconciliation.py --out <path>             # 生成文�
 **三个指标当前同值，是因为所有已实现端点都已进对拍且通过。**
 W4 三份审计 FAIL 之后，Verification Coverage 应当**低于** Implementation Coverage
 ——那才是真实状态。**不要用一个「已完成端点数」代表这三个指标。**
+
+### 契约外增量（别再算错）
+
+`check_endpoint_map.py` 报「73 live / 68 documented，差 5 条」。这 5 条是：
+
+| 端点 | 归属 | 性质 |
+| --- | --- | --- |
+| `POST /ai/models` | AI-EXT | 契约外增量 |
+| `PUT /ai/models/{model_id:path}` | AI-EXT | 契约外增量 |
+| `PUT /ai/models/{model_id:path}/default` | AI-EXT | 契约外增量 |
+| `DELETE /ai/models/{model_id:path}` | AI-EXT | 契约外增量 |
+| `POST /api/imports/{session_id}/confirm-candidate` | W7 | 契约外增量 |
+
+**算术：68（冻结契约）+ 4（ai/models CRUD）+ 1（confirm-candidate）= 73 live 业务路由。**
+
+> **注意**：`GET /ai/models` **在** 68 条契约内（编号 1，属 W5），
+> 与上面 4 条 CRUD 不是一回事。所以 `ICA-RUST-W5-W6` 恒为 **23 条**，
+> 不会因为「4 条归 AI-EXT」而变成 19 条——那 4 条不在 23 里。
 
 ---
 

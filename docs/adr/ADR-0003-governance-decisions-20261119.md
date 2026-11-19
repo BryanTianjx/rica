@@ -112,6 +112,57 @@ frontend/src/services/endpoints.ts
 **待裁决补充**：AI Models Extension Contract 是本波次实施还是单独立波次，
 以及 Rust 前端的过渡方案（继续走 Python 后端，还是等 Rust 实现）。
 
+
+---
+
+## D-2 补充裁决（2026-11-20 00:5x CST）· 4 条 `ai/models` 归 AI-EXT
+
+**裁决：4 条 `ai/models` 端点归 `ICA-RUST-AI-EXT`，不进 `ICA-RUST-W5-W6`。**
+
+### 一个必须纠正的前提（实测）
+
+此前在 W5-W6 卡草稿里写过一个二选一：「若 AI-EXT 另立波次，则本卡 19 条」。
+**这个假设是错的**，二选一本身不成立。
+
+实测（2026-11-20）：
+
+```
+基线 live 的 /ai/* 路由      10 条
+契约表里的 /ai/*              6 条
+契约表外的 4 条：
+  POST   /ai/models
+  PUT    /ai/models/{model_id:path}
+  PUT    /ai/models/{model_id:path}/default
+  DELETE /ai/models/{model_id:path}
+```
+
+**这 4 条从来不在 68 条契约表内。** 它们正是
+`check_endpoint_map.py` 报的「73 live / 68 documented，差 5 条」里的那 4 条
+（第 5 条是 `POST /api/imports/{session_id}/confirm-candidate`）。
+
+因此：
+
+- `ICA-RUST-W5-W6` 的范围**恒为 23 条**（含 `GET /ai/models` 这一条 read 端点），
+  不存在「19 条」的可能——那 4 条不在 23 里，减不出来。
+- `ICA-RUST-AI-EXT` 的 4 条是**契约外增量**，与本卡**不重叠、不扣减**。
+
+### 算术自洽
+
+```
+68（冻结契约）
++ 4（ai/models CRUD，契约外）
++ 1（confirm-candidate，契约外）
+= 73（live 业务路由）✓ 与 check_endpoint_map.py 的 73 一致
+```
+
+### 对卡片的处置
+
+- `ICA-RUST-W5-W6`：AC1 措辞已按本裁决对齐（意图未变——仍是「范围确定」，
+  只是把错误的二选一换成已裁决的固定值）；`audit_events` 留
+  `ENDPOINT_SCOPE_CLARIFIED` 存证。
+- `ICA-RUST-AI-EXT`：4 条定性为「契约外增量」，需独立契约文档，
+  不进 68 条计数，不影响 W5-W6 的 23 条。
+
 ---
 
 ## D-3 · 39 条 `/api/browser/*` 路由
