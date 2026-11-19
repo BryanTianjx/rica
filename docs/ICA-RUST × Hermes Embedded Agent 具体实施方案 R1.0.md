@@ -290,7 +290,15 @@ AgentAuditEvent
 - 查询跟进事项。
 - 提交待审批跟进建议。
 
-**永远不向 Agent 暴露招聘平台消息发送能力。**
+**永远不向 Agent 暴露可直接执行招聘平台消息发送的工具或权限。**
+消息发送只能由 ICA Application 在用户逐条审批后，通过受控 Browser Runtime 执行。
+
+> **修订说明（2026-11-19，产品裁决 D-6/D-7）**：原措辞为「永远不向 Agent 暴露招聘平台
+> 消息发送能力」。该措辞与《ICA Browser Subsystem Architecture R1.0》允许「用户逐条确认后
+> 由浏览器执行发送」表面矛盾。裁决为**修订而非删除安全约束**——区分「Agent 能力」与
+> 「ICA 执行能力」：Agent 永远没有直接发送工具与执行权限；ICA Application 可以在用户
+> 逐条审批后调度受控 Browser Runtime 执行单条发送。完整裁决见
+> `docs/adr/ADR-0003-governance-decisions-20261119.md` D-6 / D-7。
 
 此外，必须保留以下状态差异：
 
@@ -307,6 +315,17 @@ User Sent Manually
 ```
 
 `Approved` 不代表 `Copied`，`Copied` 不代表 `Sent`。Agent 不得将用户尚未确认的动作伪装为已完成。
+
+> **执行状态模型扩展（2026-11-19，裁决 D-7）**：当受控发送能力在 V2.0 落地时，
+> 发送侧使用独立的状态模型，不复用旧的 Approved / Copied / Sent：
+>
+> ```
+> Draft → Pending Approval → Approved → Executing → Sent / Failed / Unknown
+> ```
+>
+> **`Unknown` 必须进入人工核验，不能自动重试。**
+> `Sent` 只在 Browser Worker 返回证据且 ICA Application 核验通过后才成立；
+> 发送结果不确定时不得记为 `Sent`，也不得自动重试。
 
 ## **五、MCP Tool 契约设计**
 
