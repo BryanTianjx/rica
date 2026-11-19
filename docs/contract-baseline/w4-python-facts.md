@@ -274,3 +274,57 @@ git diff --stat -- backend/app/api/imports.py   backend/app/application/conversa
 而 `wait_for_health()` 会连上**先到者**并打印 "python is up"，
 于是 capture 打到别人的库上——表现为几十处「契约差异」，实际是夹具污染。
 规避：用 `WORK` / `PY_PORT` / `RUST_PORT` 隔离；这两个环境变量现在都支持。
+
+## 13. OCR：真引擎的实测事实
+
+### 13.1 模型就是同一套
+
+基线用 Python `rapidocr`（RapidOCR v3.9.0），模型在
+`.venv/lib/python3.12/site-packages/rapidocr/models/`：
+`PP-OCRv6_det_small.onnx`（9.5 MB）、`PP-OCRv6_rec_small.onnx`（21 MB）、
+`ch_ppocr_mobile_v2.0_cls_mobile.onnx`（572 KB）、`ppocrv6_dict.txt`。
+
+Rust 侧用 `rapidocr-core` 的 `ppocrv6-small` 模型集 —— **同一批文件**：
+四个文件的 SHA256 与 crate 内置的期望值逐一核对一致：
+
+```
+090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f  PP-OCRv6_det_small.onnx
+6f327246b50388f3c176ae304bd95767ea6dc0c9ae92153ef8cbe210b3c14884  PP-OCRv6_rec_small.onnx
+e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c  ch_ppocr_mobile_v2.0_cls_mobile.onnx
+b5f2bfe2bdd9448429e3e82b51c789775d9b42f2403d082b00662eb77e401c5d  ppocrv6_dict.txt
+```
+
+同一套模型 + 同一套后处理 ⇒ 识别文本逐字符相同（实测 3 张图全部一致）。
+
+### 13.2 基线把连字符删掉了（照抄）
+
+```python
+_EXCLUDED_CHARS = set('\ufffd\x00-\x08\x0e-\x1f')
+```
+
+这是**集合字面量，不是范围**。实际内容 =
+`{U+0000, U+0008, U+000E, U+001F, U+002D('-'), U+FFFD}`。
+所以**所有连字符都被删除**：`2026-11-18` → `20261118`。
+
+源码注释写的是「collapse whitespace」，但它既不折叠空格也不删空格——
+这是一处基线 quirk，但它是**契约**：识别文本要喂给 import 解析器，
+少一个连字符就可能改变解析结果。Rust 侧逐字符复刻这个集合。
+
+### 13.3 三个运行期陷阱（都是实测踩出来的，不是读代码看出来的）
+
+| 陷阱 | 症状 | 处置 |
+| --- | --- | --- |
+| `ModelDownloadMode::Missing` 在模型缺失时建 `reqwest` **blocking** client | 在 async 任务里 panic：`Cannot drop a runtime in a context where blocking is not allowed` | 改 `Never`：模型缺失是可读的 503，不是 panic |
+| `tokio::task::spawn_blocking` 在 current-thread runtime 里 | 同样 panic（`#[tokio::test]` 就是这种 runtime） | 按 `RuntimeFlavor` 判断，无 blocking pool 时同步跑 |
+| desktop 层还接着旧的桩引擎 | HTTP 侧真 OCR，desktop 侧仍 503 `ocr_unavailable` | 删掉桩，只留 `RapidOcrEngine` |
+
+### 13.4 端到端实测（同一张图，两侧）
+
+| 用例 | python | rust |
+| --- | --- | --- |
+| 英文 | `Hello OCR\nCandidate: hi there` | 同 |
+| 带日期 | `20261118 10:00\nRecruiter: welcome` | 同 |
+| 聊天体 | `Candidate: I am interested\n…` | 同 |
+| 非图片文件 | 409 `ocr_image_undecodable` | 同 |
+
+暂存文件两侧都在**每个路径**删除（成功、解码失败、引擎缺失），无残留。
