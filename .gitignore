@@ -23,3 +23,6 @@ target/
 # and by the audit commands, which leaves __pycache__ directories behind.
 __pycache__/
 *.py[cod]
+
+# The OCR engine's model cache is created at runtime; never commit it.
+crates/*/models/
