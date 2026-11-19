@@ -685,8 +685,10 @@ Hermes Runtime 正式集成 → MCP Tool Gateway → Agent Task Lifecycle
 | W5/W6 实现 | ❌ | 等 Phase 1 闭环 |
 
 **这样既不会浪费时间，也不会破坏 W4 的验收边界。**
-本条需要一次显式裁决（写入 ADR-0003 的补充或新 ADR），
-在裁决前按上表的「建议口径」执行。
+
+> **已裁决（2026-11-20 00:54 CST）**：用户按上表口径裁决，
+> 记录为 **ADR-0003 的 D-12**。判据收敛为两条：是否修改 `crates/` 实现代码、
+> 是否改变冻结契约——两条都不触犯才可并行；判断不准时按「不可并行」处理（fail-closed）。
 
 
 ---
@@ -698,9 +700,9 @@ Hermes Runtime 正式集成 → MCP Tool Gateway → Agent Task Lifecycle
 | `docs/rust-migration-contract.md` | **契约主文档**：68 条端点表、波次划分、分层规则、declared improvements |
 | `docs/adr/ADR-0002-rust-backend-migration-reinstated.md` | Rust 迁移决议（含 R1：wire 契约上移 `ica-contracts`） |
 | `docs/adr/ADR-0003-governance-decisions-20261119.md` | **治理裁决 D-1…D-11**（2026-11-19） |
-| `docs/adr/ADR-0004-ica-runtime-architecture.md` | Runtime 边界与 Execution Gateway（**Proposed**） |
-| `docs/adr/ADR-0005-five-tier-quality-gates.md` | 五级质量门与不可变验收记录（**Proposed**） |
-| `docs/adr/ADR-0006-baseline-layers-and-change-handling.md` | 基线四层概念与变更处置（**Proposed**） |
+| `docs/adr/ADR-0004-ica-runtime-architecture.md` | Runtime 边界与 Execution Gateway（**Accepted** 2026-11-20） |
+| `docs/adr/ADR-0005-five-tier-quality-gates.md` | 五级质量门与不可变验收记录（**Accepted** 2026-11-20） |
+| `docs/adr/ADR-0006-baseline-layers-and-change-handling.md` | 基线四层概念与变更处置（**Accepted** 2026-11-20） |
 | `docs/migration/reconciliation/endpoint-matrix-r1.md` | **端点对账矩阵**（生成物，勿手改） |
 | `docs/contract-baseline/w{2,3,4}-python-facts.md` | 各波次的 Python 基线实测事实 |
 | `docs/architecture/browser/browser-route-inventory-r1.md` | 39 条 browser 路由逐条盘点 |
@@ -770,12 +772,28 @@ Hermes Runtime 正式集成 → MCP Tool Gateway → Agent Task Lifecycle
 §3.2 的「先恢复 W4 再开放新产品线」与「G3/F0-AUDIT 可立即开始」存在歧义。
 §4.15 给了建议口径（允许只读调查与审计，不允许实现进入），但**需要一次显式裁决**。
 
-### 6.9 三份 ADR 处于 Proposed
+### 6.9 三份 ADR 已批准，但带一项硬依赖
 
-ADR-0004（Runtime 边界与 Execution Gateway）、
-ADR-0005（五级质量门与不可变验收记录）、
-ADR-0006（基线四层概念与变更处置）**均为提案，未批准**。
-它们约束后续所有卡片的判据口径，批准前不应视为既定设计。
+ADR-0004 / 0005 / 0006 已于 **2026-11-20 00:54 CST 批准（Accepted）**，
+批准依据是用户明确表态「三份 ADR 批」。
+
+**但 ADR-0004 落地时发现一项硬依赖（已写入其 §5.1 / §6）：**
+
+Execution Gateway 的 Policy Engine **没有现成授权设施可复用**——
+实测 `crates/ica-application/` 下无 auth/access 模块，当前是 local 单用户模式
+（`LOCAL_ACTOR = "local_user"`）。
+
+因此：
+
+```
+W6（Auth + Shares）→ Policy Engine → Execution Gateway → B5/B6 + Agent 受控工具
+```
+
+**在 W6 完成前，Gateway 只能以单用户降级形态存在，
+且不得在任何验收结论中被引用为「权限隔离已实现」。**
+
+另：correlation id 当前在 Rust 侧**完全不存在**（`grep` 0 命中），
+Python 基线审计表也无该列——需要新建，不是复用。
 
 ### 6.10 三份审计报告已归档
 

@@ -1,6 +1,9 @@
 # ADR-0004 — ICA Runtime 架构边界与统一执行网关
 
-- **状态：** Proposed（待批准）
+- **状态：** **Accepted**
+- **批准人：** Bryan
+- **批准时间：** 2026-11-19T16:54Z（CST 2026-11-20 00:54）
+- **批准依据：** 用户明确表态「三份 ADR 批」（2026-11-20 00:54 CST 会话裁决）
 - **日期：** 2026-11-19
 - **依据：** 《ICA-RUST 当前设计总方案：架构评审与改进建议》§3.1
 - **关联：** ADR-0002（Rust 迁移）、ADR-0003（治理裁决 D-1…D-11）
@@ -138,9 +141,75 @@ Agent Task → MCP Tool Call → Approval → Browser Execution → Business Upd
 
 ---
 
-## 5. 待批准前必须澄清
+## 5. 澄清项（批准后实测答复，2026-11-20）
 
-- Execution Gateway 与现有 `ica-application` 的授权设施如何复用？
-- correlation id 是否复用现有的 `request_id` / `correlation_id` 字段，
-  还是引入新的跨进程标识？
-- 首期是否需要 IPC 与 HTTP 各自一个网关入口，还是共用同一实现？
+### 5.1 与既有授权设施如何复用 —— **前置依赖 W6，当前无设施可复用**
+
+实测（2026-11-20）：
+
+```
+crates/ica-application/src/ 下无 auth/access/permission 模块
+grep 'fn authorize|fn require_access|AccessScope' crates/  →  0 命中
+```
+
+当前是 **local 单用户模式**，由常量标识身份：
+
+```rust
+pub const LOCAL_OWNER_ID: &str = "00000000-0000-0000-0000-000000000001";
+pub const LOCAL_ACTOR: &str = "local_user";
+pub const DEFAULT_TENANT_ID: &str = "00000000-0000-0000-0000-000000000000";
+```
+
+**结论**：Execution Gateway 的 Policy Engine **没有现成的授权设施可复用**。
+它依赖 W6（Auth 5 条 + Shares 3 条）先建立真实的用户与权限模型。
+
+**因此本 ADR 的实施顺序约束是**：Policy Engine 的完整实现
+**必须在 W6 之后**，或至少与 W6 同步设计。在 W6 之前，
+Gateway 只能做「单用户 + 无授权判断」的降级形态——
+那种形态**不构成安全边界**，不得被当作 Agent 隔离的证据。
+
+### 5.2 correlation id —— 当前不存在，需新建
+
+实测：
+
+```
+grep -rn 'correlation_id|request_id' crates/ --include='*.rs'  →  0 命中
+```
+
+Rust 侧目前**没有任何请求级关联标识**。Python 基线的审计表也没有该列
+（审计事件只有 `entity_type` / `entity_id`）。
+
+**结论**：需要新建。建议作为**独立的一等字段**引入，不复用 `entity_id`
+（`entity_id` 是业务对象标识，correlation id 是一次操作链路的标识，
+语义不同）。存放位置与是否加表列，由 W6 之后的 schema 变更一并决定。
+
+### 5.3 IPC 与 HTTP 是否共用同一网关 —— **共用，但入口分离**
+
+`ica-desktop` 的 46 个 IPC 命令与 `ica-api` 的 45 条 HTTP 路由，
+目前都直接调用 `ica-application` 的用例函数，**没有额外中间层**。
+
+**结论**：Execution Gateway 作为 `ica-application` 内的服务，
+**IPC 与 HTTP 共用同一实现**——这符合 ADR-0002 R1 把 wire 契约上移
+`ica-contracts` 的方向（两侧共用 DTO，也应共用业务逻辑）。
+
+「入口分离」指的是：IPC 侧与 HTTP 侧各自做协议适配与参数校验，
+但**授权、审批校验、幂等、审计这四件事只在 Gateway 内做一次**。
+
+---
+
+## 6. 实施顺序约束（批准后追加）
+
+本 ADR 的完整落地有硬依赖：
+
+```
+W6（Auth + Shares，23 条剩余端点的一部分）
+   ↓  提供真实用户与权限模型
+Policy Engine 完整实现
+   ↓
+Execution Gateway 完整实现
+   ↓
+B5/B6（Browser 审批与执行）+ Agent 受控工具
+```
+
+**在 W6 完成前**，Gateway 只能以单用户降级形态存在，
+且**不得在任何验收结论中被引用为「权限隔离已实现」**。
