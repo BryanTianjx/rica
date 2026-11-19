@@ -8,6 +8,7 @@ use ica_domain::{
     Candidate, Conversation, FollowUpPolicy, FollowUpTask, FollowUpTaskStatus, GeneratedDraft,
     Message, Position, SendRecord,
 };
+use serde_json::Value;
 
 use crate::error::ApplicationError;
 use crate::payload::{
@@ -63,10 +64,11 @@ pub enum RepositoryErrorKind {
     ///
     /// The code matters: an import payload that cannot be read back is
     /// `import_validation_error`, not the generic `validation_error`.
-    Invalid {
-        code: &'static str,
-        details: BTreeMap<String, String>,
-    },
+    /// `details` is free-form JSON: the import validator's `details.errors`
+    /// is an ARRAY of row problems on the wire (the baseline's
+    /// `details={"errors": problems}`), not a stringified list — a client
+    /// parses it, it does not `json.loads` it.
+    Invalid { code: &'static str, details: Value },
 }
 
 impl RepositoryError {
@@ -94,7 +96,7 @@ impl RepositoryError {
     }
 
     /// A validation refusal: the baseline's `ValidationError` (422).
-    pub fn invalid(message: impl Into<String>, details: BTreeMap<String, String>) -> Self {
+    pub fn invalid(message: impl Into<String>, details: Value) -> Self {
         Self {
             message: message.into(),
             kind: RepositoryErrorKind::Invalid {
@@ -108,7 +110,7 @@ impl RepositoryError {
     pub fn invalid_with_code(
         code: &'static str,
         message: impl Into<String>,
-        details: BTreeMap<String, String>,
+        details: Value,
     ) -> Self {
         Self {
             message: message.into(),
@@ -164,7 +166,7 @@ impl RepositoryError {
                 crate::error::ApplicationError::ValidationWithCode {
                     code,
                     message: self.message.clone(),
-                    details: serde_json::json!(details),
+                    details: details.clone(),
                 }
             }
             RepositoryErrorKind::Unavailable => crate::error::ApplicationError::Unavailable {

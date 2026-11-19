@@ -147,7 +147,16 @@ impl DataSnapshotRepository for SqliteStore {
                 // (`_get_or_create`: "a snapshot row without an `id` gets a
                 // freshly generated UUID"). Skipping it instead silently drops
                 // data from a hand-written or third-party snapshot.
-                let id_owned = match object.get("id").and_then(|value| value.as_str()) {
+                //
+                // The baseline gates on `if not row_id`, so `null` AND `""`
+                // both count as "no id": `null` used to 500 (the NULL reached
+                // the INSERT) and `""` used to insert an empty-string primary
+                // key — both measured by the independent audit (N-1 / P2-4).
+                let id_owned = match object
+                    .get("id")
+                    .and_then(|value| value.as_str())
+                    .filter(|text| !text.is_empty())
+                {
                     Some(existing) => existing.to_string(),
                     None => crate::store::new_uuid(),
                 };
@@ -310,6 +319,22 @@ impl DataSnapshotRepository for SqliteStore {
     }
 }
 
+/// Python's `==` on a boolean column: `0 == False`, `1 == True`, and anything
+/// else falls back to plain (unequal) comparison — `2 == True` is False and
+/// `0 == None` is False in Python 3 too.
+fn bool_value_eq(incoming: &Value, stored: &Value) -> bool {
+    let normalize = |value: &Value| match value {
+        Value::Bool(flag) => Some(*flag),
+        Value::Number(number) if number.as_i64() == Some(0) => Some(false),
+        Value::Number(number) if number.as_i64() == Some(1) => Some(true),
+        _ => None,
+    };
+    match (normalize(incoming), normalize(stored)) {
+        (Some(left), Some(right)) => left == right,
+        _ => incoming == stored,
+    }
+}
+
 /// Whether the payload's business columns differ from the stored row.
 ///
 /// `id` and `updated_at` are excluded: they are the merge key and the LWW
@@ -326,7 +351,10 @@ async fn business_data_differs(
     object: &Map<String, Value>,
     id: &str,
 ) -> Result<bool, RepositoryError> {
-    let columns: Vec<&str> = spec.columns.iter().map(|(name, _)| *name).collect();
+    let columns: Vec<&str> = crate::export_tables::import_columns(spec)
+        .iter()
+        .map(|(name, _)| *name)
+        .collect();
     let sql = format!(
         "SELECT {} FROM {} WHERE id = ?",
         columns.join(", "),
@@ -339,7 +367,10 @@ async fn business_data_differs(
         .map_err(repo_error)?;
     let Some(row) = row else { return Ok(false) };
 
-    for (index, (name, kind)) in spec.columns.iter().enumerate() {
+    for (index, (name, kind)) in crate::export_tables::import_columns(spec)
+        .iter()
+        .enumerate()
+    {
         if *name == "id" || *name == "updated_at" {
             continue;
         }
@@ -364,6 +395,11 @@ async fn business_data_differs(
                     _ => incoming == &stored,
                 }
             }
+            // Python compares a boolean column's value with `==`, where
+            // `0 == False` and `1 == True` — a numeric 0/1 in the payload (a
+            // raw SQLite dump) must not report a phantom conflict (audit
+            // LWW P2-2).
+            ColKind::Bool => bool_value_eq(incoming, &stored),
             _ => incoming == &stored,
         };
         if !same {
@@ -379,55 +415,41 @@ async fn business_data_differs(
 /// The baseline validates `positions` rows against the `PositionRead` contract
 /// (`_position_problems`); the other tables are only shape-checked, which
 /// `ica-contracts::body::import_payload` has already done.
+///
+/// The `details.errors` list is the baseline's `details={"errors": problems}`:
+/// an ARRAY of row problems on the wire. (An earlier revision stringified it,
+/// which the independent audit flagged as a contract-visible difference — a
+/// client parses the list, it does not `json.loads` it.)
 fn validate_import_payload(data: &Map<String, Value>) -> Result<(), RepositoryError> {
-    let mut problems: Vec<serde_json::Value> = Vec::new();
+    let mut problems: Vec<Value> = Vec::new();
 
-    if let Some(rows) = data.get("positions").and_then(|value| value.as_array()) {
+    // The baseline walks `_BUSINESS_TABLES` and keeps only the tables that
+    // have a validator; today that is exactly `positions`.
+    if let Some(rows) = data.get("positions") {
+        // A non-array `positions` cannot reach this point through HTTP (the
+        // body validator answers 422 first), but the baseline would enumerate
+        // it and report every element — mirror the reachable shape: rows.
+        let empty = Vec::new();
+        let rows = rows.as_array().unwrap_or(&empty);
         for (index, row) in rows.iter().enumerate() {
             let Some(record) = row.as_object() else {
+                problems.push(row_problem(
+                    index,
+                    Value::Null,
+                    "row must be a JSON object",
+                    Value::Null,
+                ));
                 continue;
             };
-
-            let name = record.get("name");
-            let name_ok = name
-                .and_then(|value| value.as_str())
-                .map(|text| !text.trim().is_empty() && text.chars().count() <= 200)
-                .unwrap_or(false);
-            if !name_ok {
-                problems.push(serde_json::json!({
-                    "table": "positions",
-                    "index": index,
-                    "field": "name",
-                    "message": "name is required and must be a string",
-                    "value": name.cloned().unwrap_or(Value::Null),
-                }));
-            }
-
-            // `bool` is not a salary, and a negative one cannot be read back.
-            for field in ["salary_min", "salary_max"] {
-                let Some(value) = record.get(field) else {
-                    continue;
-                };
-                if value.is_null() {
-                    continue;
+            problems.extend(position_problems(record).into_iter().map(|problem| {
+                let mut entry = Map::new();
+                entry.insert("table".to_string(), Value::String("positions".to_string()));
+                entry.insert("index".to_string(), Value::from(index as u64));
+                for (key, value) in problem {
+                    entry.insert(key, value);
                 }
-                let valid = value
-                    .as_i64()
-                    .map(|number| number >= 0)
-                    // `true`/`false` serialise as booleans, so `as_i64` is None
-                    // for them and they land here as invalid — matching the
-                    // baseline's explicit bool check.
-                    .unwrap_or(false);
-                if !valid {
-                    problems.push(serde_json::json!({
-                        "table": "positions",
-                        "index": index,
-                        "field": field,
-                        "message": format!("{field} must be an integer"),
-                        "value": value.clone(),
-                    }));
-                }
-            }
+                Value::Object(entry)
+            }));
         }
     }
 
@@ -435,16 +457,187 @@ fn validate_import_payload(data: &Map<String, Value>) -> Result<(), RepositoryEr
         return Ok(());
     }
 
-    let mut details = std::collections::BTreeMap::new();
-    details.insert(
-        "errors".to_string(),
-        serde_json::to_string(&problems).unwrap_or_else(|_| "[]".to_string()),
-    );
+    let mut details = Map::new();
+    details.insert("errors".to_string(), Value::Array(problems));
     Err(RepositoryError::invalid_with_code(
         "import_validation_error",
         "Import payload contains rows that could not be read back; nothing was written",
-        details,
+        Value::Object(details),
     ))
+}
+
+/// One entry of the baseline's `details.errors`: `table` + `index` + the
+/// field-level problem (`_problem` keeps the JSON-native value when it is one).
+fn row_problem(index: usize, field: Value, message: &str, value: Value) -> Value {
+    serde_json::json!({
+        "table": "positions",
+        "index": index,
+        "field": field,
+        "message": message,
+        "value": json_problem_value(value),
+    })
+}
+
+/// `_problem` keeps a JSON-native value and stringifies anything else. Python
+/// would render a dict/list with `str()` (single quotes); the closest JSON
+/// rendering is the compact serde text.
+fn json_problem_value(value: Value) -> Value {
+    match value {
+        Value::String(_) | Value::Number(_) | Value::Bool(_) | Value::Null => value,
+        other => Value::String(other.to_string()),
+    }
+}
+
+/// The `positions` row rules the baseline enforces (`_position_problems`),
+/// against the `PositionRead` contract. Every message here is contract text —
+/// it is compared verbatim by the audit probes, so it must stay byte-equal.
+fn position_problems(record: &Map<String, Value>) -> Vec<Map<String, Value>> {
+    const STATUS_VALUES: &[&str] = &["Closed", "Draft", "OnHold", "Open"]; // sorted
+    const TEXT_LIMITS: &[(&str, usize)] = &[("location", 200), ("education_requirements", 200)];
+
+    let mut problems: Vec<Map<String, Value>> = Vec::new();
+
+    let name = record.get("name");
+    match name {
+        Some(Value::String(text)) => {
+            if text.trim().is_empty() {
+                problems.push(field_problem(
+                    "name",
+                    "name is required and must be a string",
+                    name.cloned(),
+                ));
+            } else if text.chars().count() > 200 {
+                problems.push(field_problem(
+                    "name",
+                    "name must be at most 200 characters",
+                    name.cloned(),
+                ));
+            }
+        }
+        _ => {
+            problems.push(field_problem(
+                "name",
+                "name is required and must be a string",
+                Some(name.cloned().unwrap_or(Value::Null)),
+            ));
+        }
+    }
+
+    for (field, limit) in TEXT_LIMITS {
+        let Some(value) = record.get(*field) else {
+            continue;
+        };
+        if value.is_null() {
+            continue;
+        }
+        match value {
+            Value::String(text) => {
+                if text.chars().count() > *limit {
+                    problems.push(field_problem(
+                        field,
+                        &format!("{field} must be at most {limit} characters"),
+                        Some(value.clone()),
+                    ));
+                }
+            }
+            _ => {
+                problems.push(field_problem(
+                    field,
+                    &format!("{field} must be a string"),
+                    Some(value.clone()),
+                ));
+            }
+        }
+    }
+
+    for field in ["salary_min", "salary_max"] {
+        // `in` vs `get`: an explicit `null` is PRESENT and skipped, an absent
+        // key is skipped too — only a present non-null value is checked.
+        let Some(value) = record.get(field) else {
+            continue;
+        };
+        if value.is_null() {
+            continue;
+        }
+        match value {
+            // JSON has no bool-as-int trap (`Value::Bool` is its own variant),
+            // but `true`/`false` still are not salaries.
+            Value::Bool(_) => {
+                problems.push(field_problem(
+                    field,
+                    &format!("{field} must be an integer"),
+                    Some(value.clone()),
+                ));
+            }
+            Value::Number(number) => match number.as_i64() {
+                Some(integral) if integral < 0 => {
+                    problems.push(field_problem(
+                        field,
+                        &format!("{field} must not be negative"),
+                        Some(value.clone()),
+                    ));
+                }
+                Some(_) => {}
+                None => {
+                    // A float is not an integer in Python either.
+                    problems.push(field_problem(
+                        field,
+                        &format!("{field} must be an integer"),
+                        Some(value.clone()),
+                    ));
+                }
+            },
+            _ => {
+                problems.push(field_problem(
+                    field,
+                    &format!("{field} must be an integer"),
+                    Some(value.clone()),
+                ));
+            }
+        }
+    }
+
+    if let Some(status) = record.get("status") {
+        let known = status.as_str().map(|text| STATUS_VALUES.contains(&text));
+        if known != Some(true) {
+            problems.push(field_problem(
+                "status",
+                &format!("status must be one of {}", STATUS_VALUES.join(", ")),
+                Some(status.clone()),
+            ));
+        }
+    }
+
+    if let Some(archived) = record.get("archived") {
+        // SQLite dumps hand back `0`/`1` for a boolean column; the read model
+        // coerces those, so they are readable and must not be rejected (a raw
+        // snapshot from an older database is a supported import source).
+        let acceptable = archived.is_null()
+            || matches!(archived, Value::Bool(_))
+            || archived.as_i64().map(|n| n == 0 || n == 1).unwrap_or(false);
+        if !acceptable {
+            problems.push(field_problem(
+                "archived",
+                "archived must be a boolean",
+                Some(archived.clone()),
+            ));
+        }
+    }
+
+    problems
+}
+
+/// `_problem(field, message, value)`: keeps a JSON-native value, stringifies
+/// the rest.
+fn field_problem(field: &str, message: &str, value: Option<Value>) -> Map<String, Value> {
+    let mut entry = Map::new();
+    entry.insert("field".to_string(), Value::String(field.to_string()));
+    entry.insert("message".to_string(), Value::String(message.to_string()));
+    entry.insert(
+        "value".to_string(),
+        json_problem_value(value.unwrap_or(Value::Null)),
+    );
+    entry
 }
 
 /// Insert one row. Returns `false` when the row cannot be written as-is (a
@@ -460,7 +653,16 @@ async fn insert_row(
     let mut placeholders: Vec<String> = Vec::new();
     let mut values: Vec<Value> = Vec::new();
 
-    for (name, kind) in spec.columns {
+    for (name, kind) in crate::export_tables::import_columns(spec) {
+        // The id is appended once, after this loop, with the minted or given
+        // value. Binding the payload's own `id` entry here too would bind a
+        // JSON `null` twice into the same INSERT — measured as a 500
+        // `NOT NULL constraint failed: candidates.id` for `"id": null`
+        // (audit N-1) — so the `id` column is skipped in this loop, exactly
+        // like `update_row` does.
+        if name == "id" {
+            continue;
+        }
         // Only the columns the snapshot MENTIONS get a value. For the rest the
         // INSERT leaves the column out, so the DDL's DEFAULT (or the ORM
         // default from `column_defaults`) applies — exactly what the baseline's
@@ -469,7 +671,7 @@ async fn insert_row(
         // Writing NULL for an unmentioned column instead would violate NOT NULL
         // on a partial row: measured, `{"id":…,"name":"x"}` answered 500
         // `NOT NULL constraint failed: candidates.source`.
-        let Some(value) = object.get(*name) else {
+        let Some(value) = object.get(name) else {
             // No value given: supply what the ORM would have supplied.
             //
             //   * a static default from `column_defaults` (JSON literal);
@@ -478,15 +680,12 @@ async fn insert_row(
             //   * otherwise omit the column and let SQLite apply its own
             //     DEFAULT (or report a genuine NOT NULL violation, which is
             //     what the baseline would do without an ORM default).
-            if *name == "id" {
-                continue;
-            }
             if let Some(literal) = crate::column_defaults::column_default(spec.name, name) {
                 columns.push(name);
                 placeholders.push(literal.to_string());
                 continue;
             }
-            if matches!(*name, "created_at" | "updated_at") {
+            if matches!(name, "created_at" | "updated_at") {
                 columns.push(name);
                 placeholders.push("?".to_string());
                 values.push(Value::String(to_sql_timestamp(&Utc::now())));
@@ -496,7 +695,7 @@ async fn insert_row(
 
         columns.push(name);
         placeholders.push("?".to_string());
-        values.push(coerce_for_write(value.clone(), *kind));
+        values.push(coerce_for_write(value.clone(), kind));
     }
 
     // The id is always written: a snapshot row without one gets a fresh UUID,
@@ -535,15 +734,15 @@ async fn update_row(
     // columns the caller never mentioned.
     let mut assignments: Vec<String> = Vec::new();
     let mut values: Vec<Value> = Vec::new();
-    for (name, kind) in spec.columns {
-        if *name == "id" {
+    for (name, kind) in crate::export_tables::import_columns(spec) {
+        if name == "id" {
             continue;
         }
-        let Some(value) = object.get(*name) else {
+        let Some(value) = object.get(name) else {
             continue;
         };
         assignments.push(format!("{name} = ?"));
-        values.push(coerce_for_write(value.clone(), *kind));
+        values.push(coerce_for_write(value.clone(), kind));
     }
     if assignments.is_empty() {
         // Nothing to write: the row exists and the payload said nothing about
@@ -564,11 +763,23 @@ async fn update_row(
     Ok(true)
 }
 
-/// Turn a JSON value back into something SQLite stores: booleans become 0/1 and
-/// datetimes keep their ISO text (SQLite has no datetime type).
+/// Turn a JSON value back into something SQLite stores: booleans become 0/1
+/// and datetimes are re-rendered the way the baseline's SQLAlchemy binding
+/// stores a naive UTC datetime (`2033-01-01 00:00:00.000000`, space separator,
+/// fixed microseconds). The snapshot may carry any ISO shape (`…T…+08:00`, a
+/// bare date); the baseline parses it into a datetime object before it binds,
+/// so the ROW text must not keep the wire's `T`/offset form — mixed formats
+/// inside one column make SQLite's text `ORDER BY`/`MAX` disagree with
+/// chronological order (audit observation §2.4). A value that does not parse
+/// keeps its raw text.
 fn coerce_for_write(value: Value, kind: ColKind) -> Value {
     match (value, kind) {
         (Value::Bool(flag), ColKind::Bool) => Value::from(if flag { 1 } else { 0 }),
+        (Value::String(text), ColKind::DateTime) => Value::String(
+            crate::time::parse_sqlite_datetime(&text)
+                .map(|instant| instant.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
+                .unwrap_or(text),
+        ),
         (other, _) => other,
     }
 }

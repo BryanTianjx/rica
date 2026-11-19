@@ -332,7 +332,7 @@ Not served yet, and deliberately out of scope for W1:
 | Delta | Handling |
 | --- | --- |
 | Timestamps | Python (`as_utc` + pydantic) renders `2026-11-10T09:00:00Z`, and six fractional digits **only when non-zero** (`...T12:00:00.500000Z`). Verified against a live server; implemented in `ica-api/src/dto.rs::format_utc`. |
-| `422 details.errors` | The list is pydantic-specific. `contract_diff.py` compares status + `error.code` + `error.message` + the set of `details` keys, and ignores the per-provider error list. The Rust side still emits a structurally similar list (`type`, `loc`, `msg`, `input`). |
+| `422 details.errors` | The list is pydantic-specific. `contract_diff.py` compares status + `error.code` + `error.message` + the set of `details` keys, and ignores the per-provider error list. The Rust side emits the same four keys (`type`, `loc`, `msg`, `input`) with pydantic's JSON types: `loc` array indices are NUMBERS and `input` keeps the original JSON value (a string stays a string, `null` stays null) — the independent W4 audit (LWW P1-1) measured the earlier double-encoded/string-indexed rendering as a real divergence, and it is fixed with regressions in `w4_reaudit_regressions.rs`. The `import_validation_error` list is an ARRAY of `{table, index, field, message, value}` problems, matching the baseline's `details={"errors": problems}`. |
 | `GET /` | Not implemented (not part of the API surface). |
 | Read-only opening | `?mode=ro` (without `immutable`) still updates the `-shm` sidecar's **mtime** of a WAL database — measured, and the cause is *any* such open, including `scripts/compare_baseline_schema.py`; the file's **content sha256 does not change**. The Rust service opens the baseline with `?mode=ro&immutable=true`, which leaves `ica.db`, `-wal` and `-shm` byte- and mtime-identical. |
 | Sort order without tie-break | Every list sorts by a single column (`ORDER BY p.created_at DESC`, `updated_at DESC`, …) with no secondary key, so rows sharing a timestamp have SQL-undefined order. Both sides run the same SQL over the same rows, so the capture is currently stable — but that is agreement by coincidence, not by contract. Adding a tie-break (e.g. `p.id`) would change response order and must be registered as an IMP with frontend sign-off first (audit finding F-11). |
@@ -366,8 +366,11 @@ Deliberately **not** changed, to keep the wave's scope honest:
 - `GET /` keeps its Python behaviour (not implemented at all — it is not part of
   the API surface);
 - no endpoint is added that Python does not have;
-- the per-field text inside `details.errors` is not reproduced verbatim (the
+- the per-field text inside `details.errors` for the ROUTE-level validators
+  (`body.rs`/`query.rs`) is pydantic-shaped but not guaranteed verbatim (the
   comparison compares `code`, `message` and the `details` key set, by design);
+  the IMPORT validator's row problems (`_position_problems`) ARE reproduced
+  verbatim, messages included, because the audit probes compare them textually;
 - timestamps keep the `...T09:00:00Z` rendering from R0;
 - no existing field name, type or required-ness changes, and no sort order or
   error-code enum changes.

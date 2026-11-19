@@ -7,7 +7,7 @@
 //! decode the naive text as UTC here, and let `ica-api` render the explicit
 //! offset.
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 
 /// Formats SQLite may hand back, in the order they are tried.
 ///
@@ -24,8 +24,12 @@ const NAIVE_FORMATS: [&str; 4] = [
 ///
 /// A value carrying an explicit offset (an RFC 3339 string, which a later
 /// migration may introduce) is converted to UTC; a naive value is *assumed*
-/// UTC, exactly like the Python `as_utc` helper. The error names the offending
-/// value so a corrupt row is identifiable from the log alone.
+/// UTC, exactly like the Python `as_utc` helper. A bare date (`2033-01-01`)
+/// is midnight UTC — the baseline's `datetime.fromisoformat` accepts it, and
+/// an LWW merge must not discard a row whose provenance is a date-only
+/// timestamp (audit LWW P2-1: Python updated such a row while the port
+/// answered `skipped: 1, conflicts: 1`). The error names the offending value
+/// so a corrupt row is identifiable from the log alone.
 pub fn parse_sqlite_datetime(raw: &str) -> Result<DateTime<Utc>, String> {
     let trimmed = raw.trim();
 
@@ -39,6 +43,10 @@ pub fn parse_sqlite_datetime(raw: &str) -> Result<DateTime<Utc>, String> {
         }
     }
 
+    if let Ok(date) = NaiveDate::parse_from_str(trimmed, "%Y-%m-%d") {
+        return Ok(date.and_hms_opt(0, 0, 0).unwrap().and_utc());
+    }
+
     Err(format!("cannot parse '{raw}' as a timestamp"))
 }
 
@@ -47,9 +55,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_bare_date_is_not_a_timestamp() {
-        // A date alone would silently become midnight and hide a data defect.
-        assert!(parse_sqlite_datetime("2026-11-10").is_err());
+    fn a_bare_date_is_midnight_utc_like_the_baseline() {
+        // `datetime.fromisoformat("2033-01-01")` is a legal naive datetime and
+        // `_as_utc` takes it as UTC midnight; the LWW merge must accept it as
+        // provenance, not discard the row as timestamp-less.
+        assert_eq!(
+            parse_sqlite_datetime("2033-01-01").unwrap(),
+            parse_sqlite_datetime("2033-01-01 00:00:00.000000").unwrap()
+        );
     }
 
     #[test]

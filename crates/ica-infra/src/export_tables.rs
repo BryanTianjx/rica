@@ -30,6 +30,23 @@ pub struct TableSpec {
     pub columns: &'static [(&'static str, ColKind)],
 }
 
+/// The columns the IMPORT path honours beyond the export spec.
+///
+/// The baseline's `_apply_fields_only` writes any model column the payload
+/// mentions, and `import_sessions.raw_text` is a real model column that is
+/// merely EXCLUDED from exports. A snapshot produced by an older or
+/// third-party tool may carry it, and the baseline would write it — so the
+/// import side must compare and write it too (audit LWW P2-3: the Rust import
+/// used to silently ignore `raw_text`, answering `updated: 1` while leaving
+/// the stored text untouched).
+pub fn import_columns(spec: &TableSpec) -> Vec<(&'static str, ColKind)> {
+    let mut columns: Vec<(&'static str, ColKind)> = spec.columns.to_vec();
+    if spec.name == "import_sessions" {
+        columns.push(("raw_text", ColKind::Text));
+    }
+    columns
+}
+
 /// The tables `export_data` walks, in order.
 pub const BUSINESS_TABLES: &[TableSpec] = &[
     TableSpec {

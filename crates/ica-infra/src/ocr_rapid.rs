@@ -29,8 +29,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use ica_application::{ApplicationError, OcrEngine};
 use rapidocr_core::{
-    config::PipelineConfig,
-    model::{model_set_by_name, ModelCache, ModelDownloadMode},
+    config::{DetInputLimits, PipelineConfig, RapidOcrConfig},
+    model::{model_set_by_name, ModelCache, ModelDownloadMode, ModelSetSpec},
     RapidOcr,
 };
 
@@ -99,6 +99,26 @@ pub fn resolved_model_dir() -> PathBuf {
     model_dir()
 }
 
+/// The pipeline configuration the engine runs with.
+///
+/// The baseline's rapidocr `config.yaml` sets NO detector input limit: a wide
+/// screenshot is upsampled to the `limit_side_len: min` rule whatever its
+/// pixel count. `DetInputLimits::default()` (4096-side / 2048²-pixels /
+/// Downscale) clamps that, and the different input resolution changes where
+/// the detector splits a line — measured as a stable `\n`-vs-space difference
+/// on every image wider than ~757 px, with the differing text landing in
+/// `import_records.content` (audit OCR F1). `unrestricted()` is therefore the
+/// baseline's policy, not an optimization.
+fn engine_config(cache: &ModelCache, model_set: &ModelSetSpec) -> RapidOcrConfig {
+    let mut config = cache
+        .config_for(model_set)
+        .with_pipeline(PipelineConfig::full());
+    if let Some(det) = config.det.as_mut() {
+        det.input_limits = DetInputLimits::unrestricted();
+    }
+    config
+}
+
 /// The process-wide engine, created on first use.
 ///
 /// `RapidOcr` is not `Sync`, and inference must not run two requests at once
@@ -125,10 +145,7 @@ fn engine() -> Result<&'static Arc<Mutex<RapidOcr>>, ApplicationError> {
                 ModelDownloadMode::Never,
             )
             .map_err(|error| format!("OCR models are not available: {error}"))?;
-        let config = cache
-            .config_for(model_set)
-            .with_pipeline(PipelineConfig::full());
-        let engine = RapidOcr::from_config(config)
+        let engine = RapidOcr::from_config(engine_config(&cache, model_set))
             .map_err(|error| format!("OCR engine could not start: {error}"))?;
         Ok(Arc::new(Mutex::new(engine)))
     });
@@ -138,8 +155,11 @@ fn engine() -> Result<&'static Arc<Mutex<RapidOcr>>, ApplicationError> {
         Err(message) => Err(ApplicationError::StatusWithCode {
             status: 503,
             code: "ocr_unavailable",
+            // The baseline's constant, byte for byte (`ocr_service.py`
+            // `ensure_ocr_available`): the wire message is contract text.
             message: "Local OCR is not available on this machine. \
-Install the optional OCR stack to use screenshot import."
+Install the optional OCR stack with `uv pip install -e '.[ocr]'` \
+(RapidOCR + ONNX Runtime) to use screenshot import."
                 .to_string(),
             details: serde_json::json!({ "reason": message }),
         }),
@@ -272,5 +292,29 @@ mod tests {
     #[test]
     fn cleaning_drops_the_replacement_character() {
         assert_eq!(clean("a\u{fffd}b"), "ab");
+    }
+
+    /// **Audit OCR F1**: the detector must run WITHOUT input limits, because
+    /// the baseline's `config.yaml` sets none. The default limits (4096-side /
+    /// 2048²-pixels / Downscale) clamp wide screenshots onto a different
+    /// input resolution, which changes where the detector splits a line — a
+    /// stable `\n`-vs-space divergence on every image wider than ~757 px.
+    ///
+    /// Mutation check: removing the `unrestricted()` assignment in
+    /// [`engine_config`] flips this test red; the small-image parity the
+    /// original tests asserted stays green, which is exactly why the defect
+    /// survived the first delivery.
+    #[test]
+    fn the_detector_runs_unrestricted_like_the_baseline() {
+        let model_set = model_set_by_name("ppocrv6-small").expect("model set known");
+        let cache = ModelCache::new(model_dir());
+        let config = engine_config(&cache, model_set);
+        let det = config.det.expect("the pipeline configures a detector");
+        assert_eq!(
+            det.input_limits,
+            DetInputLimits::unrestricted(),
+            "the baseline sets no detector input limit; clamping it changes \
+             line breaks on wide screenshots (audit OCR F1)"
+        );
     }
 }

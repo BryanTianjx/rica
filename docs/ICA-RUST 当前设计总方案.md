@@ -16,7 +16,7 @@
 | 维度 | 实测值 | 复算命令 |
 | --- | --- | --- |
 | Rust 代码量 | 24,780 行（7 crate） | `for c in crates/*/; do ... wc -l; done` |
-| 测试 | **335 passed / 0 failed / 0 ignored** | `cargo test --workspace` |
+| 测试 | **344 passed / 0 failed / 0 ignored**（含 2026-11-20 W4 复审修复的 9 条回归） | `cargo test --workspace` |
 | 已实现端点 | **45** 条 `/api/*`（另有 `/health` 不计入契约） | `python3 scripts/endpoint_reconciliation.py` |
 | 契约端点总数 | **68** 条（`R0 + W1…W6`） | `python3 scripts/endpoint_reconciliation.py` |
 | 跨语言对拍 | **220/222 cases matched**，2 条 dashboard 失败 | `bash scripts/contract_verify.sh` |
@@ -28,9 +28,10 @@
 | 端点对账 | 45 + 23 = 68 ✓，额外路由 0 | `python3 scripts/endpoint_reconciliation.py` |
 | 契约外增量 | 5 条：4 条 `ai/models` CRUD + `confirm-candidate` | ADR-0003 D-2 补充裁决 |
 
-**当前处境一句话**：后端迁移的**主体已建成且可验证**（**45/68** 端点、335 测试、对拍 220/222），
-但**W4 未通过独立验收**，且新增的 Browser / Agent / Frontend 三条产品线**尚未开工**——
-14 张卡已批准但一张都没派发。
+**当前处境一句话**：后端迁移的**主体已建成且可验证**（**45/68** 端点、344 测试、对拍 220/222）。
+W4 复审（2026-11-19 独立审计，VERDICT: FAIL）点名的全部阻断项已于 2026-11-20 修复并补回归测试；
+`w4-done` 的建立以修复后 SHA 上的验收记录为准。新增的 Browser / Agent / Frontend 三条产品线
+**尚未开工**——14 张卡已批准但一张都没派发。
 
 ---
 
@@ -381,7 +382,7 @@ W4 三份审计 FAIL 之后，Verification Coverage 应当**低于** Implementat
 当前看起来矛盾：
 
 ```
-scripts/check.sh  四关全绿   →  335 passed / 0 failed
+scripts/check.sh  四关全绿   →  344 passed / 0 failed
 三份独立审计       全部 FAIL   →  W4 不可放行
 ```
 

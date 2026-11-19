@@ -26,24 +26,47 @@ use ica_application::ApplicationError;
 /// The shape follows pydantic's error list closely enough for a client that
 /// renders validation messages; the exact `type`/`msg` text is
 /// implementation-specific and is not part of the compared contract.
+///
+/// `loc` and `input` keep pydantic's JSON types, not strings: an array index
+/// is a NUMBER in `loc` and the offending value keeps its JSON type (a string
+/// stays `"oops"`, a number stays `1`, an object stays an object). Rendering
+/// both as strings used to double-encode the value (`input: "\"oops\""`) and
+/// turn every index into text — measured by the independent audit as a
+/// contract-visible difference on every body-validation 422.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ValidationIssue {
     #[serde(rename = "type")]
     pub kind: String,
-    /// Where the bad value came from, e.g. `["query", "limit"]`.
-    pub loc: Vec<String>,
+    /// Where the bad value came from, e.g. `["query", "limit"]` or
+    /// `["body", "data", "candidates", 0]` — strings for names, numbers for
+    /// array indices.
+    pub loc: Vec<Value>,
     pub msg: String,
-    /// The offending value, rendered as text (query values are strings).
-    pub input: String,
+    /// The offending value as it arrived, JSON type included.
+    pub input: Value,
 }
 
 impl ValidationIssue {
-    pub fn new(kind: &str, loc: Vec<&str>, msg: &str, input: &str) -> Self {
+    pub fn new(kind: &str, loc: Vec<Value>, msg: &str, input: Value) -> Self {
         Self {
             kind: kind.to_string(),
-            loc: loc.into_iter().map(str::to_string).collect(),
+            loc,
             msg: msg.to_string(),
-            input: input.to_string(),
+            input,
+        }
+    }
+
+    /// The URL/query-side shape: every `loc` entry and the input are plain
+    /// strings there (pydantic renders query inputs as strings too).
+    pub fn query(kind: &str, loc: Vec<&str>, msg: &str, input: &str) -> Self {
+        Self {
+            kind: kind.to_string(),
+            loc: loc
+                .into_iter()
+                .map(|part| Value::String(part.into()))
+                .collect(),
+            msg: msg.to_string(),
+            input: Value::String(input.to_string()),
         }
     }
 }

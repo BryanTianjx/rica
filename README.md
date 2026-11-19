@@ -2,39 +2,28 @@
 
 Rust port of the ICA Personal backend (axum + sqlx + SQLite).
 
-**Status: R0 + W1 — 18 endpoints.** R0 shipped the skeleton and three read-only
-routes; W1 adds the 15 remaining positions/candidate/conversation/message/
-send-record routes, including the write paths (`POST`/`PATCH`/`DELETE`). All 18
-are contract-verified against the Python baseline — responses **and** the rows
-they leave behind — and 231 tests pass. The remaining 50 `/api` routes are
-mapped to waves W2–W6 in
-[`docs/rust-migration-contract.md`](docs/rust-migration-contract.md) and are
-**not** implemented yet. No auth, no AI calls, no frontend change.
+**Status: R0 + W1 + W2 + W3 + W4 — 45 of the 68 contract endpoints.** The
+implemented surface covers positions, candidates, conversations, messages,
+timelines, follow-ups, the dashboard, drafts/AI entry points and the import /
+export / OCR routes — every one contract-verified against the Python baseline
+(responses **and** the rows they leave behind). 344 tests pass. The remaining
+23 contract routes (W5: AI + settings/audit/backups, W6: auth + shares) are
+mapped in [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md)
+and are **not** implemented yet. No auth, no real AI calls, no frontend change.
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/health` | `{"status":"ok","app":…,"ai_enabled":…}` |
-| `GET` | `/api/positions` | `Page<PositionRead>`; `include_archived`, `search`, `offset`, `limit` |
-| `POST` | `/api/positions` | create → `201 PositionRead`; `name` required, `status` defaults to `Open` |
-| `GET` | `/api/positions/{id}` | single `PositionRead`; 404 with the project envelope |
-| `PATCH` | `/api/positions/{id}` | partial update; an explicit `null` on `name`/`archived` is **422** (IMP-2) |
-| `DELETE` | `/api/positions/{id}` | `204`; linked candidates keep their row and lose the link |
-| `GET` | `/api/candidates` | `search`/`status`/`position_id`/`include_archived`; `updated_at DESC` |
-| `POST` | `/api/candidates` | create → `201`; name trimmed, blank rejected, position must exist |
-| `GET` | `/api/candidates/{id}` | detail with the nested position and the two counters |
-| `PATCH` | `/api/candidates/{id}` | partial update; `position_id: null` detaches |
-| `DELETE` | `/api/candidates/{id}` | `204`; conversations/messages/send-records cascade |
-| `GET` | `/api/candidates/{id}/timeline` | a bare array of `TimelineEntry` (not a `Page`) |
-| `GET` | `/api/conversations` | `last_message_at DESC NULLS LAST`, with `message_count` |
-| `POST` | `/api/conversations` | open a thread → `201`, audit `conversation.created` |
-| `GET` | `/api/messages` | time order; `total` is the real count (IMP-1/IMP-3) |
-| `POST` | `/api/messages` | reuse/open the candidate's active conversation; `content_hash` |
-| `POST` | `/api/send-records` | append one manual send → `201`, audit `send.recorded` |
-| `GET` | `/api/send-records` | `candidate_id`/`task_id`/`draft_id`/`status`; newest send first |
+The per-wave route table lives in the migration contract §2; the measured
+status (test counts, comparison numbers, audit trail) lives in
+[`docs/ICA-RUST 当前设计总方案.md`](docs/ICA-RUST%20当前设计总方案.md). This
+README keeps the run/build instructions and does not restate numbers that the
+gates print better.
 
-The Python service (`/mnt/o/ica`, @ `d39e321`) is the **contract authority**:
-where this repository and the Python code disagree, Python wins until a wave
-changes it deliberately. See [`docs/adr/ADR-0002`](docs/adr/ADR-0002-rust-backend-migration-reinstated.md)
+The Python service (`/mnt/o/ica`) is the **contract authority**: where this
+repository and the Python code disagree, Python wins until a wave changes it
+deliberately. The authoritative anchor SHA is re-measured by
+`scripts/contract_verify.py` on every run (currently `9ed173c`, "Python 基线终态")
+— see [`docs/adr/ADR-0006`](docs/adr/ADR-0006-baseline-layers-and-change-handling.md)
+for the four different things called "baseline" here, and
+[`docs/adr/ADR-0002`](docs/adr/ADR-0002-rust-backend-migration-reinstated.md)
 for why the migration was reinstated despite ADM-001.
 
 ## Layout
@@ -160,17 +149,23 @@ scripts/contract_verify.sh
 It seeds the database twice (the scenario writes, so each service needs its own
 copy), starts the Python baseline from a `/tmp` copy of its tree, builds and
 starts the Rust port, captures both sides, and diffs responses plus the final
-state of all eight business tables. It finishes by proving the baseline is
-untouched (`git status` empty, HEAD `d39e321`, `ica.db` sha256 unchanged).
+state of all eleven business tables. It finishes by proving the baseline is
+untouched (`git status` empty, ica.db sha256 unchanged).
 
-Last run: **`113/113 cases matched, 0 failure(s)`**, with `PASS db.<table>` for
-`positions`, `candidates`, `conversations`, `messages`, `send_records`,
-`follow_up_tasks`, `generated_drafts` and `audit_events` (17 audit events), and
-the `improvements:` section asserting IMP-1 (`python total=2 / rust total=5`),
+Last run: **`220/222 cases matched`** — the 2 failures are the W2 dashboard
+`calendar` block the frozen baseline ADDED after W2 shipped (a baseline-drift
+item owned by the G0 baseline governance, not a regression). The
+`improvements:` section asserts IMP-1 (`python total=2 / rust total=5`),
 IMP-2 (`python 500 / rust 422` for both NULL cases), IMP-3 (five lists, one
 `total` meaning) and IMP-4 (`offset` past `u64::MAX` → 422). The individual
 steps are in
 [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md) §8.
+
+> The OCR staging fixture in `contract_capture.py` renders a 760 px-wide
+> image — deliberately at the width where the detector's input clamping used
+> to flip the line breaks (independent audit, OCR F1). The engine now runs
+> with the baseline's unrestricted policy; the config is pinned by
+> `the_detector_runs_unrestricted_like_the_baseline` in `ica-infra`.
 
 ## Proving the baseline database was not modified
 
@@ -198,10 +193,10 @@ PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH \
 # live /api routes: 68 / documented rows: 68 / RESULT: table matches
 ```
 
-## Known limitations (R0 + W1)
+## Known limitations (R0 + W4)
 
-- Routes for W2–W6 are not served: follow-ups, dashboard, drafts/AI,
-  imports/OCR/export, settings/audit-events/backups, auth and shares.
+- Routes for W5–W6 are not served: settings / audit-events / backups, AI
+  provider wiring, auth and shares.
 - **Tenant/owner scoping is not modelled.** It is a no-op in Python's default
   `local` mode, so both services agree today and every written row carries the
   V1.0 local owner/tenant; do not run the Rust service in `multiuser` mode

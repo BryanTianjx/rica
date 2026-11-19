@@ -122,10 +122,14 @@ fn parse_bool(raw: &str) -> Option<bool> {
 }
 
 /// Parse a non-negative integer query value.
+// The issue carries its `loc`/`input` as JSON values, which makes the struct
+// larger than clippy's default `result_large_err` budget; the value is built
+// once and moved into an issues vec, so the size costs nothing here.
+#[allow(clippy::result_large_err)]
 fn parse_non_negative(raw: &str, field: &str) -> Result<usize, ValidationIssue> {
     match parse_python_int(raw) {
         Some(PyInt::Value(value)) => Ok(usize::try_from(value).unwrap_or(usize::MAX)),
-        Some(PyInt::Negative) => Err(ValidationIssue::new(
+        Some(PyInt::Negative) => Err(ValidationIssue::query(
             "greater_than_equal",
             vec!["query", field],
             "Input should be greater than or equal to 0",
@@ -134,13 +138,13 @@ fn parse_non_negative(raw: &str, field: &str) -> Result<usize, ValidationIssue> 
         // Python answers 200 here with an empty page and the huge offset
         // echoed; echoing needs a JSON number wider than `u64`, so the port
         // rejects instead — registered as IMP-4 in the migration contract §7.
-        Some(PyInt::Overflow) => Err(ValidationIssue::new(
+        Some(PyInt::Overflow) => Err(ValidationIssue::query(
             "int_parsing",
             vec!["query", field],
             "Input should be a valid integer, unable to parse string as an integer",
             raw,
         )),
-        None => Err(ValidationIssue::new(
+        None => Err(ValidationIssue::query(
             "int_parsing",
             vec!["query", field],
             "Input should be a valid integer, unable to parse string as an integer",
@@ -150,11 +154,12 @@ fn parse_non_negative(raw: &str, field: &str) -> Result<usize, ValidationIssue> 
 }
 
 /// Parse `limit`: `1..=max`.
+#[allow(clippy::result_large_err)] // see `parse_non_negative`
 fn parse_limit(raw: &str, max: usize, field: &str) -> Result<usize, ValidationIssue> {
     match parse_python_int(raw) {
         // `0` fails the *lower* bound on both sides (`greater_than`), not the
         // upper one — pydantic's constraint is `ge=1`.
-        Some(PyInt::Value(0)) => Err(ValidationIssue::new(
+        Some(PyInt::Value(0)) => Err(ValidationIssue::query(
             "greater_than",
             vec!["query", field],
             "Input should be greater than 0",
@@ -165,19 +170,19 @@ fn parse_limit(raw: &str, max: usize, field: &str) -> Result<usize, ValidationIs
         }
         // Every magnitude beyond `u64` is also beyond `max`, so the port gives
         // the same `less_than_equal` the baseline does for huge limits.
-        Some(PyInt::Value(_)) | Some(PyInt::Overflow) => Err(ValidationIssue::new(
+        Some(PyInt::Value(_)) | Some(PyInt::Overflow) => Err(ValidationIssue::query(
             "less_than_equal",
             vec!["query", field],
             &format!("Input should be less than or equal to {max}"),
             raw,
         )),
-        Some(PyInt::Negative) => Err(ValidationIssue::new(
+        Some(PyInt::Negative) => Err(ValidationIssue::query(
             "greater_than",
             vec!["query", field],
             "Input should be greater than 0",
             raw,
         )),
-        None => Err(ValidationIssue::new(
+        None => Err(ValidationIssue::query(
             "int_parsing",
             vec!["query", field],
             "Input should be a valid integer, unable to parse string as an integer",
@@ -197,7 +202,7 @@ fn parse_enum<T>(
     let raw = raw?;
     let parsed = parse(raw);
     if parsed.is_none() {
-        issues.push(ValidationIssue::new(
+        issues.push(ValidationIssue::query(
             "enum",
             vec!["query", field],
             &format!("Input should be {expected}"),
@@ -246,7 +251,7 @@ fn search_or_none(raw: Option<&str>, issues: &mut Vec<ValidationIssue>) -> Optio
     match raw {
         None => None,
         Some(value) if value.chars().count() > MAX_SEARCH_LEN => {
-            issues.push(ValidationIssue::new(
+            issues.push(ValidationIssue::query(
                 "string_too_long",
                 vec!["query", "search"],
                 "String should have at most 200 characters",
@@ -277,7 +282,7 @@ pub fn validate(raw: RawListPositionsQuery) -> Result<ListPositions, ContractErr
         Some(value) => match parse_bool(value) {
             Some(parsed) => parsed,
             None => {
-                issues.push(ValidationIssue::new(
+                issues.push(ValidationIssue::query(
                     "bool_parsing",
                     vec!["query", "include_archived"],
                     "Input should be a valid boolean, unable to interpret input",
@@ -333,7 +338,7 @@ pub fn validate_candidates(raw: RawListCandidatesQuery) -> Result<ListCandidates
         Some(value) => match parse_bool(value) {
             Some(parsed) => parsed,
             None => {
-                issues.push(ValidationIssue::new(
+                issues.push(ValidationIssue::query(
                     "bool_parsing",
                     vec!["query", "include_archived"],
                     "Input should be a valid boolean, unable to interpret input",
@@ -591,7 +596,7 @@ pub fn typed_offset(offset: Option<i64>) -> Result<usize, ContractError> {
     match offset {
         None => Ok(0),
         Some(value) if value >= 0 => Ok(usize::try_from(value as u64).unwrap_or(usize::MAX)),
-        Some(value) => Err(ContractError::validation(ValidationIssue::new(
+        Some(value) => Err(ContractError::validation(ValidationIssue::query(
             "greater_than_equal",
             vec!["args", "offset"],
             "Input should be greater than or equal to 0",
@@ -604,18 +609,20 @@ pub fn typed_offset(offset: Option<i64>) -> Result<usize, ContractError> {
 pub fn typed_limit(limit: Option<i64>, default: usize, max: usize) -> Result<usize, ContractError> {
     match limit {
         None => Ok(default),
-        Some(value) if value <= 0 => Err(ContractError::validation(ValidationIssue::new(
+        Some(value) if value <= 0 => Err(ContractError::validation(ValidationIssue::query(
             "greater_than",
             vec!["args", "limit"],
             "Input should be greater than 0",
             &value.to_string(),
         ))),
-        Some(value) if value > max as i64 => Err(ContractError::validation(ValidationIssue::new(
-            "less_than_equal",
-            vec!["args", "limit"],
-            &format!("Input should be less than or equal to {max}"),
-            &value.to_string(),
-        ))),
+        Some(value) if value > max as i64 => {
+            Err(ContractError::validation(ValidationIssue::query(
+                "less_than_equal",
+                vec!["args", "limit"],
+                &format!("Input should be less than or equal to {max}"),
+                &value.to_string(),
+            )))
+        }
         Some(value) => Ok(value as usize),
     }
 }

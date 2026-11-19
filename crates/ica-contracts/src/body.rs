@@ -23,6 +23,7 @@ use ica_domain::{
 };
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
+use serde_json::{Map, Value};
 
 use crate::error::{ContractError, ValidationIssue};
 
@@ -66,15 +67,36 @@ pub fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ContractError> {
     serde_json::from_slice(bytes).map_err(|error| {
         ContractError::validation(ValidationIssue::new(
             "json_invalid",
-            vec!["body"],
+            vec![Value::String("body".to_string())],
             &format!("Input should be a valid JSON object: {error}"),
-            "",
+            Value::String(String::new()),
         ))
     })
 }
 
-fn issue(kind: &str, field: &str, message: &str, input: &str) -> ValidationIssue {
-    ValidationIssue::new(kind, vec!["body", field], message, input)
+/// `loc` entries: field names are strings; pydantic's array indices are NUMBERS.
+fn loc_entry(part: &str) -> Value {
+    Value::String(part.to_string())
+}
+
+fn issue(kind: &str, field: &str, message: &str, input: Value) -> ValidationIssue {
+    ValidationIssue::new(
+        kind,
+        vec![loc_entry("body"), loc_entry(field)],
+        message,
+        input,
+    )
+}
+
+/// A `missing` failure: pydantic's `input` is the parent object being
+/// validated, which at the body level is `{}` when nothing parsed.
+fn missing_issue(field: &str) -> ValidationIssue {
+    issue(
+        "missing",
+        field,
+        "Field required",
+        Value::Object(serde_json::Map::new()),
+    )
 }
 
 fn check_min_chars(issues: &mut Vec<ValidationIssue>, field: &str, value: &str, min: usize) {
@@ -83,7 +105,7 @@ fn check_min_chars(issues: &mut Vec<ValidationIssue>, field: &str, value: &str, 
             "string_too_short",
             field,
             &format!("String should have at least {min} character"),
-            value,
+            Value::String(value.to_string()),
         ));
     }
 }
@@ -94,7 +116,7 @@ fn check_max_chars(issues: &mut Vec<ValidationIssue>, field: &str, value: &str, 
             "string_too_long",
             field,
             &format!("String should have at most {max} characters"),
-            value,
+            Value::String(value.to_string()),
         ));
     }
 }
@@ -106,7 +128,7 @@ fn check_non_negative(issues: &mut Vec<ValidationIssue>, field: &str, value: Opt
                 "value_error",
                 field,
                 "Value error, salary must not be negative",
-                &value.to_string(),
+                Value::from(value),
             ));
         }
     }
@@ -156,7 +178,7 @@ fn take_datetime(
                     "datetime_parsing",
                     field_name,
                     "Input should be a valid datetime",
-                    &raw,
+                    Value::String(raw),
                 ));
                 None
             }
@@ -180,7 +202,7 @@ fn take_enum<T>(
                     "enum",
                     field_name,
                     &format!("Input should be {expected}"),
-                    &raw,
+                    Value::String(raw),
                 ));
             }
             parsed
@@ -202,12 +224,12 @@ fn take_required_string(
                 "string_type",
                 field_name,
                 "Input should be a valid string",
-                "null",
+                Value::Null,
             ));
             return String::new();
         }
         Incoming::Absent => {
-            issues.push(issue("missing", field_name, "Field required", ""));
+            issues.push(missing_issue(field_name));
             return String::new();
         }
     };
@@ -277,12 +299,12 @@ pub fn position_create(raw: RawPositionCreate) -> Result<NewPosition, ContractEr
     let mut issues = Vec::new();
 
     let name = take_required_string(&mut issues, "name", raw.name, Some(200));
-    if name.is_empty() && issues.iter().all(|entry| entry.loc[1] != "name") {
+    if name.is_empty() && issues.iter().all(|entry| entry.loc[1] != loc_entry("name")) {
         issues.push(issue(
             "string_too_short",
             "name",
             "String should have at least 1 character",
-            &name,
+            Value::String(name.clone()),
         ));
     }
     let location = take_optional_string(raw.location);
@@ -340,7 +362,7 @@ pub fn position_patch(raw: RawPositionPatch) -> Result<PositionPatch, ContractEr
                 "string_type",
                 "name",
                 "Input should be a valid string",
-                "null",
+                Value::Null,
             ));
             Field::Absent
         }
@@ -395,7 +417,7 @@ pub fn position_patch(raw: RawPositionPatch) -> Result<PositionPatch, ContractEr
                     "enum",
                     "status",
                     "Input should be 'Draft', 'Open', 'OnHold' or 'Closed'",
-                    &value,
+                    Value::String(value),
                 ));
                 Field::Absent
             }
@@ -411,7 +433,7 @@ pub fn position_patch(raw: RawPositionPatch) -> Result<PositionPatch, ContractEr
                 "bool_type",
                 "archived",
                 "Input should be a valid boolean",
-                "null",
+                Value::Null,
             ));
             Field::Absent
         }
@@ -481,7 +503,7 @@ fn clean_candidate_name(issues: &mut Vec<ValidationIssue>, value: String) -> Str
             "value_error",
             "name",
             "Value error, name must not be blank",
-            &value,
+            Value::String(value.clone()),
         ));
     }
     cleaned
@@ -500,7 +522,7 @@ pub fn candidate_create(raw: RawCandidateCreate) -> Result<NewCandidate, Contrac
                 "string_type",
                 "source",
                 "Input should be a valid string",
-                "null",
+                Value::Null,
             ));
             "boss".to_string()
         }
@@ -561,7 +583,7 @@ pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, Contrac
                 "value_error",
                 "name",
                 "Value error, name must not be null",
-                "null",
+                Value::Null,
             ));
             Field::Absent
         }
@@ -579,7 +601,7 @@ pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, Contrac
                 "value_error",
                 "source",
                 "Value error, field must not be null",
-                "null",
+                Value::Null,
             ));
             Field::Absent
         }
@@ -613,7 +635,7 @@ pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, Contrac
                 "value_error",
                 "status",
                 "Value error, field must not be null",
-                "null",
+                Value::Null,
             ));
             Field::Absent
         }
@@ -624,7 +646,7 @@ pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, Contrac
                     "enum",
                     "status",
                     "Input should be a valid candidate status",
-                    &value,
+                    Value::String(value),
                 ));
                 Field::Absent
             }
@@ -639,7 +661,7 @@ pub fn candidate_patch(raw: RawCandidatePatch) -> Result<CandidatePatch, Contrac
                 "value_error",
                 "archived",
                 "Value error, field must not be null",
-                "null",
+                Value::Null,
             ));
             Field::Absent
         }
@@ -696,7 +718,7 @@ pub fn conversation_create(raw: RawConversationCreate) -> Result<NewConversation
                 "string_type",
                 "channel",
                 "Input should be a valid string",
-                "null",
+                Value::Null,
             ));
             "boss".to_string()
         }
@@ -733,7 +755,7 @@ pub fn message_create(raw: RawMessageCreate) -> Result<NewMessage, ContractError
                 "string_type",
                 "channel",
                 "Input should be a valid string",
-                "null",
+                Value::Null,
             ));
             "boss".to_string()
         }
@@ -803,7 +825,7 @@ pub fn send_record_create(raw: RawSendRecordCreate) -> Result<NewSendRecord, Con
                 "string_type",
                 "channel",
                 "Input should be a valid string",
-                "null",
+                Value::Null,
             ));
             "boss".to_string()
         }
@@ -827,8 +849,8 @@ pub fn send_record_create(raw: RawSendRecordCreate) -> Result<NewSendRecord, Con
     ) {
         Some(status) => status,
         None => {
-            if issues.iter().all(|entry| entry.loc[1] != "status") {
-                issues.push(issue("missing", "status", "Field required", ""));
+            if issues.iter().all(|entry| entry.loc[1] != loc_entry("status")) {
+                issues.push(missing_issue("status"));
             }
             ResultType::Sent
         }
@@ -938,7 +960,7 @@ pub fn follow_up_patch(raw: RawFollowUpPatch) -> Result<FollowUpTaskPatch, Contr
                     "datetime_parsing",
                     "recommended_at",
                     "Input should be a valid datetime",
-                    &raw,
+                    Value::String(raw),
                 ));
                 Field::Absent
             }
@@ -954,7 +976,7 @@ pub fn follow_up_patch(raw: RawFollowUpPatch) -> Result<FollowUpTaskPatch, Contr
                     "enum",
                     "status",
                     &format!("Input should be {FOLLOW_UP_STATUS_EXPECTED}"),
-                    &raw,
+                    Value::String(raw),
                 ));
                 Field::Absent
             }
@@ -995,8 +1017,8 @@ pub fn follow_up_result(raw: RawFollowUpResult) -> Result<NewFollowUpResult, Con
     ) {
         Some(result_type) => result_type,
         None => {
-            if issues.iter().all(|entry| entry.loc[1] != "result_type") {
-                issues.push(issue("missing", "result_type", "Field required", ""));
+            if issues.iter().all(|entry| entry.loc[1] != loc_entry("result_type")) {
+                issues.push(missing_issue("result_type"));
             }
             ResultType::Sent
         }
@@ -1066,7 +1088,7 @@ fn take_policy_int(
                     "greater_than_equal",
                     field_name,
                     &format!("Input should be greater than or equal to {min}"),
-                    &value.to_string(),
+                    Value::from(value),
                 ));
                 None
             } else if value > max {
@@ -1074,7 +1096,7 @@ fn take_policy_int(
                     "less_than_equal",
                     field_name,
                     &format!("Input should be less than or equal to {max}"),
-                    &value.to_string(),
+                    Value::from(value),
                 ));
                 None
             } else {
@@ -1140,7 +1162,13 @@ mod tests {
         let ContractError::ValidationIssues { issues } = error else {
             panic!("expected a 422");
         };
-        assert_eq!(issues[0].loc, ["body", "name"]);
+        assert_eq!(
+            issues[0].loc,
+            [Value::String("body".into()), Value::String("name".into())]
+        );
+        // `input` keeps the JSON null instead of the text "null" — the same
+        // rendering pydantic produces (audit LWW P1-1 / FINDINGS N-4).
+        assert_eq!(issues[0].input, Value::Null);
     }
 
     #[test]
@@ -1307,7 +1335,7 @@ pub fn generate_request(raw: RawGenerateRequest) -> Result<NewDraftGeneration, C
                     "greater_than_equal",
                     "max_length",
                     "Input should be greater than or equal to 50",
-                    &value.to_string(),
+                    Value::from(value),
                 ));
                 None
             } else if value > 2000 {
@@ -1315,7 +1343,7 @@ pub fn generate_request(raw: RawGenerateRequest) -> Result<NewDraftGeneration, C
                     "less_than_equal",
                     "max_length",
                     "Input should be less than or equal to 2000",
-                    &value.to_string(),
+                    Value::from(value),
                 ));
                 None
             } else {
@@ -1442,7 +1470,7 @@ pub fn import_preview(raw: RawImportPreview) -> Result<NewImportPreview, Contrac
             "string_too_short",
             "raw_text",
             "String should have at least 1 character",
-            "",
+            Value::String(String::new()),
         ));
     }
     let source = match raw.source {
@@ -1454,7 +1482,7 @@ pub fn import_preview(raw: RawImportPreview) -> Result<NewImportPreview, Contrac
                     "enum",
                     "source",
                     "Input should be 'manual', 'paste_import' or 'screenshot_ocr'",
-                    &value,
+                    Value::String(value),
                 ));
                 ica_domain::MessageSource::PasteImport
             }
@@ -1472,21 +1500,11 @@ pub fn import_preview(raw: RawImportPreview) -> Result<NewImportPreview, Contrac
 }
 
 /// Raw per-record correction inside `ImportConfirmRequest.records`.
-#[derive(Deserialize, Default)]
-pub struct RawImportCorrection {
-    #[serde(default)]
-    pub id: Incoming<String>,
-    #[serde(default)]
-    pub sender_type: Incoming<String>,
-    #[serde(default)]
-    pub content: Incoming<String>,
-    #[serde(default)]
-    pub message_time: Incoming<String>,
-    #[serde(default)]
-    pub skip: Incoming<bool>,
-}
-
-/// Raw `POST /api/imports/{id}/confirm` body (`ImportConfirmRequest`).
+///
+/// Each record stays a raw JSON value on purpose: pydantic validates the list
+/// ELEMENTS too, and a typed `Vec<RawImportCorrection>` would fail the whole
+/// body parse (a generic `json_invalid`) for what pydantic reports as a
+/// per-element, per-field 422 with a nested `loc`.
 #[derive(Deserialize, Default)]
 pub struct RawImportConfirm {
     #[serde(default)]
@@ -1494,7 +1512,183 @@ pub struct RawImportConfirm {
     #[serde(default)]
     pub conversation_id: Incoming<String>,
     #[serde(default)]
-    pub records: Incoming<Vec<RawImportCorrection>>,
+    pub records: Incoming<Vec<Value>>,
+}
+
+/// One `loc` path into `records`: `["body", "records", index, field]` — the
+/// array index is a NUMBER in pydantic's loc, not text.
+fn record_loc(index: usize, field: &str) -> Vec<Value> {
+    vec![
+        loc_entry("body"),
+        loc_entry("records"),
+        Value::from(index as u64),
+        loc_entry(field),
+    ]
+}
+
+/// Validate one correction record against the baseline's
+/// `ImportRecordCorrection` (`id: str`, `sender_type/content/message_time`
+/// optional, `skip: bool = False`), field by field, so `loc`/`input` match
+/// what pydantic would have produced for the same element. Issues are pushed
+/// as found; the caller keeps the result only when this record added none.
+struct ParsedCorrection {
+    id: String,
+    sender_type: Option<ica_domain::SenderType>,
+    content: Option<String>,
+    message_time: Option<DateTime<Utc>>,
+    skip: bool,
+}
+
+fn record_problems(
+    index: usize,
+    record: &Map<String, Value>,
+    issues: &mut Vec<ValidationIssue>,
+) -> ParsedCorrection {
+    // The fallback returned when the record failed early: the caller never
+    // keeps it, because issues were pushed.
+    let rejected = ParsedCorrection {
+        id: String::new(),
+        sender_type: None,
+        content: None,
+        message_time: None,
+        skip: false,
+    };
+    let id = match record.get("id") {
+        None => {
+            issues.push(ValidationIssue::new(
+                "missing",
+                record_loc(index, "id"),
+                "Field required",
+                Value::Object(record.clone()),
+            ));
+            return rejected;
+        }
+        Some(value) => match value {
+            Value::String(text) => text.clone(),
+            other => {
+                issues.push(ValidationIssue::new(
+                    "string_type",
+                    record_loc(index, "id"),
+                    "Input should be a valid string",
+                    other.clone(),
+                ));
+                return rejected;
+            }
+        },
+    };
+
+    let sender_type = match record.get("sender_type") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => match ica_domain::SenderType::parse(text) {
+            Some(parsed) => Some(parsed),
+            None => {
+                issues.push(ValidationIssue::new(
+                    "enum",
+                    record_loc(index, "sender_type"),
+                    "Input should be 'Candidate', 'Recruiter' or 'System'",
+                    Value::String(text.clone()),
+                ));
+                None
+            }
+        },
+        Some(other) => {
+            issues.push(ValidationIssue::new(
+                "string_type",
+                record_loc(index, "sender_type"),
+                "Input should be a valid string",
+                other.clone(),
+            ));
+            None
+        }
+    };
+
+    let content = match record.get("content") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => Some(text.clone()),
+        Some(other) => {
+            issues.push(ValidationIssue::new(
+                "string_type",
+                record_loc(index, "content"),
+                "Input should be a valid string",
+                other.clone(),
+            ));
+            None
+        }
+    };
+
+    let message_time = match record.get("message_time") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => match parse_datetime(text) {
+            Some(parsed) => Some(parsed),
+            None => {
+                issues.push(ValidationIssue::new(
+                    "datetime_parsing",
+                    record_loc(index, "message_time"),
+                    "Input should be a valid datetime",
+                    Value::String(text.clone()),
+                ));
+                None
+            }
+        },
+        Some(other) => {
+            issues.push(ValidationIssue::new(
+                "string_type",
+                record_loc(index, "message_time"),
+                "Input should be a valid string",
+                other.clone(),
+            ));
+            None
+        }
+    };
+
+    let skip = match record.get("skip") {
+        // Absent means the default; `null` is PRESENT and not a boolean.
+        None => false,
+        Some(Value::Bool(flag)) => *flag,
+        // pydantic coerces the usual boolean SPELLINGS out of a string
+        // (`bool_parsing` accepts them); anything else it cannot interpret
+        // answers `bool_parsing`, not `bool_type` — measured on the baseline
+        // with `skip: "notabool"`.
+        Some(Value::String(text)) => match pydantic_bool(text) {
+            Some(flag) => flag,
+            None => {
+                issues.push(ValidationIssue::new(
+                    "bool_parsing",
+                    record_loc(index, "skip"),
+                    "Input should be a valid boolean, unable to interpret input",
+                    Value::String(text.clone()),
+                ));
+                false
+            }
+        },
+        Some(other) => {
+            issues.push(ValidationIssue::new(
+                "bool_type",
+                record_loc(index, "skip"),
+                "Input should be a valid boolean",
+                other.clone(),
+            ));
+            false
+        }
+    };
+
+    ParsedCorrection {
+        id,
+        sender_type,
+        content,
+        message_time,
+        skip,
+    }
+}
+
+/// The string spellings pydantic's `bool_parsing` coerces into booleans,
+/// lowercased: `true/false`, `1/0`, `yes/no`, `on/off`, `y/n`, `t/f`.
+fn pydantic_bool(raw: &str) -> Option<bool> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" | "on" | "y" | "t" => Some(true),
+        "false" | "0" | "no" | "off" | "n" | "f" => Some(false),
+        _ => None,
+    }
 }
 
 /// Validate a `POST /api/imports/{id}/confirm` body.
@@ -1506,40 +1700,32 @@ pub fn import_confirm(raw: RawImportConfirm) -> Result<NewImportConfirm, Contrac
     let mut corrections = Vec::new();
     if let Incoming::Value(items) = raw.records {
         for (index, item) in items.into_iter().enumerate() {
-            let prefix = format!("records.{index}");
-            let id = take_required_string(&mut issues, &format!("{prefix}.id"), item.id, None);
-            let sender_type = match item.sender_type {
-                Incoming::Absent | Incoming::Null => None,
-                Incoming::Value(value) => match ica_domain::SenderType::parse(&value) {
-                    Some(parsed) => Some(parsed),
-                    None => {
-                        issues.push(issue(
-                            "enum",
-                            &format!("{prefix}.sender_type"),
-                            "Input should be 'Candidate', 'Recruiter' or 'System'",
-                            &value,
-                        ));
-                        None
-                    }
-                },
+            let Some(record) = item.as_object() else {
+                issues.push(ValidationIssue::new(
+                    "dict_type",
+                    vec![
+                        loc_entry("body"),
+                        loc_entry("records"),
+                        Value::from(index as u64),
+                    ],
+                    "Input should be a valid dictionary",
+                    item,
+                ));
+                continue;
             };
-            let content = take_optional_string(item.content);
-            let message_time = take_datetime(
-                &mut issues,
-                &format!("{prefix}.message_time"),
-                item.message_time,
-            );
-            let skip = match item.skip {
-                Incoming::Value(value) => value,
-                Incoming::Absent | Incoming::Null => false,
-            };
-            corrections.push(ImportCorrection {
-                id,
-                sender_type,
-                content,
-                message_time,
-                skip,
-            });
+            // pydantic refuses the WHOLE request when any field failed, so a
+            // record that produced issues is parsed but not kept.
+            let clean_before = issues.len();
+            let correction = record_problems(index, record, &mut issues);
+            if issues.len() == clean_before {
+                corrections.push(ImportCorrection {
+                    id: correction.id,
+                    sender_type: correction.sender_type,
+                    content: correction.content,
+                    message_time: correction.message_time,
+                    skip: correction.skip,
+                });
+            }
         }
     }
 
@@ -1572,7 +1758,7 @@ pub fn import_ocr(raw: RawImportOcr) -> Result<NewImportOcr, ContractError> {
             "string_too_short",
             "image_path",
             "String should have at least 1 character",
-            "",
+            Value::String(String::new()),
         ));
     }
     if !issues.is_empty() {
@@ -1607,9 +1793,9 @@ pub fn import_payload(
             return Err(ContractError::ValidationIssues {
                 issues: vec![ValidationIssue::new(
                     "dict_type",
-                    vec!["body", "data"],
+                    vec![loc_entry("body"), loc_entry("data")],
                     "Input should be a valid dictionary",
-                    "null",
+                    Value::Null,
                 )],
             });
         }
@@ -1619,15 +1805,18 @@ pub fn import_payload(
     // pydantic rejects a table whose value is not a LIST (`list_type`) and a
     // list element that is not an OBJECT (`dict_type`) before any import logic
     // runs. Accepting either would silently turn a malformed snapshot into a
-    // "0 rows imported" success.
+    // "0 rows imported" success. `input` keeps the original JSON value and the
+    // element index is a NUMBER — stringifying either double-encodes the value
+    // (`"\"oops\""`) or renders the index as text, both measured by the
+    // independent audit against pydantic's own error list (LWW P1-1).
     let mut issues: Vec<ValidationIssue> = Vec::new();
     for (table, value) in &map {
         let Some(rows) = value.as_array() else {
             issues.push(ValidationIssue::new(
                 "list_type",
-                vec!["body", "data", table.as_str()],
+                vec![loc_entry("body"), loc_entry("data"), loc_entry(table)],
                 "Input should be a valid list",
-                &value.to_string(),
+                value.clone(),
             ));
             continue;
         };
@@ -1635,9 +1824,14 @@ pub fn import_payload(
             if !row.is_object() {
                 issues.push(ValidationIssue::new(
                     "dict_type",
-                    vec!["body", "data", table.as_str(), &index.to_string()],
+                    vec![
+                        loc_entry("body"),
+                        loc_entry("data"),
+                        loc_entry(table),
+                        Value::from(index as u64),
+                    ],
                     "Input should be a valid dictionary",
-                    &row.to_string(),
+                    row.clone(),
                 ));
             }
         }

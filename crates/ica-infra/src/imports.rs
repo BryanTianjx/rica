@@ -16,7 +16,7 @@ use ica_application::{
     ImportConfirmOutcome, ImportRecordCorrection, ImportRepository, NewImportSessionRow,
     RepositoryError,
 };
-use ica_domain::{ImportRecord, ImportSession, ImportStatus, RecordStatus};
+use ica_domain::{content_hash, ImportRecord, ImportSession, ImportStatus, RecordStatus};
 use serde_json::json;
 use sqlx::{FromRow, SqliteConnection};
 
@@ -412,7 +412,13 @@ impl ImportRepository for SqliteStore {
             // conversation must record `linkedin`.
             .bind(&channel)
             .bind(&source)
-            .bind(&row.content_hash)
+            // The hash follows the FINAL content, not the preview's: when a
+            // correction rewrote the text, the preview hash describes text
+            // nobody saved, and the next preview's duplicate check — which
+            // matches on `content_hash` — would silently miss the rewritten
+            // message (audit N-3). The hash is deterministic, so recomputing
+            // it for every row is a no-op where no correction happened.
+            .bind(content_hash(&content))
             .bind(&row.id)
             .bind(&now)
             .bind(&now)
