@@ -173,7 +173,18 @@ async fn import_is_an_idempotent_upsert() {
     let first = commands::import_data(&state, &payload)
         .await
         .expect("import");
-    assert!(first.imported > 0 || first.updated > 0);
+    // Re-importing a snapshot of THIS database matches every row by id with an
+    // equal `updated_at` and identical data, so nothing is written: the
+    // baseline answers `imported=0, updated=0, skipped=N`. (An earlier version
+    // of this assertion demanded `imported>0 || updated>0`, which only held
+    // because the port at the time treated "equal timestamp" as "newer" —
+    // exactly the bug the LWW rewrite fixed.)
+    assert_eq!(
+        (first.imported, first.updated, first.conflicts),
+        (0, 0, 0),
+        "an unchanged snapshot writes nothing and reports no conflict"
+    );
+    assert!(first.skipped > 0, "every row was examined and left alone");
 
     let second = commands::import_data(&state, &payload)
         .await

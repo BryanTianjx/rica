@@ -17,6 +17,15 @@ use serde_json::{Map, Value};
 use sqlx::{Row, SqlitePool};
 
 use crate::export_tables::{ColKind, BUSINESS_TABLES};
+
+/// Tables whose rows are an append-only log: an import never rewrites a stored
+/// row, whatever timestamp the snapshot carries (`_APPEND_ONLY_TABLES`).
+///
+/// A send record is a historical fact — "this message was sent at this time".
+/// Letting a later snapshot rewrite it would silently falsify the record, so
+/// the baseline refuses even when the incoming `updated_at` is newer. The
+/// conflict is still REPORTED, so the caller learns the snapshot disagreed.
+const APPEND_ONLY_TABLES: &[&str] = &["send_records"];
 use crate::store::{repo_error, SqliteStore};
 
 /// Render a SQLite timestamp the way Python's `isoformat()` does.
@@ -142,37 +151,60 @@ impl DataSnapshotRepository for SqliteStore {
                 .await
                 .map_err(repo_error)?;
 
-                match existing_updated_at {
-                    None => {
-                        if insert_row(&mut tx, spec, object, id).await? {
-                            outcome.imported += 1;
+                let Some(stored_updated_at) = existing_updated_at else {
+                    if insert_row(&mut tx, spec, object, id).await? {
+                        outcome.imported += 1;
+                    } else {
+                        outcome.skipped += 1;
+                        outcome.conflicts += 1;
+                    }
+                    continue;
+                };
+
+                // The row exists: decide last-write-wins BEFORE touching any
+                // business column, then record which bucket it landed in.
+                let differs = business_data_differs(&mut tx, spec, object, id).await?;
+
+                // Append-only tables are an exception to LWW: a stored row is
+                // never rewritten, whatever timestamp the snapshot carries.
+                // A differing payload is still reported as a conflict, so the
+                // caller learns the snapshot disagreed.
+                if APPEND_ONLY_TABLES.contains(&spec.name) {
+                    outcome.skipped += 1;
+                    if differs {
+                        outcome.conflicts += 1;
+                    }
+                    continue;
+                }
+
+                let incoming = object
+                    .get("updated_at")
+                    .and_then(|value| value.as_str())
+                    .and_then(|raw| crate::time::parse_sqlite_datetime(raw).ok());
+                let stored = crate::time::parse_sqlite_datetime(&stored_updated_at).ok();
+
+                match (incoming, stored) {
+                    // No timestamp in the snapshot: it carries no provenance, so
+                    // it cannot win any race. A differing record is a conflict.
+                    (None, _) => {
+                        outcome.skipped += 1;
+                        if differs {
+                            outcome.conflicts += 1;
+                        }
+                    }
+                    (Some(incoming_at), Some(stored_at)) if incoming_at > stored_at => {
+                        if update_row(&mut tx, spec, object, id).await? {
+                            outcome.updated += 1;
                         } else {
                             outcome.skipped += 1;
                             outcome.conflicts += 1;
                         }
                     }
-                    Some(stored_updated_at) => {
-                        // Last-write-wins on `updated_at`: only apply the row if
-                        // its stamp is newer than what is stored.
-                        let incoming = object
-                            .get("updated_at")
-                            .and_then(|value| value.as_str())
-                            .unwrap_or_default();
-                        let newer = match (
-                            crate::time::parse_sqlite_datetime(incoming).ok(),
-                            crate::time::parse_sqlite_datetime(&stored_updated_at).ok(),
-                        ) {
-                            (Some(incoming_at), Some(stored_at)) => incoming_at >= stored_at,
-                            _ => false,
-                        };
-                        if !newer {
-                            outcome.skipped += 1;
-                            continue;
-                        }
-                        if update_row(&mut tx, spec, object, id).await? {
-                            outcome.updated += 1;
-                        } else {
-                            outcome.skipped += 1;
+                    // Same instant, or older: the stored row keeps its values.
+                    // A differing payload is a real merge conflict.
+                    _ => {
+                        outcome.skipped += 1;
+                        if differs {
                             outcome.conflicts += 1;
                         }
                     }
@@ -267,6 +299,69 @@ impl DataSnapshotRepository for SqliteStore {
     }
 }
 
+/// Whether the payload's business columns differ from the stored row.
+///
+/// `id` and `updated_at` are excluded: they are the merge key and the LWW
+/// timestamp, not business data. Only the columns the payload MENTIONS are
+/// compared — a column it omits says nothing, so it cannot disagree.
+///
+/// Datetime columns are compared after PARSING, not as text: the stored value
+/// comes back from SQLite as `2026-11-10 09:05:00.000003` while the snapshot
+/// carries `2026-11-10T09:05:00.000003+00:00`, and comparing those as strings
+/// would report every row as different.
+async fn business_data_differs(
+    tx: &mut sqlx::SqliteConnection,
+    spec: &crate::export_tables::TableSpec,
+    object: &Map<String, Value>,
+    id: &str,
+) -> Result<bool, RepositoryError> {
+    let columns: Vec<&str> = spec.columns.iter().map(|(name, _)| *name).collect();
+    let sql = format!(
+        "SELECT {} FROM {} WHERE id = ?",
+        columns.join(", "),
+        spec.name
+    );
+    let row = sqlx::query(&sql)
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(repo_error)?;
+    let Some(row) = row else { return Ok(false) };
+
+    for (index, (name, kind)) in spec.columns.iter().enumerate() {
+        if *name == "id" || *name == "updated_at" {
+            continue;
+        }
+        let Some(incoming) = object.get(*name) else {
+            continue;
+        };
+        let stored = read_value(&row, index, *kind)?;
+
+        let same = match kind {
+            // Parse both sides so the wire format and the SQLite format compare
+            // equal when they denote the same instant.
+            ColKind::DateTime => {
+                let left = incoming
+                    .as_str()
+                    .and_then(|raw| crate::time::parse_sqlite_datetime(raw).ok());
+                let right = stored
+                    .as_str()
+                    .and_then(|raw| crate::time::parse_sqlite_datetime(raw).ok());
+                match (left, right) {
+                    (Some(a), Some(b)) => a == b,
+                    // An unparseable timestamp is compared as its raw value.
+                    _ => incoming == &stored,
+                }
+            }
+            _ => incoming == &stored,
+        };
+        if !same {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// Insert one row. Returns `false` when the row cannot be written as-is (a
 /// missing required column), which the caller counts as a conflict — the
 /// baseline does the same for an incomplete row.
@@ -312,15 +407,28 @@ async fn update_row(
     object: &Map<String, Value>,
     id: &str,
 ) -> Result<bool, RepositoryError> {
+    // Only the columns the snapshot actually MENTIONS are written. The
+    // baseline's `_apply_fields_only` iterates `record.items()`, so a column the
+    // payload omits keeps its stored value — writing NULL for it would violate
+    // a NOT NULL constraint on a partial row (measured: a partial candidates
+    // snapshot answered 500 `internal_error`), and would also silently blank
+    // columns the caller never mentioned.
     let mut assignments: Vec<String> = Vec::new();
     let mut values: Vec<Value> = Vec::new();
     for (name, kind) in spec.columns {
         if *name == "id" {
             continue;
         }
-        let value = object.get(*name).cloned().unwrap_or(Value::Null);
+        let Some(value) = object.get(*name) else {
+            continue;
+        };
         assignments.push(format!("{name} = ?"));
-        values.push(coerce_for_write(value, *kind));
+        values.push(coerce_for_write(value.clone(), *kind));
+    }
+    if assignments.is_empty() {
+        // Nothing to write: the row exists and the payload said nothing about
+        // it. Not an error.
+        return Ok(true);
     }
 
     let sql = format!(

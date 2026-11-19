@@ -559,6 +559,53 @@ CASES: list[dict] = [
     {"name": "import_snapshot_no_data", "method": "POST", "path": "/api/import", "json": {}},
     {"name": "import_snapshot_null_data", "method": "POST", "path": "/api/import",
      "json": {"data": None}},
+    # ── W4 import LWW semantics ────────────────────────────────────────────
+    # The earlier W4 cases all sent empty `data`, so the merge rules were never
+    # exercised: a port that only implemented "newer wins, else skip" passed
+    # every one of them. These six pin the real rules, including the
+    # `conflicts` counter and the append-only table exception.
+    #
+    # Dave's seeded `updated_at` is ...000003, Eve's is ...000004.
+    {"name": "import_lww_older_differs", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{
+         "id": "c0000000-0000-0000-0000-000000000004",
+         "name": "Dave STALE", "source": "boss", "status": "New", "archived": False,
+         "created_at": "2026-11-10T09:05:00.000003+00:00",
+         "updated_at": "2020-01-01T00:00:00+00:00"}]}}},
+    {"name": "import_lww_equal_differs", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{
+         "id": "c0000000-0000-0000-0000-000000000004",
+         "name": "Dave EQUAL", "source": "boss", "status": "New", "archived": False,
+         "created_at": "2026-11-10T09:05:00.000003+00:00",
+         "updated_at": "2026-11-10T09:05:00.000003+00:00"}]}}},
+    {"name": "import_lww_no_timestamp_differs", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{
+         "id": "c0000000-0000-0000-0000-000000000004",
+         "name": "Dave NO-TS", "source": "boss", "status": "New", "archived": False,
+         "created_at": "2026-11-10T09:05:00.000003+00:00"}]}}},
+    # Identical payload, no timestamp: skipped but NOT a conflict.
+    {"name": "import_lww_no_timestamp_identical", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{
+         "id": "c0000000-0000-0000-0000-000000000004",
+         "name": "Dave", "source": "boss", "status": "New", "archived": False,
+         "created_at": "2026-11-10T09:05:00.000003+00:00"}]}}},
+    # Newer wins — and only the columns the payload mentions are written, so
+    # `status` / `source` must keep their stored values.
+    {"name": "import_lww_newer_wins", "method": "POST", "path": "/api/import",
+     "json": {"data": {"candidates": [{
+         "id": "c0000000-0000-0000-0000-000000000005",
+         "name": "Eve RENAMED",
+         "updated_at": "2099-01-01T00:00:00+00:00"}]}}},
+    # Append-only: a stored send record is never rewritten, even by a snapshot
+    # carrying a newer stamp. The disagreement is still reported as a conflict.
+    {"name": "import_lww_append_only_send_record", "method": "POST", "path": "/api/import",
+     "json": {"data": {"send_records": [{
+         "id": "cccccccc-0000-0000-0000-000000000004", "candidate_id": "c0000000-0000-0000-0000-000000000002",
+         "channel": "boss", "content_summary": "REWRITTEN BY IMPORT",
+         "status": "sent", "actor": "local_user",
+         "created_at": "2026-11-13T10:00:00.000000+00:00",
+         "updated_at": "2099-01-01T00:00:00+00:00"}]}}},
+
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
