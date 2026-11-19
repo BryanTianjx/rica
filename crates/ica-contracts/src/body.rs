@@ -776,7 +776,7 @@ pub fn message_create(raw: RawMessageCreate) -> Result<NewMessage, ContractError
         &mut issues,
         "source",
         raw.source,
-        "'manual', 'paste_import' or 'screenshot_ocr'",
+        "'manual', 'paste_import', 'screenshot_ocr' or 'browser_extract'",
         MessageSource::parse,
     ) {
         Some(source) => source,
@@ -1263,8 +1263,8 @@ mod tests {
 // ── Drafts (W3) ────────────────────────────────────────────────────────────
 
 use ica_application::{
-    DraftPatch, ImportCorrection, NewDraftGeneration, NewDraftGroupSelection, NewImportConfirm,
-    NewImportOcr, NewImportPreview,
+    DraftPatch, ImportCorrection, NewCandidateConfirm, NewDraftGeneration, NewDraftGroupSelection,
+    NewImportConfirm, NewImportOcr, NewImportPreview,
 };
 use ica_domain::{MessageType, Tone};
 
@@ -1481,7 +1481,7 @@ pub fn import_preview(raw: RawImportPreview) -> Result<NewImportPreview, Contrac
                 issues.push(issue(
                     "enum",
                     "source",
-                    "Input should be 'manual', 'paste_import' or 'screenshot_ocr'",
+                    "Input should be 'manual', 'paste_import', 'screenshot_ocr' or 'browser_extract'",
                     Value::String(value),
                 ));
                 ica_domain::MessageSource::PasteImport
@@ -1767,6 +1767,110 @@ pub fn import_ocr(raw: RawImportOcr) -> Result<NewImportOcr, ContractError> {
     Ok(NewImportOcr {
         candidate_id,
         image_path,
+    })
+}
+
+/// Raw `POST /api/imports/{session_id}/confirm-candidate` body
+/// (`CandidateConfirmRequest`).
+#[derive(Deserialize, Default)]
+pub struct RawCandidateConfirm {
+    #[serde(default)]
+    pub position_id: Incoming<String>,
+    #[serde(default)]
+    pub status: Incoming<String>,
+    /// Kept raw: pydantic coerces the usual boolean spellings out of a string
+    /// (`bool_parsing`), so a typed `Incoming<bool>` would fail the whole body
+    /// parse for what pydantic reports as a field-level 422.
+    #[serde(default)]
+    pub confirm_duplicate: Incoming<Value>,
+    #[serde(default)]
+    pub note: Incoming<String>,
+}
+
+/// Validate a `POST /api/imports/{session_id}/confirm-candidate` body.
+pub fn candidate_confirm(raw: RawCandidateConfirm) -> Result<NewCandidateConfirm, ContractError> {
+    let mut issues = Vec::new();
+    let position_id = take_optional_string(raw.position_id);
+
+    let status = match raw.status {
+        Incoming::Absent | Incoming::Null => ica_domain::CandidateStatus::New,
+        Incoming::Value(value) => match ica_domain::CandidateStatus::parse(&value) {
+            Some(parsed) => parsed,
+            None => {
+                issues.push(issue(
+                    "enum",
+                    "status",
+                    "Input should be 'New', 'Contacted', 'ReadNoReply', 'Replied', 'Active', 'Interview', 'Rejected', 'Withdrawn' or 'Closed'",
+                    Value::String(value),
+                ));
+                ica_domain::CandidateStatus::New
+            }
+        },
+    };
+
+    // `confirm_duplicate: bool = False`: absent means the default; a string
+    // spelling of a boolean is coerced (`bool_parsing`); null and every other
+    // non-boolean type are errors.
+    let confirm_duplicate = match raw.confirm_duplicate {
+        Incoming::Absent => false,
+        Incoming::Value(Value::Bool(flag)) => flag,
+        Incoming::Value(Value::String(text)) => match pydantic_bool(&text) {
+            Some(flag) => flag,
+            None => {
+                issues.push(issue(
+                    "bool_parsing",
+                    "confirm_duplicate",
+                    "Input should be a valid boolean, unable to interpret input",
+                    Value::String(text),
+                ));
+                false
+            }
+        },
+        Incoming::Value(other) => {
+            issues.push(issue(
+                "bool_type",
+                "confirm_duplicate",
+                "Input should be a valid boolean",
+                other,
+            ));
+            false
+        }
+        Incoming::Null => {
+            issues.push(issue(
+                "bool_type",
+                "confirm_duplicate",
+                "Input should be a valid boolean",
+                Value::Null,
+            ));
+            false
+        }
+    };
+
+    let note = match raw.note {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => {
+            if value.chars().count() > 500 {
+                issues.push(issue(
+                    "string_too_long",
+                    "note",
+                    "String should have at most 500 characters",
+                    Value::String(value),
+                ));
+                None
+            } else {
+                Some(value)
+            }
+        }
+    };
+
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(NewCandidateConfirm {
+        position_id,
+        status,
+        confirm_duplicate,
+        note,
     })
 }
 

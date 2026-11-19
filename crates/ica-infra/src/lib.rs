@@ -13,6 +13,7 @@ pub mod db;
 pub mod drafts;
 pub mod export_crypto;
 pub mod export_tables;
+pub mod extractions;
 pub mod follow_ups;
 pub mod imports;
 pub mod json_fmt;

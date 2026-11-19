@@ -85,6 +85,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // the snapshot repository, so a write and its audit event share one
         // transaction; sealing and OCR are separate adapters.
         Arc::new(repository.clone()),
+        // W7: the browser-extraction confirm path — same store, same pool.
+        Arc::new(repository.clone()),
         Arc::new(repository.clone()),
         Arc::new(ica_infra::export_crypto::AesGcmSealer),
         Arc::new(ica_infra::ocr_rapid::RapidOcrEngine),

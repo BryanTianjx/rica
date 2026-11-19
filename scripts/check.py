@@ -202,9 +202,10 @@ def main() -> int:
     missing = counts["missing"]
     total = counts["contract_total"]
     extra = counts["extra_routes"]
+    auxiliary = counts.get("auxiliary_routes", 0)
     print(
         f"   contract={total} implemented={implemented} missing={missing} "
-        f"extra={extra}"
+        f"extra={extra} auxiliary={auxiliary}"
     )
     if implemented + missing != total:
         print(
@@ -218,7 +219,10 @@ def main() -> int:
             "contract table"
         )
         return 1
-    print("   ok: implemented + missing == contract total, no extra routes")
+    print(
+        f"   ok: implemented + missing == contract total, no extra routes"
+        + (f" ({auxiliary} auxiliary route(s) per ADR-0003 D-2)" if auxiliary else "")
+    )
 
     print()
     print("All gates passed.")

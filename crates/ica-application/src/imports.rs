@@ -154,6 +154,19 @@ pub async fn confirm_import(
         ));
     }
 
+    // A browser extraction writes a *candidate*, not messages, so the
+    // message-shaped confirm body (candidate_id + per-record corrections)
+    // does not apply. The frozen baseline refuses it instead of silently
+    // confirming nothing (`conversation_service.confirm_import`); the same
+    // session confirms through `/api/imports/{session_id}/confirm-candidate`.
+    if session.source == ica_domain::MessageSource::BrowserExtract.as_str() {
+        return Err(ApplicationError::conflict(
+            "This import session is a browser extraction; confirm it with \
+             POST /api/imports/{session_id}/confirm-candidate",
+            Default::default(),
+        ));
+    }
+
     let outcome: ImportConfirmOutcome = imports
         .confirm(
             session_id,

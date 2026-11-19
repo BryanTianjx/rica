@@ -7,9 +7,9 @@
 use std::sync::Arc;
 
 use ica_application::{
-    CandidateRepository, ConversationRepository, DashboardRepository, DataSnapshotRepository,
-    DraftGenerator, DraftRepository, ExportSealer, FollowUpRepository, ImportRepository,
-    MessageRepository, OcrEngine, PositionRepository, SendRecordRepository,
+    BrowserExtractionRepository, CandidateRepository, ConversationRepository, DashboardRepository,
+    DataSnapshotRepository, DraftGenerator, DraftRepository, ExportSealer, FollowUpRepository,
+    ImportRepository, MessageRepository, OcrEngine, PositionRepository, SendRecordRepository,
 };
 use ica_infra::drafts::NotConfiguredDraftGenerator;
 use ica_infra::export_crypto::AesGcmSealer;
@@ -44,6 +44,7 @@ pub struct DesktopState {
     drafts: Arc<dyn DraftRepository>,
     draft_generator: Arc<dyn DraftGenerator>,
     imports: Arc<dyn ImportRepository>,
+    extractions: Arc<dyn BrowserExtractionRepository>,
     snapshots: Arc<dyn DataSnapshotRepository>,
     export_sealer: Arc<dyn ExportSealer>,
     ocr: Arc<dyn OcrEngine>,
@@ -84,6 +85,7 @@ impl DesktopState {
             // repositories, so a write and its audit event share one
             // transaction.
             imports: Arc::new(store.clone()),
+            extractions: Arc::new(store.clone()),
             snapshots: Arc::new(store.clone()),
             export_sealer: Arc::new(AesGcmSealer),
             ocr: Arc::new(RapidOcrEngine),
@@ -125,6 +127,10 @@ impl DesktopState {
 
     pub fn draft_generator(&self) -> &dyn DraftGenerator {
         self.draft_generator.as_ref()
+    }
+
+    pub fn extractions(&self) -> &dyn BrowserExtractionRepository {
+        self.extractions.as_ref()
     }
 
     pub fn imports(&self) -> &dyn ImportRepository {

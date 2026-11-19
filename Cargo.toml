@@ -26,6 +26,9 @@ async-trait = "0.1"
 # Content fingerprint (`content_hash`): pure computation, so the domain keeps
 # the duplicate-detection rule instead of the adapter.
 sha2 = "0.10"
+# `normalize_name` (candidate extraction) matches Python's
+# `unicodedata.normalize("NFKC", name)`.
+unicode-normalization = "0.1"
 aes-gcm = "0.10"
 base64 = "0.22"
 # AI-context redaction (`redact_for_ai` port): pure pattern work, no runtime.

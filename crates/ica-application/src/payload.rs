@@ -355,3 +355,13 @@ pub struct NewImportOcr {
     /// A server-side path, guarded against escaping the staging directory.
     pub image_path: String,
 }
+
+/// The application-layer confirm request for a browser extraction draft
+/// (`CandidateConfirmRequest`), already validated by `ica-contracts`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewCandidateConfirm {
+    pub position_id: Option<String>,
+    pub status: ica_domain::CandidateStatus,
+    pub confirm_duplicate: bool,
+    pub note: Option<String>,
+}

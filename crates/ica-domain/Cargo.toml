@@ -13,3 +13,5 @@ chrono.workspace = true
 sha2.workspace = true
 # AI-context redaction (`redact_for_ai` port): pure pattern matching.
 regex.workspace = true
+# `normalize_name` (candidate extraction): NFKC, like `unicodedata.normalize`.
+unicode-normalization.workspace = true

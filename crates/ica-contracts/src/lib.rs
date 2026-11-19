@@ -18,12 +18,13 @@ pub mod error;
 pub mod query;
 
 pub use body::{
-    draft_approve, draft_group_select, draft_patch, follow_up_create, follow_up_evaluate,
-    follow_up_patch, follow_up_policy_patch, follow_up_result, generate_request, import_confirm,
-    import_ocr, import_payload, import_preview, parse, RawDraftApprove, RawDraftGroupSelect,
-    RawDraftPatch, RawFollowUpCreate, RawFollowUpEvaluate, RawFollowUpPatch,
-    RawFollowUpPolicyPatch, RawFollowUpResult, RawGenerateRequest, RawImportConfirm, RawImportOcr,
-    RawImportPayload, RawImportPreview, RawMessageCreate, RawSendRecordCreate,
+    candidate_confirm, draft_approve, draft_group_select, draft_patch, follow_up_create,
+    follow_up_evaluate, follow_up_patch, follow_up_policy_patch, follow_up_result,
+    generate_request, import_confirm, import_ocr, import_payload, import_preview, parse,
+    RawCandidateConfirm, RawDraftApprove, RawDraftGroupSelect, RawDraftPatch, RawFollowUpCreate,
+    RawFollowUpEvaluate, RawFollowUpPatch, RawFollowUpPolicyPatch, RawFollowUpResult,
+    RawGenerateRequest, RawImportConfirm, RawImportOcr, RawImportPayload, RawImportPreview,
+    RawMessageCreate, RawSendRecordCreate,
 };
 pub use dto::{
     CandidateDetailRead, CandidateRead, ContextPreviewRead, ConversationRead, DashboardRead,

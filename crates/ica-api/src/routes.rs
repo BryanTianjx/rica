@@ -76,6 +76,7 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/imports/ocr",
     "/api/imports/{session_id}",
     "/api/imports/{session_id}/confirm",
+    "/api/imports/{session_id}/confirm-candidate",
     "/api/imports/{session_id}/reject",
     "/api/export",
     "/api/import",
@@ -159,6 +160,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/imports/ocr", post(ocr_import))
         .route("/api/imports/{session_id}", get(get_import))
         .route("/api/imports/{session_id}/confirm", post(confirm_import))
+        .route(
+            "/api/imports/{session_id}/confirm-candidate",
+            post(confirm_candidate_import),
+        )
         .route("/api/imports/{session_id}/reject", post(reject_import))
         .route("/api/export", post(export_data))
         .route("/api/import", post(import_data))
@@ -808,6 +813,41 @@ async fn confirm_import(
         skipped_count: outcome.skipped_count,
         duplicate_count: outcome.duplicate_count,
     }))
+}
+
+/// `POST /api/imports/{session_id}/confirm-candidate` — write a REVIEWED
+/// browser extraction draft into the candidate archive. This is the ONLY path
+/// from a page into `candidates` (baseline §6.2): the browser router can draft
+/// and review, never write. The service refuses a draft that no human
+/// approved, whose approval digest no longer matches, or that duplicates an
+/// existing candidate without an explicit override (AC-04-4).
+async fn confirm_candidate_import(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let raw: body::RawCandidateConfirm = body::parse(&body)?;
+    let request = body::candidate_confirm(raw)?;
+    let outcome = ica_application::confirm_candidate(
+        state.imports(),
+        state.extractions(),
+        &session_id,
+        ica_application::CandidateConfirm {
+            position_id: request.position_id,
+            status: request.status,
+            confirm_duplicate: request.confirm_duplicate,
+            note: request.note,
+        },
+    )
+    .await?;
+    Ok(Json(serde_json::json!({
+        "session_id": outcome.session_id,
+        "extraction_id": outcome.extraction_id,
+        "candidate_id": outcome.candidate_id,
+        "duplicate_kind": outcome.duplicate_kind,
+        "duplicate_override": outcome.duplicate_override,
+        "fields_written": outcome.fields_written,
+    })))
 }
 
 /// `POST /api/imports/{session_id}/reject` — close a session without importing.

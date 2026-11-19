@@ -21,6 +21,9 @@ the exported DDL of the real baseline database — not a hand-written schema.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -263,6 +266,163 @@ DRAFTS: list[tuple] = [
 ]
 
 
+# ── W7: browser candidate-extraction drafts ────────────────────────────────
+# The confirm-candidate flow needs browser_extract sessions with drafts in
+# every guard state. The digests are computed with the SAME expressions as
+# `app/domain/candidate_extraction.py` (plain hashlib + json, so the seed does
+# not need the app importable) — the draft's `review_digest` MUST match what
+# the approved fields render to, or the confirm path would refuse everything.
+
+EXTRACTION_FIELD_NAMES = (
+    "name", "job_intention", "expected_salary", "expected_location",
+    "experience_summary", "skill_summary",
+)
+
+_PUNCT_RE = re.compile(
+    r"[\s\u3000·•.,，。;；:：!！?？'\"“”‘’()（）\[\]【】<>《》_\-/\\|]+"
+)
+_NAME_SUFFIX_RE = re.compile(r"(的个人简历|的简历|个人简历|简历|的主页|主页)$")
+
+
+def _review_digest(fields: dict) -> str:
+    payload = {key: fields.get(key) for key in EXTRACTION_FIELD_NAMES}
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
+def _normalize_name(name: str) -> str:
+    text = _NAME_SUFFIX_RE.sub("", _PUNCT_RE.sub("", name.strip()))
+    return text.lower()[:200]
+
+
+def _identity_key(name: str, domain: str) -> str:
+    payload = f"{_normalize_name(name)}\x1f{domain.strip().lower()}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+WANGFANG = {"name": "王芳", "expected_location": "杭州", "skill_summary": "Go, Kubernetes"}
+_WANGFANG_DIGEST = _review_digest(WANGFANG)
+_WANGFANG_IDENTITY = _identity_key("王芳", "zhipin.com")
+_WANGFANG_NAME_KEY = "王芳"
+_WANGFANG_FIELDS_JSON = json.dumps(WANGFANG, ensure_ascii=False)
+_WANGFANG_ORIGINS = '{"name": {"method": "label", "ref": "n7"}}'
+_WANGFANG_MISSING = '["job_intention", "expected_salary", "experience_summary"]'
+
+# (session_id, extraction_id, status, review_digest, duplicate_kind,
+#  duplicate_of_candidate_id, duplicate_evidence_json, fields_json)
+BROWSER_DRAFTS = [
+    # draft: refuses with review_required; also the reject side-effect target
+    ("b0000000-0000-0000-0000-000000000001", "e0000000-0000-0000-0000-000000000001",
+     "draft", None, None, None, None, _WANGFANG_FIELDS_JSON),
+    # approved, clean digest: the happy path
+    ("b0000000-0000-0000-0000-000000000002", "e0000000-0000-0000-0000-000000000002",
+     "approved", _WANGFANG_DIGEST, None, None, None, _WANGFANG_FIELDS_JSON),
+    # approved, clean digest #2: status/note variants
+    ("b0000000-0000-0000-0000-000000000003", "e0000000-0000-0000-0000-000000000003",
+     "approved", _WANGFANG_DIGEST, None, None, None, _WANGFANG_FIELDS_JSON),
+    # approved, clean digest #3: a missing position link
+    ("b0000000-0000-0000-0000-000000000004", "e0000000-0000-0000-0000-000000000004",
+     "approved", _WANGFANG_DIGEST, None, None, None, _WANGFANG_FIELDS_JSON),
+    # approved but the digest no longer matches the fields: review_stale
+    ("b0000000-0000-0000-0000-000000000005", "e0000000-0000-0000-0000-000000000005",
+     "approved", "0" * 64, None, None, None, _WANGFANG_FIELDS_JSON),
+    # approved + a stored name-duplicate verdict: blocked unless overridden
+    ("b0000000-0000-0000-0000-000000000006", "e0000000-0000-0000-0000-000000000006",
+     "approved", _WANGFANG_DIGEST, "name",
+     "c0000000-0000-0000-0000-000000000001",
+     json.dumps({"signal": "same_normalised_name",
+                 "matched_candidate_ids": ["c0000000-0000-0000-0000-000000000001"],
+                 "match_count": 1}, ensure_ascii=False),
+     _WANGFANG_FIELDS_JSON),
+    # already confirmed: refuses again
+    ("b0000000-0000-0000-0000-000000000007", "e0000000-0000-0000-0000-000000000007",
+     "confirmed", _WANGFANG_DIGEST, None, None, None, _WANGFANG_FIELDS_JSON),
+]
+
+BROWSER_IMPORT_SESSIONS = [
+    # (id, candidate_id, source, raw_text, status, detected_duplicate_count,
+    #  confirmed_at, error_message, updated_at)
+    ("b0000000-0000-0000-0000-000000000001", None, "browser_extract",
+     "姓名：王芳\n技能：Go, Kubernetes", "previewed", 1, None, None,
+     "2026-11-18 12:00:00.000000"),
+    ("b0000000-0000-0000-0000-000000000002", None, "browser_extract",
+     "姓名：王芳\n技能：Go, Kubernetes", "previewed", 0, None, None,
+     "2026-11-18 12:00:00.000000"),
+    ("b0000000-0000-0000-0000-000000000003", None, "browser_extract",
+     "姓名：王芳\n技能：Go, Kubernetes", "previewed", 0, None, None,
+     "2026-11-18 12:00:00.000000"),
+    ("b0000000-0000-0000-0000-000000000004", None, "browser_extract",
+     "姓名：王芳\n技能：Go, Kubernetes", "previewed", 0, None, None,
+     "2026-11-18 12:00:00.000000"),
+    ("b0000000-0000-0000-0000-000000000005", None, "browser_extract",
+     "姓名：王芳\n技能：Go, Kubernetes", "previewed", 0, None, None,
+     "2026-11-18 12:00:00.000000"),
+    ("b0000000-0000-0000-0000-000000000006", None, "browser_extract",
+     "姓名：王芳\n技能：Go, Kubernetes", "previewed", 1, None, None,
+     "2026-11-18 12:00:00.000000"),
+    # confirmed session + confirmed draft: already_confirmed
+    ("b0000000-0000-0000-0000-000000000007", "c0000000-0000-0000-0000-000000000003",
+     "browser_extract", "", "confirmed", 0,
+     "2026-11-18 12:05:00.000000", None, "2026-11-18 12:05:00.000000"),
+    # a browser session WITHOUT a draft: extraction_not_found
+    ("b0000000-0000-0000-0000-000000000008", None, "browser_extract",
+     "姓名：无名氏", "previewed", 0, None, None, "2026-11-18 12:00:00.000000"),
+]
+
+BROWSER_EXTRACTION_ROWS = [
+    (
+        row[1],                      # id
+        row[0],                      # session_id (the browser session)
+        "a0000000-0000-0000-0000-00000000000" + row[0][-1],  # snapshot_action_id
+        row[0],                      # import_session_id
+        "https://www.zhipin.com/job_detail/1998.html",
+        "zhipin.com",
+        "f" * 64,                    # snapshot_sha256
+        "browser/artifacts/x.snapshot.json",
+        42, 3,                       # node_count, masked_fields
+        row[7],                      # fields_json
+        _WANGFANG_ORIGINS,
+        _WANGFANG_MISSING,
+        _WANGFANG_NAME_KEY, _WANGFANG_IDENTITY,
+        row[4],                      # duplicate_kind
+        row[5],                      # duplicate_of_candidate_id
+        row[6],                      # duplicate_evidence_json
+        row[2],                      # status
+        row[3],                      # review_digest
+        ("2026-11-18 11:00:00.000000" if row[2] in ("approved", "confirmed") else None),
+        ("c0000000-0000-0000-0000-000000000003" if row[2] == "confirmed" else None),
+        ("2026-11-18 12:05:00.000000" if row[2] == "confirmed" else None),
+        "2026-11-18 10:00:00.000000", "2026-11-18 10:00:00.000000",
+    )
+    for row in BROWSER_DRAFTS
+]
+
+
+def seed_browser_fixtures(connection) -> None:
+    """Insert the W7 browser_extract sessions and their extraction drafts."""
+    connection.executemany(
+        "INSERT INTO import_sessions (id, candidate_id, source, raw_text, status,"
+        " detected_duplicate_count, confirmed_at, error_message, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, '2026-11-18 12:00:00.000000', ?)",
+        [(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8])
+         for row in BROWSER_IMPORT_SESSIONS],
+    )
+    connection.executemany(
+        "INSERT INTO browser_candidate_extractions (id, session_id,"
+        " snapshot_action_id, import_session_id, source_url, source_domain,"
+        " snapshot_sha256, snapshot_path, snapshot_node_count,"
+        " snapshot_masked_fields, fields_json, field_origin_json,"
+        " missing_fields_json, name_key, identity_key, duplicate_kind,"
+        " duplicate_of_candidate_id, duplicate_evidence_json, status,"
+        " review_digest, reviewed_at, candidate_id, confirmed_at, mask_hits,"
+        " created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
+        " ?, ?, ?, ?, ?, ?)",
+        [row[:23] + (3,) + row[23:] for row in BROWSER_EXTRACTION_ROWS],
+    )
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="/tmp/ica-contract/seed.db")
@@ -371,6 +531,9 @@ def main(argv: list[str]) -> int:
                 for draft_id, candidate_id, status, group_id, routing, created_at in DRAFTS
             ],
         )
+        connection.commit()
+
+        seed_browser_fixtures(connection)
         connection.commit()
 
         tables = connection.execute(

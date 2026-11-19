@@ -120,6 +120,18 @@ def wave_of(path: str, module: str) -> str:
     return WAVE_BY_MODULE.get(head, "?")
 
 
+# Routes the project moved OUT of the 68-endpoint contract by explicit ruling
+# (ADR-0003 D-2, 2026-11-19): they are implemented in the Rust router (or owned
+# by their own wave: W7 for confirm-candidate, AI-EXT for the ai/models CRUD)
+# but are NOT part of the migration contract's 68. The gate would otherwise
+# count them as "extra" — failing the build for a scope decision the project
+# already made. The allowlist is explicit and commented so a route cannot
+# quietly talk its way out of the contract.
+AUXILIARY_ROUTES = {
+    ("POST", "/api/imports/{}/confirm-candidate"),
+}
+
+
 def build() -> dict:
     rust_routes = read_rust_routes()
     contract_rows = read_contract_rows()
@@ -144,17 +156,21 @@ def build() -> dict:
             "baseline_sha": "d39e321",
         })
 
+    auxiliary = 0
     for method, path in sorted(rust_api - contract_set):
+        is_auxiliary = (method, path) in AUXILIARY_ROUTES
+        if is_auxiliary:
+            auxiliary += 1
         entries.append({
             "contract_id": None,
             "python_route": path,
             "method": method,
             "module": "(router only)",
-            "wave": "?",
-            "implementation": "Extra",
+            "wave": "W7" if is_auxiliary else "?",
+            "implementation": "Auxiliary" if is_auxiliary else "Extra",
             "verification": "Unverified",
-            "scope": "Auxiliary",
-            "baseline_sha": "d39e321",
+            "scope": "Auxiliary (D-2)" if is_auxiliary else "Auxiliary",
+            "baseline_sha": "9ed173c",
         })
 
     implemented = sum(1 for e in entries if e["implementation"] == "Implemented")
@@ -172,6 +188,7 @@ def build() -> dict:
             "implemented": implemented,
             "missing": missing,
             "extra_routes": extra,
+            "auxiliary_routes": auxiliary,
             "non_contract_routes": len(rust_non_contract),
             "matrix_rows": total,
         },

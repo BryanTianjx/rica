@@ -804,3 +804,113 @@ pub trait DraftGenerator: Send + Sync {
         request: crate::ai_context::GenerateDraftRequest,
     ) -> Result<GeneratedDraft, ApplicationError>;
 }
+
+// ── Browser candidate extraction (W7) ──────────────────────────────────────
+
+/// The request to confirm a reviewed browser extraction draft
+/// (`CandidateConfirmRequest`). `confirm_duplicate` is the only way past a
+/// duplicate verdict, and it is an explicit human statement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandidateConfirm {
+    pub position_id: Option<String>,
+    pub status: ica_domain::CandidateStatus,
+    pub confirm_duplicate: bool,
+    pub note: Option<String>,
+}
+
+/// The result of confirming (`CandidateConfirmResult`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandidateConfirmOutcome {
+    pub session_id: String,
+    pub extraction_id: String,
+    pub candidate_id: String,
+    pub duplicate_kind: Option<String>,
+    pub duplicate_override: bool,
+    pub fields_written: Vec<String>,
+}
+
+/// One browser candidate-extraction draft, as the confirm path reads it
+/// (the staging row of `browser_candidate_extractions`; NOT a candidate).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractionDraft {
+    pub id: String,
+    pub session_id: String,
+    pub snapshot_action_id: String,
+    pub import_session_id: Option<String>,
+    pub source_url: String,
+    pub source_domain: String,
+    pub snapshot_sha256: String,
+    pub fields_json: String,
+    pub duplicate_kind: Option<String>,
+    pub duplicate_of_candidate_id: Option<String>,
+    pub duplicate_evidence_json: Option<String>,
+    pub status: String,
+    pub review_digest: Option<String>,
+    /// Set when the draft was confirmed: the candidate it became.
+    pub candidate_id: Option<String>,
+}
+
+impl ExtractionDraft {
+    /// `_load_fields` + `_present_fields`: the six known field slots read from
+    /// the stored JSON, keeping only non-empty values (a masked-out field is
+    /// null or "" and contributes nothing — not to the digest, not to
+    /// `fields_written`).
+    pub fn present_fields(&self) -> Vec<(&'static str, String)> {
+        let parsed: serde_json::Value =
+            serde_json::from_str(&self.fields_json).unwrap_or(serde_json::Value::Null);
+        ica_domain::candidate_extraction::FIELD_NAMES
+            .iter()
+            .filter_map(|name| {
+                let value = parsed.get(*name)?;
+                let text = value.as_str()?;
+                if text.is_empty() {
+                    return None;
+                }
+                Some((*name, text.to_string()))
+            })
+            .collect()
+    }
+
+    /// The digest of the fields AS THEY SIT NOW (`domain.review_digest` over
+    /// the present fields).
+    pub fn review_digest_now(&self) -> String {
+        let fields = self.present_fields();
+        ica_domain::candidate_extraction::review_digest(
+            &fields
+                .iter()
+                .map(|(name, value)| (*name, Some(value.as_str())))
+                .collect::<Vec<_>>(),
+        )
+    }
+}
+#[async_trait]
+pub trait BrowserExtractionRepository: Send + Sync {
+    /// The draft bound to one import session (`extraction_for_session`): the
+    /// first row whose `import_session_id` matches. `None` when the session
+    /// has no browser draft behind it.
+    async fn find_by_import_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<ExtractionDraft>, RepositoryError>;
+
+    /// Audit + commit a refused duplicate confirmation (`EVENT_DUPLICATE_BLOCKED`).
+    /// The baseline COMMITS the block audit before raising, so the refusal is
+    /// queryable after the fact.
+    async fn record_duplicate_block(
+        &self,
+        extraction: &ExtractionDraft,
+        session_id: &str,
+    ) -> Result<(), RepositoryError>;
+
+    /// Write an approved draft into `candidates` in one transaction: the
+    /// candidate INSERT + its audit, the extraction row's confirmation, the
+    /// session's confirmation and the
+    /// `browser.candidate_extraction.confirmed` audit all commit together.
+    /// The GUARDS live in the use case; this only executes the write path.
+    async fn confirm_candidate(
+        &self,
+        session_id: &str,
+        draft: &ExtractionDraft,
+        request: CandidateConfirm,
+    ) -> Result<CandidateConfirmOutcome, RepositoryError>;
+}

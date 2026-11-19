@@ -32,12 +32,16 @@ impl SenderType {
 /// How a message entered ICA (`MessageSource`).
 ///
 /// `Manual` and `PasteImport` are the V1.0 paths; `ScreenshotOcr` is the V2.0
-/// local input bridge. There is deliberately no browser-capture value.
+/// local input bridge; `BrowserExtract` is the browser pipeline's draft source
+/// (added to the frozen baseline `9ed173c` with BROWSER-04 — its sessions are
+/// confirmed through `POST /api/imports/{session_id}/confirm-candidate`, never
+/// through the message-shaped confirm).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MessageSource {
     Manual,
     PasteImport,
     ScreenshotOcr,
+    BrowserExtract,
 }
 
 impl MessageSource {
@@ -46,6 +50,7 @@ impl MessageSource {
             MessageSource::Manual => "manual",
             MessageSource::PasteImport => "paste_import",
             MessageSource::ScreenshotOcr => "screenshot_ocr",
+            MessageSource::BrowserExtract => "browser_extract",
         }
     }
 
@@ -54,6 +59,7 @@ impl MessageSource {
             "manual" => Some(MessageSource::Manual),
             "paste_import" => Some(MessageSource::PasteImport),
             "screenshot_ocr" => Some(MessageSource::ScreenshotOcr),
+            "browser_extract" => Some(MessageSource::BrowserExtract),
             _ => None,
         }
     }

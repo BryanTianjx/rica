@@ -391,6 +391,7 @@ pub async fn app_for(path: &Path) -> Router {
         Arc::new(store.clone()) as Arc<dyn DraftRepository>,
         Arc::new(NotConfiguredDraftGenerator) as Arc<dyn DraftGenerator>,
         Arc::new(store.clone()) as Arc<dyn ImportRepository>,
+        Arc::new(store.clone()) as Arc<dyn ica_application::BrowserExtractionRepository>,
         Arc::new(store.clone()) as Arc<dyn DataSnapshotRepository>,
         Arc::new(AesGcmSealer) as Arc<dyn ExportSealer>,
         Arc::new(ica_infra::ocr_rapid::RapidOcrEngine) as Arc<dyn OcrEngine>,

@@ -811,6 +811,37 @@ pub async fn imports_confirm(
     })
 }
 
+/// `imports_confirm_candidate` — write a REVIEWED browser extraction draft
+/// into the candidate archive (the only path from a page into `candidates`).
+pub async fn imports_confirm_candidate(
+    state: &DesktopState,
+    session_id: &str,
+    payload: &Value,
+) -> Result<Value, IpcError> {
+    let raw: body::RawCandidateConfirm = parse_body(payload)?;
+    let request = body::candidate_confirm(raw).map_err(fail)?;
+    let outcome = ica_application::confirm_candidate(
+        state.imports(),
+        state.extractions(),
+        session_id,
+        ica_application::CandidateConfirm {
+            position_id: request.position_id,
+            status: request.status,
+            confirm_duplicate: request.confirm_duplicate,
+            note: request.note,
+        },
+    )
+    .await?;
+    Ok(serde_json::json!({
+        "session_id": outcome.session_id,
+        "extraction_id": outcome.extraction_id,
+        "candidate_id": outcome.candidate_id,
+        "duplicate_kind": outcome.duplicate_kind,
+        "duplicate_override": outcome.duplicate_override,
+        "fields_written": outcome.fields_written,
+    }))
+}
+
 /// `imports_reject` — close a session without importing.
 pub async fn imports_reject(
     state: &DesktopState,

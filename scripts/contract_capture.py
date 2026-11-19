@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sqlite3
 import sys
 import urllib.error
@@ -618,6 +619,76 @@ CASES: list[dict] = [
     {"name": "imports_ocr_not_an_image", "method": "POST", "path": "/api/imports/ocr",
      "json": {"candidate_id": BOB, "image_path": "{ocr_bad_image}"}},
 
+    # ── W7: browser extraction confirm-candidate ───────────────────────────
+    # The frozen baseline's BROWSER-04 flow: a browser_extract session confirms
+    # through `POST /api/imports/{session_id}/confirm-candidate` — the ONLY
+    # path from a page into `candidates`. Every guard is a negative path, and
+    # each case must actually REACH its branch (the W7 card's acceptance bar).
+    # The seed carries drafts in every guard state, with the review digest the
+    # baseline's own algorithm computes over the approved fields.
+
+    # A manual-source session refuses: wrong_import_type (409). The captured
+    # {other_session_id} is a manual paste-import preview from the W4 block.
+    {"name": "confirm_candidate_wrong_import_type", "method": "POST",
+     "path": "/api/imports/{other_session_id}/confirm-candidate",
+     "json": {}},
+    # An unknown session is the import 404.
+    {"name": "confirm_candidate_unknown_session", "method": "POST",
+     "path": "/api/imports/no-such-session/confirm-candidate",
+     "json": {}},
+    # A browser session WITHOUT a draft: extraction_not_found (404).
+    {"name": "confirm_candidate_extraction_not_found", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000008/confirm-candidate",
+     "json": {}},
+    # A draft in `draft` state: review_required (409).
+    {"name": "confirm_candidate_review_required", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000001/confirm-candidate",
+     "json": {}},
+    # A confirmed draft refuses again (409).
+    {"name": "confirm_candidate_already_confirmed", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000007/confirm-candidate",
+     "json": {}},
+    # An approval whose digest no longer matches the fields (409).
+    {"name": "confirm_candidate_review_stale", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000005/confirm-candidate",
+     "json": {}},
+    # A stored name-duplicate verdict blocks WITHOUT an override — and the
+    # block itself is audited (the final state diff sees the audit row).
+    {"name": "confirm_candidate_duplicate_blocked", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000006/confirm-candidate",
+     "json": {}},
+    # The override goes through and writes the candidate.
+    {"name": "confirm_candidate_duplicate_override", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000006/confirm-candidate",
+     "json": {"confirm_duplicate": True}},
+    # The happy path: an approved, non-duplicate draft becomes a candidate
+    # (source `browser:zhipin.com`, provenance note, session confirmed).
+    {"name": "confirm_candidate_happy", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000002/confirm-candidate",
+     "json": {}},
+    # Status and note flow into the candidate row.
+    {"name": "confirm_candidate_status_and_note", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000003/confirm-candidate",
+     "json": {"status": "Interview", "note": "面评请写完整"}},
+    # A missing position link is the candidates API's own 404.
+    {"name": "confirm_candidate_position_missing", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000004/confirm-candidate",
+     "json": {"position_id": "p-nonexistent"}},
+    # A bad enum value is a route-level 422 (pydantic's own message text).
+    {"name": "confirm_candidate_bad_status", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000002/confirm-candidate",
+     "json": {"status": "bogus"}},
+    # The MESSAGE-shaped confirm refuses a browser session — the same session
+    # confirms through confirm-candidate instead (frozen baseline's guard).
+    {"name": "confirm_message_guard_browser_session", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000001/confirm",
+     "json": {"candidate_id": "c0000000-0000-0000-0000-000000000001"}},
+    # Rejecting a browser session drags its draft out of `draft`
+    # (mark_rejected_for_session), with the reviewed audit event.
+    {"name": "reject_browser_session_marks_draft", "method": "POST",
+     "path": "/api/imports/b0000000-0000-0000-0000-000000000001/reject",
+     "json": {}},
+
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
@@ -637,6 +708,8 @@ DB_TABLES = [
     # W4
     "import_sessions",
     "import_records",
+    # W7 — the extraction drafts (confirm writes into candidates FROM here)
+    "browser_candidate_extractions",
 ]
 
 #: Columns that hold a JSON document; the diff compares them parsed, so the
@@ -761,6 +834,17 @@ def fetch(base_url: str, method: str, path: str, payload: dict | None,
     }
 
 
+#: A UUID-shaped token. The SORT KEY below masks these, because a run-created
+#: id sorts differently on each side (the two sides mint different bytes), and
+#: a row whose content differs only in such an id would align with a DIFFERENT
+#: row on the other side — turning identical content into a positional
+#: "first difference at row 0" (measured on the W7 extraction rows, whose
+#: confirmed drafts differ only in the created candidate's id).
+_UUID_TOKEN_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+
+
 def dump_db(path: str) -> dict[str, object]:
     """Every row of the business tables, with JSON columns parsed."""
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
@@ -777,9 +861,14 @@ def dump_db(path: str) -> dict[str, object]:
                             row[column] = json.loads(raw)
                         except json.JSONDecodeError:
                             pass
-            # Sort by the JSON rendering so a random primary key cannot reorder
-            # the list differently on the two sides; the diff compares content.
-            rows.sort(key=lambda row: json.dumps(row, sort_keys=True, ensure_ascii=False))
+            # Sort by the JSON rendering with UUID tokens masked, so a random
+            # primary key cannot reorder the list differently on the two sides;
+            # the diff compares content.
+            rows.sort(
+                key=lambda row: _UUID_TOKEN_RE.sub(
+                    "<uuid>", json.dumps(row, sort_keys=True, ensure_ascii=False)
+                )
+            )
             state[table] = rows
         return state
     finally:

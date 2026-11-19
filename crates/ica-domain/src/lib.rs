@@ -5,6 +5,7 @@
 //! infrastructure concern: the layering rule is enforced by the compiler.
 
 pub mod candidate;
+pub mod candidate_extraction;
 pub mod content_hash;
 pub mod conversation;
 pub mod draft;

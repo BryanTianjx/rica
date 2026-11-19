@@ -518,6 +518,55 @@ impl ImportRepository for SqliteStore {
         if affected == 0 {
             return Ok(None);
         }
+
+        // A browser extraction draft shares this session; it must not stay
+        // "awaiting review" once the session is rejected
+        // (`mark_rejected_for_session`, in the SAME transaction: the draft's
+        // rejection commits with the session's or not at all).
+        let draft_status: Option<String> = sqlx::query_scalar(
+            "SELECT status FROM browser_candidate_extractions WHERE import_session_id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(repo_error)?;
+        if let Some(status) = draft_status {
+            if status != "confirmed" && status != "rejected" {
+                sqlx::query(
+                    "UPDATE browser_candidate_extractions SET status = 'rejected', \
+                     reviewed_at = ?, updated_at = ? WHERE import_session_id = ?",
+                )
+                .bind(&now)
+                .bind(&now)
+                .bind(id)
+                .execute(&mut *tx)
+                .await
+                .map_err(repo_error)?;
+                let extraction_id: String = sqlx::query_scalar(
+                    "SELECT id FROM browser_candidate_extractions WHERE import_session_id = ?",
+                )
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(repo_error)?;
+                insert_audit(
+                    &mut tx,
+                    AuditEntry::new(
+                        "browser.candidate_extraction.reviewed",
+                        "browser_candidate_extraction",
+                        &extraction_id,
+                        "Extraction draft rejected with its import session",
+                    )
+                    .with_metadata(serde_json::json!({
+                        "decision": "reject",
+                        "import_session_id": id,
+                    })),
+                )
+                .await
+                .map_err(repo_error)?;
+            }
+        }
+
         insert_audit(
             &mut tx,
             AuditEntry::new(

@@ -10,6 +10,7 @@ pub mod conversations;
 pub mod dashboard;
 pub mod drafts;
 pub mod error;
+pub mod extractions;
 pub mod follow_ups;
 pub mod imports;
 pub mod payload;
@@ -32,6 +33,7 @@ pub use drafts::{
     reject_draft, select_draft_from_group, update_draft,
 };
 pub use error::ApplicationError;
+pub use extractions::confirm_candidate;
 pub use follow_ups::{
     cancel_task, complete_task, create_task, ensure_default_policy, evaluate, get_task, list_tasks,
     record_result, update_policy, update_task,
@@ -42,14 +44,15 @@ pub use imports::{
 pub use payload::{
     CandidateFilter, CandidatePatch, ConversationFilter, DraftCopyOutcome, DraftFilter, DraftPatch,
     Field, FollowUpPolicyPatch, FollowUpResultPatch, FollowUpTaskFilter, FollowUpTaskPatch,
-    ImportCorrection, MessageFilter, NewCandidate, NewConversation, NewDraftGeneration,
-    NewDraftGroupSelection, NewFollowUpEvaluation, NewFollowUpResult, NewFollowUpTask,
-    NewImportConfirm, NewImportOcr, NewImportPreview, NewMessage, NewPosition, NewSendRecord,
-    PositionPatch, SendRecordFilter,
+    ImportCorrection, MessageFilter, NewCandidate, NewCandidateConfirm, NewConversation,
+    NewDraftGeneration, NewDraftGroupSelection, NewFollowUpEvaluation, NewFollowUpResult,
+    NewFollowUpTask, NewImportConfirm, NewImportOcr, NewImportPreview, NewMessage, NewPosition,
+    NewSendRecord, PositionPatch, SendRecordFilter,
 };
 pub use ports::{
-    CandidateRepository, ConversationRepository, DashboardRepository, DataSnapshotRepository,
-    DraftGenerator, DraftRepository, ExportSealer, FollowUpPolicyRecord, FollowUpRepository,
+    BrowserExtractionRepository, CandidateConfirm, CandidateConfirmOutcome, CandidateRepository,
+    ConversationRepository, DashboardRepository, DataSnapshotRepository, DraftGenerator,
+    DraftRepository, ExportSealer, ExtractionDraft, FollowUpPolicyRecord, FollowUpRepository,
     ImportConfirmOutcome, ImportRecordCorrection, ImportRepository, MessageRepository,
     NewFollowUpTaskRow, NewImportRecordRow, NewImportSessionRow, OcrEngine, PositionFilter,
     PositionRepository, RepositoryError, SendRecordRepository, SnapshotOutcome,

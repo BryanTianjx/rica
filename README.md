@@ -2,11 +2,11 @@
 
 Rust port of the ICA Personal backend (axum + sqlx + SQLite).
 
-**Status: R0 + W1 + W2 + W3 + W4 — 45 of the 68 contract endpoints.** The
+**Status: R0 + W1 + W2 + W3 + W4 + W7 — 45 of the 68 contract endpoints, plus the auxiliary `POST /api/imports/{session_id}/confirm-candidate` (ADR-0003 D-2, the only path from a browser page into `candidates`).** The
 implemented surface covers positions, candidates, conversations, messages,
 timelines, follow-ups, the dashboard, drafts/AI entry points and the import /
 export / OCR routes — every one contract-verified against the Python baseline
-(responses **and** the rows they leave behind). 344 tests pass. The remaining
+(responses **and** the rows they leave behind). 348 tests pass. The comparison set is 236 cases (the W7 confirm-candidate guards are all negative-path cases). The remaining
 23 contract routes (W5: AI + settings/audit/backups, W6: auth + shares) are
 mapped in [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md)
 and are **not** implemented yet. No auth, no real AI calls, no frontend change.
