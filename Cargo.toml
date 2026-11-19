@@ -44,6 +44,13 @@ serde = { version = "1", features = ["derive"] }
 # `preserve_order` keeps a JSON object's insertion order, which the baseline's
 # `json.dumps(metadata)` relies on — it does NOT sort the keys.
 serde_json = { version = "1", features = ["preserve_order"] }
+# Screenshot OCR: the SAME model set the Python baseline runs (RapidOCR
+# PP-OCRv6 small via ONNX Runtime), so the recognised text matches
+# instead of merely being "some OCR".
+rapidocr-core = "0.3.0"
+# Decoding an image up front, so a truncated or non-image file is a 4xx
+# rather than an inference failure.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 # Query-string decoding for the `ApiQuery` extractor. Both are already in the
 # dependency tree through axum; declaring them keeps the last-value-wins
 # semantics explicit instead of reaching into axum's internals.

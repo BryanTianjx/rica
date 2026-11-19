@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 import urllib.error
@@ -606,6 +607,17 @@ CASES: list[dict] = [
          "created_at": "2026-11-13T10:00:00.000000+00:00",
          "updated_at": "2099-01-01T00:00:00+00:00"}]}}},
 
+    # ── W4 OCR with the real engine ────────────────────────────────────────
+    # The port runs the SAME model set as the baseline (RapidOCR PP-OCRv6
+    # small through ONNX Runtime), so the recognised text must be identical —
+    # it is fed to the import parser, so a difference changes what is parsed.
+    # These need a staged image, which the capture writes before the request.
+    {"name": "imports_ocr_real_image", "method": "POST", "path": "/api/imports/ocr",
+     "json": {"candidate_id": BOB, "image_path": "{ocr_image}"}},
+    # A file that is not an image at all: 4xx, never a 500.
+    {"name": "imports_ocr_not_an_image", "method": "POST", "path": "/api/imports/ocr",
+     "json": {"candidate_id": BOB, "image_path": "{ocr_bad_image}"}},
+
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
@@ -774,6 +786,34 @@ def dump_db(path: str) -> dict[str, object]:
         connection.close()
 
 
+def _stage_ocr_images(staging_dir: str, side: str) -> dict[str, str]:
+    """Write the OCR fixtures into the staging directory and return their paths.
+
+    The image is a rendered PNG, not a fixture file checked into the repo, so
+    both sides recognise the same characters. The file name carries the SIDE,
+    because the first side's request DELETES its staging copy — reusing one
+    name would make the second side answer "image not found", which is a probe
+    artefact rather than a contract difference.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    os.makedirs(staging_dir, exist_ok=True)
+    image_path = os.path.join(staging_dir, f"contract-ocr-{side}.png")
+    bad_path = os.path.join(staging_dir, f"contract-ocr-bad-{side}.png")
+
+    canvas = Image.new("RGB", (760, 130), "white")
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.load_default(size=30)
+    draw.text((20, 20), "Candidate: hi there", fill="black", font=font)
+    draw.text((20, 70), "Recruiter: welcome", fill="black", font=font)
+    canvas.save(image_path)
+
+    with open(bad_path, "wb") as handle:
+        handle.write(b"this is definitely not a png")
+
+    return {"ocr_image": image_path, "ocr_bad_image": bad_path}
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default=BASE_URL_DEFAULT)
@@ -787,6 +827,14 @@ def main(argv: list[str]) -> int:
     context: dict[str, str] = {}
     results: dict[str, dict] = {}
     failures = 0
+
+    # The OCR staging directory is `<data dir>/ocr`; the server reads from
+    # there and DELETES the file after every request, so each side gets its
+    # own copy.
+    staging_dir = os.environ.get("ICA_OCR_STAGING_DIR", "")
+    if staging_dir:
+        side = os.environ.get("ICA_OCR_SIDE", "x")
+        context.update(_stage_ocr_images(staging_dir, side))
 
     for case in CASES:
         # A captured placeholder that was never filled (the capture step

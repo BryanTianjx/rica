@@ -87,7 +87,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),
         Arc::new(ica_infra::export_crypto::AesGcmSealer),
-        Arc::new(ica_infra::ocr::NotConfiguredOcrEngine),
+        Arc::new(ica_infra::ocr_rapid::RapidOcrEngine),
         AppConfig {
             app_name,
             ai_enabled,

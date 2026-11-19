@@ -225,6 +225,11 @@ def start_rust_port() -> subprocess.Popen:
     # reports `details.allowed_prefix`, so both sides must resolve against the
     # SAME root or the envelopes differ on a path rather than on behaviour.
     env["ICA_DATA_DIR"] = str(WORK / "python-data")
+    # The OCR models live in the baseline's venv (the port runs the SAME
+    # model set, so the recognised text matches). Point the engine at them.
+    models = Path(PY_BASELINE) / ".venv/lib/python3.12/site-packages/rapidocr/models"
+    if models.is_dir():
+        env["RAPIDOCR_MODEL_DIR"] = str(models)
     log = (WORK / "rust.log").open("w")
     process = subprocess.Popen(
         [str(Path(cargo_target_dir()) / "debug" / "ica-server")],
@@ -263,12 +268,14 @@ def stop(process: subprocess.Popen | None) -> None:
         handle.close()
 
 
-def run_script(name: str, *arguments: str) -> int:
+def run_script(name: str, *arguments: str, extra_env: dict[str, str] | None = None) -> int:
     """Run one of the repository's own Python scripts."""
+    env = clean_env()
+    env.update(extra_env or {})
     return subprocess.run(
         [sys.executable, str(SCRIPTS / name), *arguments],
         cwd=REPO_ROOT,
-        env=clean_env(),
+        env=env,
     ).returncode
 
 
@@ -332,6 +339,10 @@ def main() -> int:
                 str(WORK / "python.db"),
                 "--out",
                 str(OUT_DIR / "w1-python.json"),
+                extra_env={
+                    "ICA_OCR_STAGING_DIR": str(WORK / "python-data" / "ocr"),
+                    "ICA_OCR_SIDE": "py",
+                },
             )
             != 0
         ):
@@ -345,6 +356,10 @@ def main() -> int:
                 str(WORK / "rust.db"),
                 "--out",
                 str(OUT_DIR / "w1-rust.json"),
+                extra_env={
+                    "ICA_OCR_STAGING_DIR": str(WORK / "python-data" / "ocr"),
+                    "ICA_OCR_SIDE": "rs",
+                },
             )
             != 0
         ):

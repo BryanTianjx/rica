@@ -30,7 +30,6 @@ use ica_application::{
 };
 use ica_infra::drafts::NotConfiguredDraftGenerator;
 use ica_infra::export_crypto::AesGcmSealer;
-use ica_infra::ocr::NotConfiguredOcrEngine;
 use ica_infra::{connect, SqliteStore};
 
 /// The real baseline DDL, exported from the Python database.
@@ -394,7 +393,7 @@ pub async fn app_for(path: &Path) -> Router {
         Arc::new(store.clone()) as Arc<dyn ImportRepository>,
         Arc::new(store.clone()) as Arc<dyn DataSnapshotRepository>,
         Arc::new(AesGcmSealer) as Arc<dyn ExportSealer>,
-        Arc::new(NotConfiguredOcrEngine) as Arc<dyn OcrEngine>,
+        Arc::new(ica_infra::ocr_rapid::RapidOcrEngine) as Arc<dyn OcrEngine>,
         AppConfig {
             app_name: "ICA Personal".to_string(),
             ai_enabled: false,

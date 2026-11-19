@@ -205,7 +205,7 @@ async fn ocr_refuses_a_path_outside_the_staging_directory() {
 }
 
 #[tokio::test]
-async fn ocr_inside_the_staging_directory_reports_the_missing_engine() {
+async fn ocr_inside_the_staging_directory_reports_an_undecodable_image() {
     let (state, dir) = desktop_app().await;
     let staging = dir.path().join("ocr");
     std::fs::create_dir_all(&staging).expect("create staging");
@@ -215,10 +215,26 @@ async fn ocr_inside_the_staging_directory_reports_the_missing_engine() {
     let payload = json!({ "candidate_id": "c-1", "image_path": image.display().to_string() });
     let error = commands::imports_ocr(&state, &payload)
         .await
-        .expect_err("no engine");
+        .expect_err("not an image");
     std::fs::remove_file(&image).ok();
 
-    assert_eq!(error.error.code, "ocr_unavailable");
+    // The engine needs its models; they live next to the baseline's Python
+    // install (the port runs the SAME RapidOCR model set). Without them the
+    // engine must still answer with a READABLE error rather than a 500 or a
+    // panic.
+    if ocr_models_available() {
+        assert_eq!(error.error.code, "ocr_image_undecodable");
+    } else {
+        assert_eq!(error.error.code, "ocr_unavailable");
+    }
+}
+
+/// Whether the OCR models are present on this machine.
+fn ocr_models_available() -> bool {
+    let dir = std::path::Path::new(
+        "/mnt/o/ica/backend/.venv/lib/python3.12/site-packages/rapidocr/models",
+    );
+    dir.join("PP-OCRv6_det_small.onnx").is_file() && dir.join("PP-OCRv6_rec_small.onnx").is_file()
 }
 
 /// 32 bytes of key material, standard base64.

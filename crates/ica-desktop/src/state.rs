@@ -13,7 +13,7 @@ use ica_application::{
 };
 use ica_infra::drafts::NotConfiguredDraftGenerator;
 use ica_infra::export_crypto::AesGcmSealer;
-use ica_infra::ocr::NotConfiguredOcrEngine;
+use ica_infra::ocr_rapid::RapidOcrEngine;
 use ica_infra::SqliteStore;
 
 /// Settings that shape response bodies (mirrors the server's `AppConfig`).
@@ -86,7 +86,7 @@ impl DesktopState {
             imports: Arc::new(store.clone()),
             snapshots: Arc::new(store.clone()),
             export_sealer: Arc::new(AesGcmSealer),
-            ocr: Arc::new(NotConfiguredOcrEngine),
+            ocr: Arc::new(RapidOcrEngine),
             config,
         }
     }

@@ -16,7 +16,7 @@ pub mod export_tables;
 pub mod follow_ups;
 pub mod imports;
 pub mod json_fmt;
-pub mod ocr;
+pub mod ocr_rapid;
 pub mod repository;
 pub mod send_records;
 pub mod snapshots;

@@ -315,10 +315,19 @@ async fn ocr_refuses_a_path_outside_the_staging_directory() {
 }
 
 #[tokio::test]
-async fn ocr_inside_the_staging_directory_reports_the_missing_engine() {
+async fn ocr_inside_the_staging_directory_reports_an_undecodable_image() {
     let (app, dir) = w1_app().await;
-    // The test config points OCR at /tmp/ica-test-ocr; write a file there so the
-    // path guard passes and the engine check is what answers.
+    // The path guard passes (the file is inside the staging directory), so
+    // the DECODE is what answers. A file that is not an image is a 4xx
+    // `ocr_image_undecodable`, never a 500 — the baseline maps Pillow's
+    // OSError the same way.
+    //
+    // The engine needs its models. They live next to the baseline's Python
+    // install (the port runs the SAME RapidOCR model set, so the recognised
+    // text matches); when they are not there, the engine reports a readable
+    // 503 `ocr_unavailable` instead of panicking, and that is what this test
+    // asserts — the decode path itself is covered by the contract comparison,
+    // which runs both sides with the models present.
     let staging = std::path::Path::new("/tmp/ica-test-ocr");
     std::fs::create_dir_all(staging).ok();
     let image = staging.join("w4-probe.png");
@@ -332,8 +341,31 @@ async fn ocr_inside_the_staging_directory_reports_the_missing_engine() {
     std::fs::remove_file(&image).ok();
     let _ = dir;
 
-    assert_eq!(response.status, 503, "body: {}", response.body);
-    assert_eq!(json(&response.body, "error")["code"], "ocr_unavailable");
+    let code = json(&response.body, "error")["code"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    if ocr_models_available() {
+        assert_eq!(
+            response.status, 409,
+            "with the engine present a non-image is a decode failure: {}",
+            response.body
+        );
+        assert_eq!(code, "ocr_image_undecodable");
+    } else {
+        // No models on this machine: the engine must still answer with a
+        // READABLE error rather than a 500 or a panic.
+        assert_eq!(response.status, 503, "body: {}", response.body);
+        assert_eq!(code, "ocr_unavailable");
+    }
+}
+
+/// Whether the OCR models are present on this machine.
+fn ocr_models_available() -> bool {
+    let dir = std::path::Path::new(
+        "/mnt/o/ica/backend/.venv/lib/python3.12/site-packages/rapidocr/models",
+    );
+    dir.join("PP-OCRv6_det_small.onnx").is_file() && dir.join("PP-OCRv6_rec_small.onnx").is_file()
 }
 
 /// 32 bytes of key material, standard base64.
