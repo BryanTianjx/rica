@@ -80,6 +80,21 @@ W5/W6 域(23 端点)、GUI 集成、打包交付、真实 AI Provider、E2E 十�
 2. 平台可移植性:唯一执行失败即平台夹具缺陷,提示两环境(Windows/WSL)均应纳入门禁。
 3. 需求追溯矩阵以审计矩阵 ID 为代理(EX-007),S-1 裁决后需迁移到正式 REQ 编号。
 
+## 13. 演练执行记录(backup/restore drill D1-D10,2026-11-21)
+
+契约验收前置(恢复演练)已执行:全套 D1-D10 **PASS**。矩阵与证据引用见
+`docs/testing/backup-restore-drill.md`(勾选列);原始响应/日志快照存于
+`docs/testing/drill-evidence/`(D9 进程演练)。
+
+| 执行方式 | 覆盖 | 证据 |
+|---|---|---|
+| 套件内自动化(`backup_drill_http.rs`,5 测试) | D1、D2(A/B 双备份状态往返)、D7(5 秒并发读穿过恢复窗口零 5xx)、D8(keep_count=3 剪枝两族合算)、D10(运行中删档→列表消失→404) | 5.35s 全绿 |
+| 既有回归(引用) | D3-D5(守卫次序与零写入)、D6(审计行带 previous_copy) | `ai_key_backups_http.rs` 既有测试 |
+| **真实进程演练(D9)** | `ica-server.exe` + curl:空库→建探针→备份(880,640 B)→删探针→恢复→**taskkill /F 硬杀**→重启→探针恢复、两份备份在列、`backup.restored` 审计轨迹持久 | `docs/testing/drill-evidence/`(health/probe/backup/restore/after-restart JSON + 双实例日志) |
+
+要点:硬杀(强于优雅停机的持久性证据)后 SQLite 文件一致(在线备份 API + WAL
+checkpoint 的组合),重启后服务自检通过、业务数据/备份文件/审计轨迹三者齐备。
+
 ## 12. 测试结论
 
 - 本次测试**已完成计划范围**(实现域 UNIT/INT/Contract-IPC 层),测试计划 §5 门禁

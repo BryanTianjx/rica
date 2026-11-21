@@ -1,0 +1,3 @@
+[2m2026-11-21T14:59:00.436230Z[0m [32m INFO[0m [2mica_server[0m[2m:[0m startup self-check passed: 32 tables present
+[2m2026-11-21T14:59:00.440821Z[0m [32m INFO[0m [2mica_server[0m[2m:[0m applied schema migrations: [1]
+[2m2026-11-21T14:59:00.445029Z[0m [32m INFO[0m [2mica_server[0m[2m:[0m ICA server listening on http://127.0.0.1:8123 (database: O:/ICA-RUST/tmp/d9-drill/ica.db)

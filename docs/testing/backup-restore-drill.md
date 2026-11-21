@@ -33,18 +33,18 @@ Recovery Test 类别的操作手册。
 
 ## 2. 演练矩阵(实现后逐项执行并记录)
 
-| # | 场景 | 预期 | 状态 |
+| # | 场景 | 预期 | 状态(2026-11-21 执行) |
 |---|---|---|---|
-| D1 | 空库 POST /api/backups → 得到 ica-backup-*.db,GET 列表含它,kind=backup | 201 + 记录字段完整(size_bytes/created_at) | ☐ |
-| D2 | 写入业务数据(POST /api/positions)→ 再备份 | 新备份含该数据;恢复旧备份后数据消失;再恢复新备份数据回来 | ☐ |
-| D3 | restore 无 confirm → 409 business_rule_violation(零写入) | 台账不变、磁盘不变 | ☐ |
-| D4 | restore 带路径分隔符/`..`/空名 → 422(名称而非路径) | 同左 | ☐ |
-| D5 | restore 不存在的名字 → 404 not_found | 同左 | ☐ |
-| D6 | restore 成功 → 响应含 restored_from/database/previous_copy;audit_events 有 `backup.restored`(metadata.previous_copy) | 同左 | ☐ |
-| D7 | 恢复过程中并发读(恢复后立刻 GET /api/positions) | 新读事务看到恢复后数据,无 WAL 错误 | ☐ |
-| D8 | keep_count 剪枝:连续创建 N+1 份,最旧的被删 | 两族合计不超上限 | ☐ |
-| D9 | 重启服务 → 数据为恢复后的状态 | 持久性 | ☐ |
-| D10 | 服务运行中删除备份目录文件 → GET 列表不再含它;restore 它 → 404 | 同左 | ☐ |
+| D1 | 空库 POST /api/backups → 得到 ica-backup-*.db,GET 列表含它,kind=backup | 201 + 记录字段完整(size_bytes/created_at) | ☑ PASS — `backup_drill_http::d1_*`(进程演练亦证:880,640 字节,ISO-8601 时间戳) |
+| D2 | 写入业务数据(POST /api/positions)→ 再备份 | 新备份含该数据;恢复旧备份后数据消失;再恢复新备份数据回来 | ☑ PASS — `backup_drill_http::d2_*`(A/B 双备份状态往返 + 两个 pre-restore 撤销点) |
+| D3 | restore 无 confirm → 409 business_rule_violation(零写入) | 台账不变、磁盘不变 | ☑ PASS — `ai_key_backups_http::restore_guards_*`(含零审计断言) |
+| D4 | restore 带路径分隔符/`..`/空名 → 422(名称而非路径) | 同左 | ☑ PASS — 同上(URL 编码路径分隔符实测) |
+| D5 | restore 不存在的名字 → 404 not_found | 同左 | ☑ PASS — 同上(存在预检信封)+ `backup_drill_http::d10_*`(运行中删档后 404) |
+| D6 | restore 成功 → 响应含 restored_from/database/previous_copy;audit_events 有 `backup.restored`(metadata.previous_copy) | 同左 | ☑ PASS — `ai_key_backups_http::the_backup_lifecycle_*` + 进程演练(D9 步骤 4:previous_copy = pre-restore-*.db) |
+| D7 | 恢复过程中并发读(恢复后立刻 GET /api/positions) | 新读事务看到恢复后数据,无 WAL 错误 | ☑ PASS — `backup_drill_http::d7_*`(5 秒并发读循环穿过恢复窗口,全部 200,恢复后零 "Mutated" 残留) |
+| D8 | keep_count 剪枝:连续创建 N+1 份,最旧的被删 | 两族合计不超上限 | ☑ PASS — `backup_drill_http::d8_*`(keep_count=3,创建 4 份删最旧;restore 演练后仍为 3) |
+| D9 | 重启服务 → 数据为恢复后的状态 | 持久性 | ☑ PASS — **真实进程演练**(下述 §执行记录):taskkill /F 硬杀 → 重启 → 探针/备份列表/审计轨迹全部持久化 |
+| D10 | 服务运行中删除备份目录文件 → GET 列表不再含它;restore 它 → 404 | 同左 | ☑ PASS — `backup_drill_http::d10_*` |
 
 ## 3. 边界与已知偏差
 
