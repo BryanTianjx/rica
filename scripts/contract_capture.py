@@ -618,6 +618,14 @@ CASES: list[dict] = [
     # A file that is not an image at all: 4xx, never a 500.
     {"name": "imports_ocr_not_an_image", "method": "POST", "path": "/api/imports/ocr",
      "json": {"candidate_id": BOB, "image_path": "{ocr_bad_image}"}},
+    # 1000x136 — the audit's own divergent image. The detector used to clamp its
+    # long side (4096 / 2048² / Downscale), which rescaled the picture and moved
+    # where the detector split a line: at 1000 px the baseline emitted
+    # "Candidate: hi\nthere" and the port emitted "Candidate: hi there". The
+    # 760x130 case above did not show it, which is why the first delivery looked
+    # green. This case fails if the clamp ever comes back.
+    {"name": "imports_ocr_wide_image", "method": "POST", "path": "/api/imports/ocr",
+     "json": {"candidate_id": BOB, "image_path": "{ocr_wide_image}"}},
 
     # ── W7: browser extraction confirm-candidate ───────────────────────────
     # The frozen baseline's BROWSER-04 flow: a browser_extract session confirms
@@ -937,6 +945,7 @@ def _stage_ocr_images(staging_dir: str, side: str) -> dict[str, str]:
     os.makedirs(staging_dir, exist_ok=True)
     image_path = os.path.join(staging_dir, f"contract-ocr-{side}.png")
     bad_path = os.path.join(staging_dir, f"contract-ocr-bad-{side}.png")
+    wide_path = os.path.join(staging_dir, f"contract-ocr-wide-{side}.png")
 
     canvas = Image.new("RGB", (760, 130), "white")
     draw = ImageDraw.Draw(canvas)
@@ -945,10 +954,22 @@ def _stage_ocr_images(staging_dir: str, side: str) -> dict[str, str]:
     draw.text((20, 70), "Recruiter: welcome", fill="black", font=font)
     canvas.save(image_path)
 
+    # The audit's divergent layout, verbatim: 1000x136, two lines, 30 px.
+    # The 760x130 fixture above sits just past the old 757 px clamp threshold,
+    # so it catches a clamped detector but says nothing about how the divergence
+    # grows with width. This one is 31% wider and is the exact image the second
+    # audit used to break the earlier "character-for-character identical" claim
+    # (py '\n' vs rs ' ' at char 23).
+    wide = Image.new("RGB", (1000, 136), "white")
+    wide_draw = ImageDraw.Draw(wide)
+    wide_draw.text((24, 18), "Hello OCR", fill="black", font=font)
+    wide_draw.text((24, 63), "Candidate: hi there", fill="black", font=font)
+    wide.save(wide_path)
+
     with open(bad_path, "wb") as handle:
         handle.write(b"this is definitely not a png")
 
-    return {"ocr_image": image_path, "ocr_bad_image": bad_path}
+    return {"ocr_image": image_path, "ocr_bad_image": bad_path, "ocr_wide_image": wide_path}
 
 
 def main(argv: list[str]) -> int:

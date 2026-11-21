@@ -1,0 +1,58 @@
+seeded /tmp/w4v-b-cv
+python up
+rust up
+== capture python ==
+import_lww_bare_date_wins                  200 /api/import
+import_lww_numeric_bool_no_conflict        500 /api/import
+positions_final                            200 /api/positions?include_archived=true
+candidates_final                           200 /api/candidates?include_archived=true
+wrote /tmp/w4v-b-captures/python.json (248 cases, 12 tables)
+== capture rust ==
+import_lww_bare_date_wins                  200 /api/import
+import_lww_numeric_bool_no_conflict        500 /api/import
+positions_final                            200 /api/positions?include_archived=true
+candidates_final                           200 /api/candidates?include_archived=true
+wrote /tmp/w4v-b-captures/rust.json (248 cases, 12 tables)
+== diff ==
+PASS send_records_after_cascade
+PASS send_records_after_writes
+PASS send_records_bad_status
+PASS send_records_by_candidate
+PASS send_records_by_status
+PASS send_records_default
+PASS send_records_limit2
+PASS timeline_after_cascade
+PASS timeline_after_writes
+PASS timeline_default
+PASS timeline_limit2
+PASS timeline_missing_candidate
+
+improvements:
+  IMP-1 messages.total is the real count: python total=2 (truncated to limit+offset), rust total=5 (5 matching rows)
+  IMP-1 has_more: python=False (unreachable), rust=True
+  IMP-2 position_patch_null_name: python status=500 code=internal_error, rust status=422 code=validation_error
+  IMP-2 position_patch_null_archived: python status=500 code=internal_error, rust status=422 code=validation_error
+  IMP-3 positions_limit2: python total=6, rust total=6
+  IMP-3 candidates_limit2: python total=5, rust total=5
+  IMP-3 conversations_limit2: python total=2, rust total=2
+  IMP-3 send_records_limit2: python total=4, rust total=4
+  IMP-3 messages_limit2: python total=2, rust total=5
+  IMP-4 positions_offset_beyond_u64: python status=200 offset=18446744073709551616, rust status=422 code=validation_error
+
+database state:
+PASS db.audit_events (74 rows)
+PASS db.browser_candidate_extractions (7 rows)
+PASS db.candidates (10 rows)
+PASS db.conversations (3 rows)
+PASS db.follow_up_policies (1 rows)
+PASS db.follow_up_tasks (3 rows)
+PASS db.generated_drafts (4 rows)
+PASS db.import_records (7 rows)
+PASS db.import_sessions (14 rows)
+PASS db.messages (5 rows)
+PASS db.positions (8 rows)
+PASS db.send_records (4 rows)
+
+248/248 cases matched, 0 failure(s)
+DIFF-EXIT=0
+EXIT=143
