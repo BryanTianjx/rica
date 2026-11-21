@@ -6,16 +6,17 @@ Rust port of the ICA Personal backend (axum + sqlx + SQLite).
 implemented surface covers positions, candidates, conversations, messages,
 timelines, follow-ups, the dashboard, drafts/AI entry points and the import /
 export / OCR routes — every one contract-verified against the Python baseline
-(responses **and** the rows they leave behind). 348 tests pass. The comparison set is 236 cases (the W7 confirm-candidate guards are all negative-path cases). The remaining
+(responses **and** the rows they leave behind). The remaining
 23 contract routes (W5: AI + settings/audit/backups, W6: auth + shares) are
 mapped in [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md)
 and are **not** implemented yet. No auth, no real AI calls, no frontend change.
 
-The per-wave route table lives in the migration contract §2; the measured
+The per-wave route table lives in the migration contract §2. The measured
 status (test counts, comparison numbers, audit trail) lives in
-[`docs/ICA-RUST 当前设计总方案.md`](docs/ICA-RUST%20当前设计总方案.md). This
-README keeps the run/build instructions and does not restate numbers that the
-gates print better.
+[`docs/ICA-RUST 当前设计总方案.md`](docs/ICA-RUST%20当前设计总方案.md) §1 and in
+the formal test report [`docs/testing/test-report-r1.0.md`](docs/testing/test-report-r1.0.md)
+— this README does not restate volatile numbers that the gates and those
+documents record better.
 
 The Python service (`/mnt/o/ica`) is the **contract authority**: where this
 repository and the Python code disagree, Python wins until a wave changes it
@@ -25,6 +26,10 @@ deliberately. The authoritative anchor SHA is re-measured by
 for the four different things called "baseline" here, and
 [`docs/adr/ADR-0002`](docs/adr/ADR-0002-rust-backend-migration-reinstated.md)
 for why the migration was reinstated despite ADM-001.
+
+Documentation map (per-domain index, authoritative sources, lifecycle states):
+[`docs/index.md`](docs/index.md). Project engineering-spec configuration
+(SPE-GOV-001 §5.3): [`docs/engineering/ENG-ICA-SPECS-R1.0.md`](docs/engineering/ENG-ICA-SPECS-R1.0.md).
 
 ## Layout
 
@@ -152,9 +157,10 @@ starts the Rust port, captures both sides, and diffs responses plus the final
 state of all eleven business tables. It finishes by proving the baseline is
 untouched (`git status` empty, ica.db sha256 unchanged).
 
-Last run: **`220/222 cases matched`** — the 2 failures are the W2 dashboard
-`calendar` block the frozen baseline ADDED after W2 shipped (a baseline-drift
-item owned by the G0 baseline governance, not a regression). The
+Last recorded result: **zero-failure comparison over the 248-case set**
+(recorded in [`docs/ICA-RUST 当前设计总方案.md`](docs/ICA-RUST%20当前设计总方案.md) §1;
+the W2 dashboard `calendar` baseline-drift item was closed by the G0 governance).
+Re-run the comparison yourself rather than trusting any number here — the
 `improvements:` section asserts IMP-1 (`python total=2 / rust total=5`),
 IMP-2 (`python 500 / rust 422` for both NULL cases), IMP-3 (five lists, one
 `total` meaning) and IMP-4 (`offset` past `u64::MAX` → 422). The individual
