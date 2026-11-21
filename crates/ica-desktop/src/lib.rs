@@ -12,6 +12,7 @@
 //! `ica-infra` (the SQLite adapter it connects), plus `ica-contracts` for the
 //! wire shapes — never on `ica-api`, and the inner layers never depend on it.
 
+pub mod browser;
 pub mod commands;
 pub mod error;
 pub mod state;

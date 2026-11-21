@@ -29,6 +29,10 @@ sha2 = "0.10"
 # `normalize_name` (candidate extraction) matches Python's
 # `unicodedata.normalize("NFKC", name)`.
 unicode-normalization = "0.1"
+# Browser Runtime POC (B1): the worker drives Chromium over the DevTools
+# protocol over a plain local WebSocket (no TLS for `ws://127.0.0.1`).
+tokio-tungstenite = "0.24"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 aes-gcm = "0.10"
 base64 = "0.22"
 # AI-context redaction (`redact_for_ai` port): pure pattern work, no runtime.
@@ -61,7 +65,7 @@ form_urlencoded = "1"
 serde_urlencoded = "0.7"
 
 # ── runtime / observability ───────────────────────────────────────────────
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net", "process", "io-std", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 

@@ -20,6 +20,20 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 tracing.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+# Browser Runtime POC (B1): the worker drives Chromium over the DevTools
+# protocol on a plain local WebSocket (`ws://127.0.0.1`, no TLS).
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
+# POC scope note: the supervisor writes browser_sessions/tasks/actions
+# rows directly. When B1 graduates, these row-ops move behind an
+# ica-application port (B0-08 / B2 decide the final shape).
+sqlx.workspace = true
+
+[[bin]]
+name = "ica-browser-worker"
+path = "src/bin/ica-browser-worker.rs"
 
 [dev-dependencies]
 sqlx.workspace = true
