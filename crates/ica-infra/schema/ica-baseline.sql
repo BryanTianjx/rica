@@ -5,8 +5,8 @@
 -- Do not hand-edit: regenerate with
 --   python3 scripts/export_baseline_schema.py --db /mnt/o/ica/backend/ica.db --out crates/ica-infra/schema/ica-baseline.sql
 --
--- Object count: 20 tables, 66 indexes, 0 triggers,
--- 0 views. SQLite implicit auto-indexes (sql IS NULL) are skipped.
+-- Object count (re-measured 2026-11-21, DEF-005): 32 tables, 121 indexes,
+-- 0 triggers, 0 views. SQLite implicit auto-indexes (sql IS NULL) are skipped.
 
 -- table: alembic_version
 CREATE TABLE alembic_version (

@@ -15,16 +15,18 @@ use std::sync::Arc;
 use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post, put};
 use axum::{middleware, Json, Router};
 
 use crate::body;
 use crate::dto::{
-    CandidateDetailRead, CandidateRead, ContextPreviewRead, ConversationRead, DashboardCalendar,
-    DashboardRead, DraftCopyResponse, DraftGroupRead, DraftRead, EncryptedExportResponse,
-    ExportResponse, FollowUpDecisionRead, FollowUpPolicyRead, FollowUpTaskRead, HealthResponse,
-    ImportConfirmResult, ImportOcrResult, ImportResult, ImportSessionRead, MessageRead,
-    PageResponse, PositionRead, SendRecordRead, TimelineEntryRead,
+    AIEgressRead, AiBudgetRead, AiKeyStatus, AiModelsRead, AiRoutingRead, AiUsageRead,
+    AuditEventRead, BackupRead, CandidateDetailRead, CandidateRead, ContextPreviewRead,
+    ConversationRead, DashboardCalendar, DashboardRead, DraftCopyResponse, DraftGroupRead,
+    DraftRead, EncryptedExportResponse, ExportResponse, FollowUpDecisionRead, FollowUpPolicyRead,
+    FollowUpTaskRead, HealthResponse, ImportConfirmResult, ImportOcrResult, ImportResult,
+    ImportSessionRead, MessageRead, PageResponse, PositionRead, RestoreRead, SendRecordRead,
+    SettingsRead, ShareRead, TimelineEntryRead, TokenResponse, UserRead,
 };
 use crate::error::ApiError;
 use crate::extract::ApiQuery;
@@ -80,6 +82,29 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/imports/{session_id}/reject",
     "/api/export",
     "/api/import",
+    // W5 (first slice)
+    "/api/audit-events",
+    // W5 settings slice
+    "/api/settings",
+    "/api/settings/ai-egress",
+    "/api/settings/ai-egress/consent",
+    // W5 AI slice
+    "/api/ai/models",
+    "/api/ai/routing",
+    "/api/ai/usage",
+    "/api/ai/budget",
+    // W5 ai-key + backups
+    "/api/settings/ai-key",
+    "/api/backups",
+    "/api/backups/{name}/restore",
+    // W6 auth + shares
+    "/api/auth/register",
+    "/api/auth/login",
+    "/api/auth/refresh",
+    "/api/auth/logout",
+    "/api/auth/me",
+    "/api/shares",
+    "/api/shares/{share_id}",
 ];
 
 /// Build the router for `state`.
@@ -171,6 +196,45 @@ pub fn router(state: AppState) -> Router {
             "/api/draft-groups/{group_id}/select",
             post(select_draft_from_group),
         )
+        // W5 (first slice): the audit trail, newest first.
+        .route("/api/audit-events", get(audit_events))
+        // W5 settings slice.
+        .route("/api/settings", get(read_settings))
+        .route("/api/settings/ai-egress", get(read_ai_egress))
+        .route(
+            "/api/settings/ai-egress/consent",
+            post(write_ai_egress_consent),
+        )
+        // W5 AI slice (model CRUD is AI-EXT, deliberately absent).
+        .route("/api/ai/models", get(list_ai_models))
+        .route(
+            "/api/ai/routing",
+            get(get_ai_routing).patch(update_ai_routing),
+        )
+        .route("/api/ai/usage", get(get_ai_usage))
+        .route("/api/ai/budget", get(get_ai_budget).patch(update_ai_budget))
+        // W5 ai-key + backups.
+        .route(
+            "/api/settings/ai-key",
+            put(write_ai_key_endpoint).delete(clear_ai_key_endpoint),
+        )
+        .route(
+            "/api/backups",
+            get(list_backups_endpoint).post(create_backup_endpoint),
+        )
+        .route("/api/backups/{name}/restore", post(restore_backup_endpoint))
+        // W6 auth + shares (local mode is the default: no middleware gates
+        // the other routes, `me` answers the synthetic local user).
+        .route("/api/auth/register", post(register_endpoint))
+        .route("/api/auth/login", post(login_endpoint))
+        .route("/api/auth/refresh", post(refresh_endpoint))
+        .route("/api/auth/logout", post(logout_endpoint))
+        .route("/api/auth/me", get(me_endpoint))
+        .route(
+            "/api/shares",
+            post(create_share_endpoint).get(list_shares_endpoint),
+        )
+        .route("/api/shares/{share_id}", delete(delete_share_endpoint))
         .fallback(unknown_path)
         .method_not_allowed_fallback(|| async { crate::http_parity::method_not_allowed() })
         // `reject_head` must sit *inside* the redirect (added first = run last):
@@ -956,4 +1020,390 @@ async fn ocr_import(
         candidate_id,
         created_at: outcome.session.created_at,
     }))
+}
+
+// ── W5: audit events ───────────────────────────────────────────────────────
+
+/// `GET /api/audit-events` — the audit trail, newest first (a bare array,
+/// like the timeline; the baseline's `read_audit_events`).
+///
+/// The trail is what makes the send boundary verifiable: it shows which
+/// action put a task into which state, so "the draft was copied but never
+/// sent" is a fact you can check rather than a claim. Only small metadata is
+/// stored — never chat bodies, keys or tokens.
+async fn audit_events(
+    State(state): State<AppState>,
+    ApiQuery(raw): ApiQuery<query::RawListAuditEventsQuery>,
+) -> Result<Json<Vec<AuditEventRead>>, ApiError> {
+    let list = query::validate_audit_events(raw)?;
+    let events = ica_application::recent_audit_events(state.audit_trail(), list.into()).await?;
+    Ok(Json(events.into_iter().map(AuditEventRead::from).collect()))
+}
+
+// ── W5: settings ───────────────────────────────────────────────────────────
+
+/// `GET /settings` — the effective configuration, minus any secret
+/// (the baseline's `read_settings`).
+async fn read_settings(State(state): State<AppState>) -> Json<SettingsRead> {
+    let snapshot = state.settings_config_view().settings_snapshot();
+    Json(SettingsRead {
+        app_name: snapshot.app_name,
+        ai_enabled: snapshot.ai_enabled,
+        ai_provider: snapshot.ai_provider,
+        ai_model: snapshot.ai_model,
+        ai_base_url: snapshot.ai_base_url,
+        database_url: snapshot.database_url,
+        backup_dir: snapshot.backup_dir,
+        backup_keep_count: snapshot.backup_keep_count,
+        data_retention_days: snapshot.data_retention_days,
+    })
+}
+
+/// `GET /settings/ai-egress` — where AI context would go and what is masked
+/// before it leaves (`PRIV-07`). Read-only, never carries a key.
+async fn read_ai_egress(State(state): State<AppState>) -> Result<Json<AIEgressRead>, ApiError> {
+    let disclosure =
+        ica_application::read_egress_disclosure(state.settings(), &state.settings_config_view())
+            .await?;
+    Ok(Json(disclosure.into()))
+}
+
+/// `POST /settings/ai-egress/consent` — turn outbound AI context on or off,
+/// audit the change, and return the fresh disclosure. `consent_granted` is
+/// required and explicit: an omitted body must never silently turn egress on.
+async fn write_ai_egress_consent(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<AIEgressRead>, ApiError> {
+    let raw: body::RawAiEgressConsent = body::parse(&body)?;
+    let consent = body::ai_egress_consent(raw)?;
+    let disclosure = ica_application::write_egress_consent(
+        state.settings(),
+        &state.settings_config_view(),
+        consent.consent_granted,
+    )
+    .await?;
+    Ok(Json(disclosure.into()))
+}
+
+// == W5: AI models / routing / usage / budget ==
+
+/// `GET /ai/models` — the registry with the V1.0 fallback, key presence only.
+async fn list_ai_models(State(state): State<AppState>) -> Result<Json<AiModelsRead>, ApiError> {
+    let overview =
+        ica_application::list_ai_models(state.ai_models(), &state.ai_settings_view()).await?;
+    Ok(Json(AiModelsRead {
+        models: overview.models.into_iter().map(Into::into).collect(),
+        routing: overview.routing,
+    }))
+}
+
+/// `GET /ai/routing` — the effective table (defaults layered with overrides).
+async fn get_ai_routing(State(state): State<AppState>) -> Result<Json<AiRoutingRead>, ApiError> {
+    let routing = ica_application::get_ai_routing(state.ai_models()).await?;
+    Ok(Json(AiRoutingRead { routing }))
+}
+
+/// `PATCH /ai/routing` — persist overrides for known message types only.
+async fn update_ai_routing(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<AiRoutingRead>, ApiError> {
+    let raw: body::RawAiRoutingPatch = body::parse(&body)?;
+    let patch = body::ai_routing_patch(raw)?;
+    let routing = ica_application::update_ai_routing(state.ai_models(), patch.routing).await?;
+    Ok(Json(AiRoutingRead { routing }))
+}
+
+/// `GET /ai/usage` — today, `days` of history, all-time per model.
+async fn get_ai_usage(
+    State(state): State<AppState>,
+    ApiQuery(raw): ApiQuery<query::RawAiUsageQuery>,
+) -> Result<Json<AiUsageRead>, ApiError> {
+    let days = query::validate_ai_usage_days(raw)?;
+    let today = chrono::Utc::now()
+        .naive_utc()
+        .format("%Y-%m-%d")
+        .to_string();
+    let overview =
+        ica_application::get_ai_usage(state.ai_usage(), &state.ai_budget(), days, &today).await?;
+    Ok(Json(overview.into()))
+}
+
+/// `GET /ai/budget` — the current budget config and spend state.
+async fn get_ai_budget(State(state): State<AppState>) -> Result<Json<AiBudgetRead>, ApiError> {
+    let today = chrono::Utc::now()
+        .naive_utc()
+        .format("%Y-%m-%d")
+        .to_string();
+    let spend = ica_application::today_spend_cents(state.ai_usage(), &today).await?;
+    Ok(Json(
+        ica_application::budget_read(&state.ai_budget(), spend).into(),
+    ))
+}
+
+/// `PATCH /ai/budget` — persist the pair (rows the baseline never reads
+/// back, without an audit event), mutate the in-process values, and answer
+/// with the fresh spend state.
+async fn update_ai_budget(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<AiBudgetRead>, ApiError> {
+    let raw: body::RawAiBudgetPatch = body::parse(&body)?;
+    let patch = body::ai_budget_patch(raw)?;
+    state
+        .settings()
+        .upsert_values(&[
+            (
+                "ai_daily_budget_cents",
+                patch.daily_budget_cents.to_string(),
+                "int",
+            ),
+            (
+                "ai_budget_warning_threshold",
+                patch.warning_threshold.to_string(),
+                "int",
+            ),
+        ])
+        .await?;
+    state.set_ai_budget(ica_application::AiBudgetSettings {
+        daily_budget_cents: patch.daily_budget_cents,
+        warning_threshold: patch.warning_threshold,
+    });
+    let today = chrono::Utc::now()
+        .naive_utc()
+        .format("%Y-%m-%d")
+        .to_string();
+    let spend = ica_application::today_spend_cents(state.ai_usage(), &today).await?;
+    Ok(Json(
+        ica_application::budget_read(&state.ai_budget(), spend).into(),
+    ))
+}
+
+// ── W5: ai-key + backups ───────────────────────────────────────────────────
+
+/// `PUT /settings/ai-key` — persist the key through the OS credential store,
+/// audit it masked, and report the enabled flag (never the key).
+async fn write_ai_key_endpoint(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<AiKeyStatus>, ApiError> {
+    let raw: body::RawAiKeyWrite = body::parse(&body)?;
+    let write = body::ai_key_write(raw)?;
+    let (installation, masked, model_id) = ica_application::write_ai_key(
+        state.secrets(),
+        state.settings(),
+        &write.ai_api_key,
+        write.model_id.as_deref(),
+    )
+    .await?;
+    if installation {
+        state.set_ai_key_present(true);
+    }
+    Ok(Json(AiKeyStatus {
+        ai_enabled: state.ai_key_present(),
+        key_masked: masked,
+        model_id,
+    }))
+}
+
+/// `DELETE /settings/ai-key` — clear the chosen slot (`?model_id=` targets
+/// one model's slot; without it the installation-wide key is cleared) and
+/// audit the change.
+async fn clear_ai_key_endpoint(
+    State(state): State<AppState>,
+    ApiQuery(raw): ApiQuery<query::RawAiKeyClearQuery>,
+) -> Result<Json<AiKeyStatus>, ApiError> {
+    let model_id = query::validate_ai_key_clear(raw)?;
+    let (installation, masked, model_id) =
+        ica_application::clear_ai_key(state.secrets(), state.settings(), model_id.as_deref())
+            .await?;
+    if installation && model_id.is_none() {
+        state.set_ai_key_present(false);
+    }
+    Ok(Json(AiKeyStatus {
+        ai_enabled: state.ai_key_present(),
+        key_masked: masked,
+        model_id,
+    }))
+}
+
+/// `GET /api/backups` — both backup families, newest first.
+async fn list_backups_endpoint(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<BackupRead>>, ApiError> {
+    let records = ica_application::list_backups(state.backups()).await?;
+    Ok(Json(records.into_iter().map(Into::into).collect()))
+}
+
+/// `POST /api/backups` — one consistent online-backup copy of the live
+/// database.
+async fn create_backup_endpoint(
+    State(state): State<AppState>,
+) -> Result<Json<BackupRead>, ApiError> {
+    let record = ica_application::create_backup(state.backups()).await?;
+    Ok(Json(record.into()))
+}
+
+/// `POST /api/backups/{name}/restore` — replace the live data with the
+/// backup's contents. `confirm` must be explicit; the name is a file name,
+/// never a path.
+async fn restore_backup_endpoint(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    body: Bytes,
+) -> Result<Json<RestoreRead>, ApiError> {
+    // Confirm first (the baseline checks confirm BEFORE the file is touched).
+    let payload: serde_json::Value = body::parse(&body)?;
+    let confirmed = payload["confirm"].as_bool().unwrap_or(false);
+    if !confirmed {
+        return Err(ApiError::from(ica_contracts::error::ContractError::Conflict {
+            message: "Restoring a backup replaces the current data. Send confirm=true once you are sure.".to_string(),
+            details: serde_json::json!({ "backup": name }),
+        }));
+    }
+    if name.contains('/') || name.contains('\\') || name.is_empty() || name == "." || name == ".." {
+        return Err(ApiError::from(
+            ica_contracts::error::ContractError::Validation {
+                message: "A backup is addressed by its file name, not by a path.".to_string(),
+                details: serde_json::json!({ "backup": name }),
+            },
+        ));
+    }
+    // The endpoint pre-checks existence (404 with the not-found envelope)
+    // before the file is touched, exactly like the baseline.
+    let known = ica_application::list_backups(state.backups())
+        .await?
+        .iter()
+        .any(|record| record.name == name);
+    if !known {
+        return Err(ApiError::from(
+            ica_contracts::error::ContractError::NotFound {
+                message: format!("No backup file named '{name}' was found"),
+            },
+        ));
+    }
+    let outcome = ica_application::restore_backup(state.backups(), &name).await?;
+    Ok(Json(RestoreRead {
+        restored_from: outcome.restored_from,
+        database: outcome.database,
+        previous_copy: outcome.previous_copy,
+        message: "The database was restored. The previous state was kept as a safety copy next to the backup.".to_string(),
+    }))
+}
+
+// ── W6: auth + shares ──────────────────────────────────────────────────────
+
+/// `POST /auth/register` — first sign-up bootstraps the tenant as admin.
+async fn register_endpoint(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<(StatusCode, Json<UserRead>), ApiError> {
+    let raw: body::RawAuthRegister = body::parse(&body)?;
+    let write = body::auth_register(raw)?;
+    let user = ica_application::register(
+        state.auth_repo(),
+        state.auth_security(),
+        &write.email,
+        &write.password,
+        write.display_name.as_deref(),
+        write.tenant_id.as_deref(),
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(UserRead::from(&user))))
+}
+
+/// `POST /auth/login` — verify credentials, issue the pair.
+async fn login_endpoint(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<TokenResponse>, ApiError> {
+    let raw: body::RawAuthLogin = body::parse(&body)?;
+    let login = body::auth_login(raw)?;
+    let issued = ica_application::login(
+        state.auth_repo(),
+        state.auth_security(),
+        &login.email,
+        &login.password,
+    )
+    .await?;
+    Ok(Json(TokenResponse {
+        access_token: issued.access_token,
+        token_type: "bearer".to_string(),
+        expires_in: issued.expires_in,
+        refresh_token: issued.refresh_token,
+        user: UserRead::from(&issued.user),
+    }))
+}
+
+/// `POST /auth/refresh` — single-use rotation into a fresh pair.
+async fn refresh_endpoint(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Json<TokenResponse>, ApiError> {
+    let token = body::auth_refresh(body::parse(&body)?)?;
+    let issued = ica_application::refresh(state.auth_repo(), state.auth_security(), &token).await?;
+    Ok(Json(TokenResponse {
+        access_token: issued.access_token,
+        token_type: "bearer".to_string(),
+        expires_in: issued.expires_in,
+        refresh_token: issued.refresh_token,
+        user: UserRead::from(&issued.user),
+    }))
+}
+
+/// `POST /auth/logout` — revoke one refresh token, idempotently (204).
+async fn logout_endpoint(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<StatusCode, ApiError> {
+    // The logout body mirrors refresh: `refresh_token` required, min 1.
+    let token = body::auth_refresh(body::parse(&body)?)?;
+    ica_application::logout(state.auth_repo(), state.auth_security(), &token).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `GET /auth/me` — the current user; local mode answers the synthetic one.
+async fn me_endpoint() -> Json<UserRead> {
+    Json(UserRead::from(&ica_application::local_user()))
+}
+
+/// `POST /shares` — grant (or upgrade) one recipient's access. The local
+/// user is the owner.
+async fn create_share_endpoint(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<(StatusCode, Json<ShareRead>), ApiError> {
+    let raw: body::RawShareCreate = body::parse(&body)?;
+    let create = body::share_create(raw)?;
+    let local = ica_application::local_user();
+    let share = ica_application::create_share(
+        state.auth_repo(),
+        &local.id,
+        &create.recipient_id,
+        &create.resource_type,
+        &create.resource_id,
+        &create.permission,
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(ShareRead::from(&share))))
+}
+
+/// `GET /shares` — the user's shares (granted or received), newest first.
+async fn list_shares_endpoint(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<ShareRead>>, ApiError> {
+    let local = ica_application::local_user();
+    let shares = ica_application::list_shares(state.auth_repo(), &local.id).await?;
+    Ok(Json(shares.iter().map(ShareRead::from).collect()))
+}
+
+/// `DELETE /shares/{id}` — owner or admin (the local user is admin).
+async fn delete_share_endpoint(
+    State(state): State<AppState>,
+    Path(share_id): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    let local = ica_application::local_user();
+    ica_application::delete_share(state.auth_repo(), &share_id, &local.id, true).await?;
+    Ok(StatusCode::NO_CONTENT)
 }

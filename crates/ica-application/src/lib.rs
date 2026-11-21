@@ -5,6 +5,11 @@
 //! use cases talk to a port trait that ``ica-infra`` implements.
 
 pub mod ai_context;
+pub mod ai_key;
+pub mod ai_registry;
+pub mod audit_trail;
+pub mod auth;
+pub mod backup;
 pub mod candidates;
 pub mod conversations;
 pub mod dashboard;
@@ -17,8 +22,25 @@ pub mod payload;
 pub mod ports;
 pub mod positions;
 pub mod send_records;
+pub mod settings;
 pub mod sync;
 
+pub use ai_key::{
+    api_key_resolved, clear_ai_key, mask_key, slot_for, write_ai_key, AI_KEY_SLOT,
+    AI_KEY_SLOT_PREFIX,
+};
+pub use ai_registry::{
+    budget_read, budget_status, get_ai_routing, get_ai_usage, list_ai_models, routing_table,
+    today_spend_cents, update_ai_routing, AiBudgetSettings, AiModelData, AiModelRead,
+    AiModelsOverview, AiSettingsView, AiUsageAllTime, AiUsageByModel, AiUsageRow, BudgetRead,
+    TodayUsage, UsageDay, UsageOverview, DEFAULT_ROUTING,
+};
+pub use audit_trail::recent_audit_events;
+pub use auth::{
+    create_share, delete_share, list_shares, local_user, login, logout, me, refresh, register,
+    IssuedTokens, ShareData, UserRead,
+};
+pub use backup::{create_backup, list_backups, restore_backup};
 pub use candidates::{
     create_candidate, delete_candidate, get_candidate, get_candidate_detail, list_candidates,
     update_candidate, CandidateDetail, ListCandidates,
@@ -50,15 +72,22 @@ pub use payload::{
     NewSendRecord, PositionPatch, SendRecordFilter,
 };
 pub use ports::{
-    BrowserExtractionRepository, CandidateConfirm, CandidateConfirmOutcome, CandidateRepository,
-    ConversationRepository, DashboardRepository, DataSnapshotRepository, DraftGenerator,
-    DraftRepository, ExportSealer, ExtractionDraft, FollowUpPolicyRecord, FollowUpRepository,
-    ImportConfirmOutcome, ImportRecordCorrection, ImportRepository, MessageRepository,
-    NewFollowUpTaskRow, NewImportRecordRow, NewImportSessionRow, OcrEngine, PositionFilter,
-    PositionRepository, RepositoryError, SendRecordRepository, SnapshotOutcome,
+    AiModelRepository, AiUsageRepository, AppSettingsRepository, AuditTrailRepository,
+    AuthRepository, AuthSecurity, BackupRecord, BackupStore, BrowserExtractionRepository,
+    CandidateConfirm, CandidateConfirmOutcome, CandidateRepository, ConversationRepository,
+    DashboardRepository, DataSnapshotRepository, DraftGenerator, DraftRepository, ExportSealer,
+    ExtractionDraft, FollowUpPolicyRecord, FollowUpRepository, ImportConfirmOutcome,
+    ImportRecordCorrection, ImportRepository, MessageRepository, NewFollowUpTaskRow,
+    NewImportRecordRow, NewImportSessionRow, OcrEngine, PositionFilter, PositionRepository,
+    RepositoryError, RestoreOutcome, SecretStore, SendRecordRepository, SnapshotOutcome,
 };
 pub use positions::{
     create_position, delete_position, get_position, list_positions, update_position, ListPositions,
 };
 pub use send_records::{list_send_records, record_send, ListSendRecords};
+pub use settings::{
+    read_egress_disclosure, write_egress_consent, EgressDisclosure, SettingsConfigView,
+    SettingsSnapshot, AI_EGRESS_CONSENT_KEY, EGRESS_GRANTED_EVENT, EGRESS_NOTICE,
+    EGRESS_REVOKED_EVENT, MASKED_CATEGORIES,
+};
 pub use sync::{export_data, import_data, ExportOutcome, ExportSnapshot, SealedSnapshot};

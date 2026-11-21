@@ -878,3 +878,364 @@ pub struct ImportResult {
     pub skipped: i64,
     pub conflicts: i64,
 }
+
+// ── Audit events (W5) ──────────────────────────────────────────────────────
+
+/// One audit trail entry (`AuditEventRead`), newest-first list element.
+#[derive(Debug, Serialize)]
+pub struct AuditEventRead {
+    pub id: String,
+    pub event_type: String,
+    pub entity_type: Option<String>,
+    pub entity_id: Option<String>,
+    pub actor: String,
+    pub summary: Option<String>,
+    /// Parsed from the stored JSON text by `load_json_dict`: a missing or
+    /// unparseable blob degrades to `{}`, never hides the event.
+    pub metadata: Value,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<ica_domain::AuditEvent> for AuditEventRead {
+    fn from(event: ica_domain::AuditEvent) -> Self {
+        let metadata = event
+            .metadata_json
+            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+            .filter(|value: &Value| value.is_object())
+            .unwrap_or_else(|| Value::Object(Default::default()));
+        Self {
+            id: event.id,
+            event_type: event.event_type,
+            entity_type: event.entity_type,
+            entity_id: event.entity_id,
+            actor: event.actor,
+            summary: event.summary,
+            metadata,
+            created_at: event.created_at,
+        }
+    }
+}
+
+// ── Settings (W5) ──────────────────────────────────────────────────────────
+
+/// `SettingsRead` — the effective configuration, minus any secret
+/// (the baseline's `read_settings`).
+#[derive(Debug, Serialize)]
+pub struct SettingsRead {
+    pub app_name: String,
+    pub ai_enabled: bool,
+    pub ai_provider: String,
+    pub ai_model: String,
+    pub ai_base_url: String,
+    pub database_url: String,
+    pub backup_dir: String,
+    pub backup_keep_count: i64,
+    pub data_retention_days: i64,
+}
+
+/// `AIEgressRead` — where AI context would go and what is masked before it
+/// leaves (`PRIV-07`). Never carries a key.
+#[derive(Debug, Serialize)]
+pub struct AIEgressRead {
+    pub enabled: bool,
+    pub consent_granted: bool,
+    pub provider: String,
+    pub model: String,
+    pub base_url: String,
+    pub masked_fields: Vec<String>,
+    pub include_candidate_name: bool,
+    pub notice: String,
+}
+impl From<ica_application::EgressDisclosure> for AIEgressRead {
+    fn from(disclosure: ica_application::EgressDisclosure) -> Self {
+        Self {
+            enabled: disclosure.enabled,
+            consent_granted: disclosure.consent_granted,
+            provider: disclosure.provider,
+            model: disclosure.model,
+            base_url: disclosure.base_url,
+            masked_fields: disclosure.masked_fields,
+            include_candidate_name: disclosure.include_candidate_name,
+            notice: disclosure.notice,
+        }
+    }
+}
+
+// == AI models / routing / usage / budget (W5) ==
+
+/// `ModelRead` — one configured model, key presence only (never the key).
+#[derive(Debug, Serialize)]
+pub struct AiModelRead {
+    pub model_id: String,
+    pub display_name: String,
+    pub provider_type: String,
+    pub base_url: String,
+    pub api_key_env: String,
+    pub quality_tier: String,
+    pub input_cost_per_1k_tokens: f64,
+    pub output_cost_per_1k_tokens: f64,
+    pub max_output_tokens: i64,
+    pub max_input_tokens: i64,
+    pub timeout: i64,
+    pub temperature: f64,
+    pub enabled: bool,
+    pub is_default: bool,
+    pub sort_order: i64,
+    pub api_key_configured: bool,
+    pub source: String,
+}
+
+impl From<ica_application::ai_registry::AiModelRead> for AiModelRead {
+    fn from(model: ica_application::ai_registry::AiModelRead) -> Self {
+        Self {
+            model_id: model.model_id,
+            display_name: model.display_name,
+            provider_type: model.provider_type,
+            base_url: model.base_url,
+            api_key_env: model.api_key_env,
+            quality_tier: model.quality_tier,
+            input_cost_per_1k_tokens: model.input_cost_per_1k_tokens,
+            output_cost_per_1k_tokens: model.output_cost_per_1k_tokens,
+            max_output_tokens: model.max_output_tokens,
+            max_input_tokens: model.max_input_tokens,
+            timeout: model.timeout,
+            temperature: model.temperature,
+            enabled: model.enabled,
+            is_default: model.is_default,
+            sort_order: model.sort_order,
+            api_key_configured: model.api_key_configured,
+            source: model.source,
+        }
+    }
+}
+
+/// `ModelsRead` — the settings-page read view.
+#[derive(Debug, Serialize)]
+pub struct AiModelsRead {
+    pub models: Vec<AiModelRead>,
+    pub routing: std::collections::BTreeMap<String, String>,
+}
+
+/// `GET /ai/routing` — `{"routing": {message_type: tier}}`.
+#[derive(Debug, Serialize)]
+pub struct AiRoutingRead {
+    pub routing: std::collections::BTreeMap<String, String>,
+}
+
+/// `UsageDay` — one day's aggregate usage.
+#[derive(Debug, Serialize)]
+pub struct AiUsageDayRead {
+    pub date: String,
+    pub total_cost_cents: i64,
+    pub request_count: i64,
+    pub by_model: Vec<AiUsageByModelRead>,
+}
+
+/// One per-model entry inside a day.
+#[derive(Debug, Serialize)]
+pub struct AiUsageByModelRead {
+    pub model_id: String,
+    pub cost_cents: i64,
+    pub request_count: i64,
+}
+
+/// `UsageRead.today` — a fixed-key object.
+#[derive(Debug, Serialize)]
+pub struct AiUsageTodayRead {
+    pub total_cost_cents: i64,
+    pub total_prompt_tokens: i64,
+    pub total_completion_tokens: i64,
+    pub request_count: i64,
+    pub daily_budget_cents: i64,
+    pub remaining_cents: i64,
+    pub budget_utilization: f64,
+    pub tier_downgrade_active: bool,
+}
+
+/// One per-model all-time total.
+#[derive(Debug, Serialize)]
+pub struct AiUsageAllTimeRead {
+    pub model_id: String,
+    pub total_cost_cents: i64,
+    pub total_requests: i64,
+}
+
+/// `UsageRead` — usage overview.
+#[derive(Debug, Serialize)]
+pub struct AiUsageRead {
+    pub today: AiUsageTodayRead,
+    pub history: Vec<AiUsageDayRead>,
+    pub by_model_all_time: Vec<AiUsageAllTimeRead>,
+}
+
+impl From<ica_application::ai_registry::UsageOverview> for AiUsageRead {
+    fn from(overview: ica_application::ai_registry::UsageOverview) -> Self {
+        Self {
+            today: AiUsageTodayRead {
+                total_cost_cents: overview.today.total_cost_cents,
+                total_prompt_tokens: overview.today.total_prompt_tokens,
+                total_completion_tokens: overview.today.total_completion_tokens,
+                request_count: overview.today.request_count,
+                daily_budget_cents: overview.today.daily_budget_cents,
+                remaining_cents: overview.today.remaining_cents,
+                budget_utilization: overview.today.budget_utilization,
+                tier_downgrade_active: overview.today.tier_downgrade_active,
+            },
+            history: overview
+                .history
+                .into_iter()
+                .map(|day| AiUsageDayRead {
+                    date: day.date,
+                    total_cost_cents: day.total_cost_cents,
+                    request_count: day.request_count,
+                    by_model: day
+                        .by_model
+                        .into_iter()
+                        .map(|entry| AiUsageByModelRead {
+                            model_id: entry.model_id,
+                            cost_cents: entry.cost_cents,
+                            request_count: entry.request_count,
+                        })
+                        .collect(),
+                })
+                .collect(),
+            by_model_all_time: overview
+                .by_model_all_time
+                .into_iter()
+                .map(|entry| AiUsageAllTimeRead {
+                    model_id: entry.model_id,
+                    total_cost_cents: entry.total_cost_cents,
+                    total_requests: entry.total_requests,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// `BudgetRead` — current budget configuration and spend state.
+#[derive(Debug, Serialize)]
+pub struct AiBudgetRead {
+    pub daily_budget_cents: i64,
+    pub warning_threshold: i64,
+    pub today_spend_cents: i64,
+    pub remaining_cents: i64,
+    pub status: String,
+}
+
+impl From<ica_application::ai_registry::BudgetRead> for AiBudgetRead {
+    fn from(read: ica_application::ai_registry::BudgetRead) -> Self {
+        Self {
+            daily_budget_cents: read.daily_budget_cents,
+            warning_threshold: read.warning_threshold,
+            today_spend_cents: read.today_spend_cents,
+            remaining_cents: read.remaining_cents,
+            status: read.status,
+        }
+    }
+}
+
+// == AI key status / backups (W5) ==
+
+/// `AiKeyStatus` — key-configuration status; `key_masked` never contains the
+/// full key.
+#[derive(Debug, Serialize)]
+pub struct AiKeyStatus {
+    pub ai_enabled: bool,
+    pub key_masked: Option<String>,
+    pub model_id: Option<String>,
+}
+
+/// `BackupRead` — one backup file on disk.
+#[derive(Debug, Serialize)]
+pub struct BackupRead {
+    pub name: String,
+    pub path: String,
+    pub size_bytes: i64,
+    pub created_at: String,
+    pub kind: String,
+}
+
+impl From<ica_application::ports::BackupRecord> for BackupRead {
+    fn from(record: ica_application::ports::BackupRecord) -> Self {
+        Self {
+            name: record.name,
+            path: record.path,
+            size_bytes: record.size_bytes,
+            created_at: record.created_at,
+            kind: record.kind,
+        }
+    }
+}
+
+/// `RestoreRead` — the outcome of a restore.
+#[derive(Debug, Serialize)]
+pub struct RestoreRead {
+    pub restored_from: String,
+    pub database: String,
+    pub previous_copy: String,
+    pub message: String,
+}
+
+// == Auth + shares (W6) ==
+
+/// `UserRead` — the public user representation, never the password hash.
+#[derive(Debug, Serialize)]
+pub struct UserRead {
+    pub id: String,
+    pub email: String,
+    pub display_name: String,
+    pub role: String,
+    pub tenant_id: String,
+    pub is_active: bool,
+}
+
+impl From<&ica_application::auth::UserData> for UserRead {
+    fn from(user: &ica_application::auth::UserData) -> Self {
+        Self {
+            id: user.id.clone(),
+            email: user.email.clone(),
+            display_name: user.display_name.clone(),
+            role: user.role.clone(),
+            tenant_id: user.tenant_id.clone(),
+            is_active: user.is_active,
+        }
+    }
+}
+
+/// `TokenResponse` — the access/refresh pair plus the user.
+#[derive(Debug, Serialize)]
+pub struct TokenResponse {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+    pub refresh_token: String,
+    pub user: UserRead,
+}
+
+/// `ShareRead` — one explicit owner -> recipient share.
+#[derive(Debug, Serialize)]
+pub struct ShareRead {
+    pub id: String,
+    pub owner_id: String,
+    pub recipient_id: String,
+    pub resource_type: String,
+    pub resource_id: String,
+    pub permission: String,
+    #[serde(serialize_with = "serialize_utc")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<&ica_application::auth::ShareData> for ShareRead {
+    fn from(share: &ica_application::auth::ShareData) -> Self {
+        Self {
+            id: share.id.clone(),
+            owner_id: share.owner_id.clone(),
+            recipient_id: share.recipient_id.clone(),
+            resource_type: share.resource_type.clone(),
+            resource_id: share.resource_id.clone(),
+            permission: share.permission.clone(),
+            created_at: share.created_at,
+        }
+    }
+}

@@ -214,6 +214,21 @@ Reconciliation:
 | W5 ai + settings + audit + backups | 15 | 60 |
 | W6 auth + shares | 8 | 68 |
 
+Reconciliation update (2026-11-21, later): **W6 is complete (8/8)** —
+`/auth/register|login|refresh|logout|me` (rows 7-11) and
+`/shares` create/list/delete (rows 12-14) — with single-use atomic
+refresh-token rotation, bcrypt password hashing and the synthetic local user
+answering `me`. **The 68-route contract is fully implemented (68/68).**
+Model CRUD stays AI-EXT as ruled (4 routes outside the 68).
+
+Earlier reconciliation note: **W5 is complete (15/15)** — `GET /api/audit-events` (65), the settings slice
+(60/63/64), the AI read/config slice (`GET /ai/models` 1, `GET/PATCH
+/ai/routing` 2-3, `GET /ai/usage` 4, `GET/PATCH /ai/budget` 5-6), the
+ai-key pair (61-62, OS credential store per the project ruling) and the
+backups trio (66-68, restore drill documented first) — bringing the
+implemented count to **60 of 68**. The remaining 8 routes are all W6
+(auth + shares); model CRUD stays AI-EXT as ruled.
+
 `scripts/check_endpoint_map.py` parses this table and compares it against the
 live FastAPI route table, so the map cannot silently drift from the baseline.
 

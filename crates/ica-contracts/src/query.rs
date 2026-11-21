@@ -627,6 +627,159 @@ pub fn typed_limit(limit: Option<i64>, default: usize, max: usize) -> Result<usi
     }
 }
 
+// ── Audit events (W5) ──────────────────────────────────────────────────────
+
+/// Raw `GET /api/audit-events` query.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct RawListAuditEventsQuery {
+    pub event_type: Option<String>,
+    pub entity_type: Option<String>,
+    pub entity_id: Option<String>,
+    pub limit: Option<String>,
+}
+
+/// The validated audit-trail filters.
+///
+/// An empty query value means "no filter" (the baseline's `if event_type:` is
+/// falsy for `""`), and a longer-than-64 value is a 422 — pydantic's
+/// `max_length=64` rejects it even though the filter itself would be ignored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListAuditEvents {
+    pub event_type: Option<String>,
+    pub entity_type: Option<String>,
+    pub entity_id: Option<String>,
+    pub limit: usize,
+}
+
+/// One audit filter: `max_length=64` counts characters, empty means absent.
+fn audit_filter_or_none(
+    raw: Option<String>,
+    field: &'static str,
+    issues: &mut Vec<ValidationIssue>,
+) -> Option<String> {
+    match raw {
+        None => None,
+        Some(value) if value.is_empty() => None,
+        Some(value) if value.chars().count() > 64 => {
+            issues.push(ValidationIssue::query(
+                "string_too_long",
+                vec!["query", field],
+                "String should have at most 64 characters",
+                &value,
+            ));
+            None
+        }
+        Some(value) => Some(value),
+    }
+}
+
+impl From<ListAuditEvents> for ica_domain::AuditEventFilter {
+    fn from(list: ListAuditEvents) -> Self {
+        Self {
+            event_type: list.event_type,
+            entity_type: list.entity_type,
+            entity_id: list.entity_id,
+            limit: list.limit,
+        }
+    }
+}
+
+/// Validate every `GET /api/audit-events` parameter.
+pub fn validate_audit_events(
+    raw: RawListAuditEventsQuery,
+) -> Result<ListAuditEvents, ContractError> {
+    let mut issues = Vec::new();
+    let event_type = audit_filter_or_none(raw.event_type, "event_type", &mut issues);
+    let entity_type = audit_filter_or_none(raw.entity_type, "entity_type", &mut issues);
+    let entity_id = audit_filter_or_none(raw.entity_id, "entity_id", &mut issues);
+    let limit = limit_or_default(raw.limit.as_deref(), DEFAULT_LIMIT, MAX_LIMIT, &mut issues);
+    finish(
+        issues,
+        ListAuditEvents {
+            event_type,
+            entity_type,
+            entity_id,
+            limit,
+        },
+    )
+}
+
+// == AI usage (W5) ==
+
+/// Raw `GET /api/ai/usage` query.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct RawAiUsageQuery {
+    pub days: Option<String>,
+}
+
+/// Validate `days` (pydantic `ge=1 le=90`, default 7): the messages differ
+/// from the page `limit` pair, so this has its own parser.
+pub fn validate_ai_usage_days(raw: RawAiUsageQuery) -> Result<u32, ContractError> {
+    let mut issues = Vec::new();
+    let days = match raw.days.as_deref() {
+        None => 7,
+        Some(value) => match parse_python_int(value) {
+            Some(PyInt::Value(value)) if value < 1 => {
+                issues.push(ValidationIssue::query(
+                    "greater_than_equal",
+                    vec!["query", "days"],
+                    "Input should be greater than or equal to 1",
+                    &value.to_string(),
+                ));
+                7
+            }
+            Some(PyInt::Value(value)) if value > 90 => {
+                issues.push(ValidationIssue::query(
+                    "less_than_equal",
+                    vec!["query", "days"],
+                    "Input should be less than or equal to 90",
+                    &value.to_string(),
+                ));
+                7
+            }
+            Some(PyInt::Value(value)) => u32::try_from(value).unwrap_or(90),
+            _ => {
+                issues.push(ValidationIssue::query(
+                    "int_parsing",
+                    vec!["query", "days"],
+                    "Input should be a valid integer, unable to parse string as an integer",
+                    value,
+                ));
+                7
+            }
+        },
+    };
+    finish(issues, days)
+}
+
+// == AI key clear (W5) ==
+
+/// Raw `DELETE /settings/ai-key` query.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct RawAiKeyClearQuery {
+    pub model_id: Option<String>,
+}
+
+/// Validate the clear query: `model_id` is optional, max 128 characters.
+pub fn validate_ai_key_clear(raw: RawAiKeyClearQuery) -> Result<Option<String>, ContractError> {
+    let mut issues = Vec::new();
+    let model_id = match raw.model_id {
+        None => None,
+        Some(value) if value.is_empty() => None,
+        Some(value) if value.chars().count() > 128 => {
+            issues.push(ValidationIssue::query(
+                "string_too_long",
+                vec!["query", "model_id"],
+                "String should have at most 128 characters",
+                &value,
+            ));
+            None
+        }
+        Some(value) => Some(value),
+    };
+    finish(issues, model_id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

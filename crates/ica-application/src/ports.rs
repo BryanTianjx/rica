@@ -2,11 +2,13 @@
 
 use std::collections::BTreeMap;
 
+use crate::ai_registry::{AiModelData, AiUsageRow};
+use crate::auth::{ShareData, UserData};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use ica_domain::{
-    Candidate, Conversation, FollowUpPolicy, FollowUpTask, FollowUpTaskStatus, GeneratedDraft,
-    Message, Position, SendRecord,
+    AuditEvent, AuditEventFilter, Candidate, Conversation, FollowUpPolicy, FollowUpTask,
+    FollowUpTaskStatus, GeneratedDraft, Message, Position, SendRecord,
 };
 use serde_json::Value;
 
@@ -921,4 +923,202 @@ pub trait BrowserExtractionRepository: Send + Sync {
         draft: &ExtractionDraft,
         request: CandidateConfirm,
     ) -> Result<CandidateConfirmOutcome, RepositoryError>;
+}
+
+/// The audit trail, read back (W5 `GET /api/audit-events`).
+///
+/// Writes go through each aggregate's own transaction via `ica-infra::audit`;
+/// this port is the read side only. `filter.limit` is already validated by
+/// the transport layer (`1..=500`); the port applies no clamping of its own.
+#[async_trait]
+pub trait AuditTrailRepository: Send + Sync {
+    /// The newest events first (`ORDER BY created_at DESC`), exactly the
+    /// baseline's `audit_recent`.
+    async fn recent_events(
+        &self,
+        filter: AuditEventFilter,
+    ) -> Result<Vec<AuditEvent>, RepositoryError>;
+}
+
+/// The non-sensitive key/value `app_settings` store (W5 settings slice).
+///
+/// The AI-egress switch lives here so it survives a restart and is visible to
+/// every process; its changes are audited in the same transaction.
+#[async_trait]
+pub trait AppSettingsRepository: Send + Sync {
+    /// The `ai.egress_consent` switch: **`true` when nothing is recorded**
+    /// (configuring a provider key is itself an explicit operator action),
+    /// and the truthy set is the baseline's `{"1","true","yes","on"}`.
+    async fn egress_consent_granted(&self) -> Result<bool, RepositoryError>;
+
+    /// Upsert the switch and append its
+    /// `ai.egress_consent.granted`/`.revoked` audit event **in one
+    /// transaction**, exactly like every other business write.
+    async fn set_egress_consent(&self, granted: bool) -> Result<(), RepositoryError>;
+
+    /// Upsert non-sensitive values WITHOUT an audit event — the budget pair
+    /// (`PATCH /ai/budget`) writes rows the baseline never reads back and
+    /// never audits; reproduced, not improved.
+    async fn upsert_values(&self, entries: &[(&str, String, &str)]) -> Result<(), RepositoryError>;
+
+    /// Append an `ai.key_configured`/`ai.key_cleared` row in its own
+    /// transaction — the credential write is external to the database, so
+    /// the audit is the only DB side effect of the ai-key endpoints.
+    async fn record_ai_key_audit(
+        &self,
+        event_type: &str,
+        summary: String,
+        metadata: serde_json::Value,
+    ) -> Result<(), RepositoryError>;
+}
+
+/// The `ai_model_configs` registry read side and the `ai_model_routing`
+/// overrides (W5). The mutating model-CRUD routes are AI-EXT and stay out.
+#[async_trait]
+pub trait AiModelRepository: Send + Sync {
+    /// Every row, ordered by `sort_order` (the registry's load order).
+    async fn list_configs(&self) -> Result<Vec<AiModelData>, RepositoryError>;
+
+    /// The stored overrides, as `(message_type, tier)` pairs.
+    async fn routing_overrides(&self) -> Result<Vec<(String, String)>, RepositoryError>;
+
+    /// Insert/update/delete one override: `None` deletes the row so the
+    /// default shows through again.
+    async fn replace_routing_override(
+        &self,
+        message_type: &str,
+        tier: Option<&str>,
+    ) -> Result<(), RepositoryError>;
+}
+
+/// The `ai_usage_daily` read side (W5 usage/budget).
+#[async_trait]
+pub trait AiUsageRepository: Send + Sync {
+    /// Every row, ordered by `usage_date` (the usage endpoint's scan order).
+    async fn list_rows(&self) -> Result<Vec<AiUsageRow>, RepositoryError>;
+}
+
+/// The OS credential store seam (W5 ai-key).
+///
+/// The baseline stores AI credentials per slot (installation-wide
+/// `ai_api_key`, per-model `ai_key:<model_id>`) through the platform store —
+/// DPAPI on Windows, Keychain on macOS. The project ruling for this port is
+/// the OS credential store (the `keyring` adapter); tests use an in-memory
+/// fake so no run ever writes the operator's real credential vault.
+#[async_trait]
+pub trait SecretStore: Send + Sync {
+    /// Persist one slot. Failures surface as 500s, never as silent loss.
+    async fn store(&self, name: &str, value: &str) -> Result<(), RepositoryError>;
+    /// Read one slot, or `None` when absent/unreadable (a broken store must
+    /// not block resolution — the baseline's `load_secret` degrades too).
+    async fn load(&self, name: &str) -> Result<Option<String>, RepositoryError>;
+    /// Remove one slot.
+    async fn delete(&self, name: &str) -> Result<(), RepositoryError>;
+}
+
+/// One backup file on disk (`BackupRead`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackupRecord {
+    pub name: String,
+    pub path: String,
+    pub size_bytes: i64,
+    /// ISO-8601 with UTC offset, from the file mtime.
+    pub created_at: String,
+    /// `"backup"` or `"pre_restore"` — both families are listed.
+    pub kind: String,
+}
+
+/// The outcome of a restore (`RestoreRead` minus the fixed message).
+#[derive(Debug, Clone, PartialEq)]
+pub struct RestoreOutcome {
+    pub restored_from: String,
+    pub database: String,
+    pub previous_copy: String,
+}
+
+/// The backup/restore file-subsystem seam (W5).
+///
+/// All three operations go through the SQLite online-backup API so every
+/// copy is consistent while the live database stays open in WAL mode; the
+/// drill in `docs/testing/backup-restore-drill.md` is the acceptance manual.
+/// Errors carry the baseline's codes (`backup_failed`, `backup_not_managed`,
+/// …) as `StatusWithCode`.
+#[async_trait]
+pub trait BackupStore: Send + Sync {
+    /// Both backup families, newest first.
+    async fn list(&self) -> Result<Vec<BackupRecord>, ApplicationError>;
+    /// One online-backup copy plus retention pruning and sidecar cleanup.
+    async fn create(&self) -> Result<BackupRecord, ApplicationError>;
+    /// The pre-restore safety copy, the in-place restore, the
+    /// `backup.restored` audit row (same connection) and pruning.
+    async fn restore(&self, name: &str) -> Result<RestoreOutcome, ApplicationError>;
+}
+
+/// The auth data seam (W6): users, tenants, refresh tokens, shares.
+///
+/// Refresh-token rotation is single-use: `revoke_refresh_token_if_active`
+/// runs a guarded UPDATE (`revoked_at IS NULL AND expires_at > ?`) and
+/// reports whether THIS caller won the race.
+#[async_trait]
+pub trait AuthRepository: Send + Sync {
+    async fn get_user(&self, id: &str) -> Result<Option<UserData>, RepositoryError>;
+    async fn find_user_by_email(&self, email: &str) -> Result<Option<UserData>, RepositoryError>;
+    async fn insert_user(&self, user: &UserData) -> Result<UserData, RepositoryError>;
+    async fn get_default_tenant(&self) -> Result<Option<String>, RepositoryError>;
+    async fn get_tenant(&self, id: &str) -> Result<Option<String>, RepositoryError>;
+    async fn insert_tenant(&self, name: &str) -> Result<String, RepositoryError>;
+
+    async fn insert_refresh_token(
+        &self,
+        user_id: &str,
+        token_hash: &str,
+        expires_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), RepositoryError>;
+    async fn find_refresh_token(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<crate::auth::RefreshTokenRow>, RepositoryError>;
+    /// The guarded single-use revoke: true when this caller won.
+    async fn revoke_refresh_token_if_active(
+        &self,
+        token_hash: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<bool, RepositoryError>;
+    /// Idempotent revoke (logout): any state, no winner semantics.
+    async fn revoke_refresh_token_by_hash(
+        &self,
+        token_hash: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), RepositoryError>;
+
+    async fn upsert_share(
+        &self,
+        owner_id: &str,
+        recipient_id: &str,
+        resource_type: &str,
+        resource_id: &str,
+        permission: &str,
+    ) -> Result<ShareData, RepositoryError>;
+    async fn list_shares_for_user(&self, user_id: &str) -> Result<Vec<ShareData>, RepositoryError>;
+    async fn get_share(&self, id: &str) -> Result<Option<ShareData>, RepositoryError>;
+    async fn delete_share(&self, id: &str) -> Result<(), RepositoryError>;
+}
+
+/// The crypto seam (W6): bcrypt hashing, HS256 access tokens, refresh-token
+/// generation. Implemented by the infra adapter; tests can fake it.
+#[async_trait]
+pub trait AuthSecurity: Send + Sync {
+    async fn hash_password(&self, plain: &str) -> String;
+    async fn verify_password(&self, plain: &str, hash: &str) -> bool;
+    /// `(token, expires_in_seconds)`.
+    async fn create_access_token(
+        &self,
+        user_id: &str,
+        tenant_id: &str,
+        role: &str,
+    ) -> (String, i64);
+    async fn new_refresh_token(&self) -> String;
+    async fn hash_refresh_token(&self, token: &str) -> String;
+    /// The refresh-token lifetime in days (`jwt_refresh_token_expire_days`).
+    fn refresh_token_days(&self) -> i64;
 }

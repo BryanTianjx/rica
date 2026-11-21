@@ -926,3 +926,515 @@ pub async fn imports_ocr(
         created_at: outcome.session.created_at,
     })
 }
+
+// ── W5 (first slice): audit events ─────────────────────────────────────────
+
+/// `audit_events_list` — the audit trail, newest first.
+///
+/// The IPC layer mirrors the HTTP query: the filters are typed, and the
+/// empty-string-means-absent rule lives in the shared `ica-contracts`
+/// validator, so both transports behave identically.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AuditEventsListArgs {
+    pub event_type: Option<String>,
+    pub entity_type: Option<String>,
+    pub entity_id: Option<String>,
+    pub limit: Option<i64>,
+}
+
+pub async fn audit_events_list(
+    state: &DesktopState,
+    args: AuditEventsListArgs,
+) -> Result<Vec<dto::AuditEventRead>, IpcError> {
+    let limit = query::typed_limit(args.limit, DEFAULT_LIMIT, MAX_LIMIT).map_err(fail)?;
+    let list = query::validate_audit_events(query::RawListAuditEventsQuery {
+        event_type: args.event_type,
+        entity_type: args.entity_type,
+        entity_id: args.entity_id,
+        limit: None,
+    })
+    .map_err(fail)?;
+    let events = ica_application::recent_audit_events(
+        state.audit_trail(),
+        query::ListAuditEvents {
+            event_type: list.event_type,
+            entity_type: list.entity_type,
+            entity_id: list.entity_id,
+            limit,
+        }
+        .into(),
+    )
+    .await?;
+    Ok(events.into_iter().map(dto::AuditEventRead::from).collect())
+}
+
+// ── W5 settings slice ──────────────────────────────────────────────────────
+
+/// `settings_read` — the effective configuration, minus any secret.
+pub async fn settings_read(state: &DesktopState) -> Result<dto::SettingsRead, IpcError> {
+    let snapshot = state.settings_config_view().settings_snapshot();
+    Ok(dto::SettingsRead {
+        app_name: snapshot.app_name,
+        ai_enabled: snapshot.ai_enabled,
+        ai_provider: snapshot.ai_provider,
+        ai_model: snapshot.ai_model,
+        ai_base_url: snapshot.ai_base_url,
+        database_url: snapshot.database_url,
+        backup_dir: snapshot.backup_dir,
+        backup_keep_count: snapshot.backup_keep_count,
+        data_retention_days: snapshot.data_retention_days,
+    })
+}
+
+/// `ai_egress_read` — where AI context would go and what is masked.
+pub async fn ai_egress_read(state: &DesktopState) -> Result<dto::AIEgressRead, IpcError> {
+    let disclosure =
+        ica_application::read_egress_disclosure(state.settings(), &state.settings_config_view())
+            .await?;
+    Ok(disclosure.into())
+}
+
+/// Typed args of `ai_egress_consent`: the switch is required and explicit,
+/// mirroring the HTTP body contract.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AiEgressConsentArgs {
+    pub consent_granted: Option<bool>,
+}
+
+/// `ai_egress_consent` — persist the switch (audited in the same
+/// transaction) and return the fresh disclosure.
+pub async fn ai_egress_consent(
+    state: &DesktopState,
+    args: AiEgressConsentArgs,
+) -> Result<dto::AIEgressRead, IpcError> {
+    let consent = body::ai_egress_consent(body::RawAiEgressConsent {
+        consent_granted: match args.consent_granted {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+    })
+    .map_err(fail)?;
+    let disclosure = ica_application::write_egress_consent(
+        state.settings(),
+        &state.settings_config_view(),
+        consent.consent_granted,
+    )
+    .await?;
+    Ok(disclosure.into())
+}
+
+// == W5 AI slice ==
+
+/// `ai_models_list` — the registry with the V1.0 fallback, key presence only.
+pub async fn ai_models_list(state: &DesktopState) -> Result<dto::AiModelsRead, IpcError> {
+    let overview =
+        ica_application::list_ai_models(state.ai_models(), &state.ai_settings_view()).await?;
+    Ok(dto::AiModelsRead {
+        models: overview.models.into_iter().map(Into::into).collect(),
+        routing: overview.routing,
+    })
+}
+
+/// `ai_routing_get` — the effective table (defaults layered with overrides).
+pub async fn ai_routing_get(state: &DesktopState) -> Result<dto::AiRoutingRead, IpcError> {
+    let routing = ica_application::get_ai_routing(state.ai_models()).await?;
+    Ok(dto::AiRoutingRead { routing })
+}
+
+/// Typed args of `ai_routing_patch`.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AiRoutingPatchArgs {
+    pub routing: Option<std::collections::BTreeMap<String, String>>,
+}
+
+/// `ai_routing_patch` — persist overrides for known message types only.
+pub async fn ai_routing_patch(
+    state: &DesktopState,
+    args: AiRoutingPatchArgs,
+) -> Result<dto::AiRoutingRead, IpcError> {
+    let patch = body::ai_routing_patch(body::RawAiRoutingPatch {
+        routing: match args.routing {
+            Some(map) => body::Incoming::Value(map),
+            None => body::Incoming::Absent,
+        },
+    })
+    .map_err(fail)?;
+    let routing = ica_application::update_ai_routing(state.ai_models(), patch.routing).await?;
+    Ok(dto::AiRoutingRead { routing })
+}
+
+/// Typed args of `ai_usage`.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AiUsageArgs {
+    pub days: Option<i64>,
+}
+
+/// `ai_usage` — today, `days` of history, all-time per model.
+pub async fn ai_usage(
+    state: &DesktopState,
+    args: AiUsageArgs,
+) -> Result<dto::AiUsageRead, IpcError> {
+    let raw = query::RawAiUsageQuery {
+        days: args.days.map(|value| value.to_string()),
+    };
+    let days = query::validate_ai_usage_days(raw).map_err(fail)?;
+    let today = chrono::Utc::now()
+        .naive_utc()
+        .format("%Y-%m-%d")
+        .to_string();
+    let overview =
+        ica_application::get_ai_usage(state.ai_usage(), &state.ai_budget(), days, &today).await?;
+    Ok(overview.into())
+}
+
+/// `ai_budget_get` — the current budget config and spend state.
+pub async fn ai_budget_get(state: &DesktopState) -> Result<dto::AiBudgetRead, IpcError> {
+    let today = chrono::Utc::now()
+        .naive_utc()
+        .format("%Y-%m-%d")
+        .to_string();
+    let spend = ica_application::today_spend_cents(state.ai_usage(), &today).await?;
+    Ok(ica_application::budget_read(&state.ai_budget(), spend).into())
+}
+
+/// Typed args of `ai_budget_patch` (both fields required, like the body).
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AiBudgetPatchArgs {
+    pub daily_budget_cents: Option<i64>,
+    pub warning_threshold: Option<i64>,
+}
+
+/// `ai_budget_patch` — persist rows, mutate the in-process pair, answer with
+/// the fresh spend state.
+pub async fn ai_budget_patch(
+    state: &DesktopState,
+    args: AiBudgetPatchArgs,
+) -> Result<dto::AiBudgetRead, IpcError> {
+    let patch = body::ai_budget_patch(body::RawAiBudgetPatch {
+        daily_budget_cents: match args.daily_budget_cents {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        warning_threshold: match args.warning_threshold {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+    })
+    .map_err(fail)?;
+    state
+        .settings()
+        .upsert_values(&[
+            (
+                "ai_daily_budget_cents",
+                patch.daily_budget_cents.to_string(),
+                "int",
+            ),
+            (
+                "ai_budget_warning_threshold",
+                patch.warning_threshold.to_string(),
+                "int",
+            ),
+        ])
+        .await
+        .map_err(|error| IpcError::from(error.application_error()))?;
+    state.set_ai_budget(ica_application::AiBudgetSettings {
+        daily_budget_cents: patch.daily_budget_cents,
+        warning_threshold: patch.warning_threshold,
+    });
+    let today = chrono::Utc::now()
+        .naive_utc()
+        .format("%Y-%m-%d")
+        .to_string();
+    let spend = ica_application::today_spend_cents(state.ai_usage(), &today).await?;
+    Ok(ica_application::budget_read(&state.ai_budget(), spend).into())
+}
+
+// == W5 ai-key + backups ==
+
+/// Typed args of `ai_key_write` (the key is write-only, never echoed back).
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AiKeyWriteArgs {
+    pub ai_api_key: Option<String>,
+    pub model_id: Option<String>,
+}
+
+/// `ai_key_write` — persist through the OS credential store, audit masked.
+pub async fn ai_key_write(
+    state: &DesktopState,
+    args: AiKeyWriteArgs,
+) -> Result<dto::AiKeyStatus, IpcError> {
+    let write = body::ai_key_write(body::RawAiKeyWrite {
+        ai_api_key: match args.ai_api_key {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        model_id: match args.model_id {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+    })
+    .map_err(fail)?;
+    let (installation, masked, model_id) = ica_application::write_ai_key(
+        state.secrets(),
+        state.settings(),
+        &write.ai_api_key,
+        write.model_id.as_deref(),
+    )
+    .await?;
+    if installation {
+        state.set_ai_key_present(true);
+    }
+    Ok(dto::AiKeyStatus {
+        ai_enabled: state.ai_key_present(),
+        key_masked: masked,
+        model_id,
+    })
+}
+
+/// Typed args of `ai_key_clear`.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AiKeyClearArgs {
+    pub model_id: Option<String>,
+}
+
+/// `ai_key_clear` — clear the chosen slot and audit the change.
+pub async fn ai_key_clear(
+    state: &DesktopState,
+    args: AiKeyClearArgs,
+) -> Result<dto::AiKeyStatus, IpcError> {
+    let model_id = query::validate_ai_key_clear(query::RawAiKeyClearQuery {
+        model_id: args.model_id,
+    })
+    .map_err(fail)?;
+    let (installation, masked, model_id) =
+        ica_application::clear_ai_key(state.secrets(), state.settings(), model_id.as_deref())
+            .await?;
+    if installation && model_id.is_none() {
+        state.set_ai_key_present(false);
+    }
+    Ok(dto::AiKeyStatus {
+        ai_enabled: state.ai_key_present(),
+        key_masked: masked,
+        model_id,
+    })
+}
+
+/// `backups_list` — both backup families, newest first.
+pub async fn backups_list(state: &DesktopState) -> Result<Vec<dto::BackupRead>, IpcError> {
+    let records = ica_application::list_backups(state.backups()).await?;
+    Ok(records.into_iter().map(Into::into).collect())
+}
+
+/// `backups_create` — one consistent online-backup copy.
+pub async fn backups_create(state: &DesktopState) -> Result<dto::BackupRead, IpcError> {
+    let record = ica_application::create_backup(state.backups()).await?;
+    Ok(record.into())
+}
+
+/// Typed args of `backups_restore` (`confirm` must be explicit).
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct BackupsRestoreArgs {
+    pub name: Option<String>,
+    pub confirm: Option<bool>,
+}
+
+/// `backups_restore` — replace the live data with the backup's contents.
+pub async fn backups_restore(
+    state: &DesktopState,
+    args: BackupsRestoreArgs,
+) -> Result<dto::RestoreRead, IpcError> {
+    let name = args.name.unwrap_or_default();
+    if !args.confirm.unwrap_or(false) {
+        return Err(IpcError::from(ica_contracts::error::ContractError::Conflict {
+            message: "Restoring a backup replaces the current data. Send confirm=true once you are sure.".to_string(),
+            details: serde_json::json!({ "backup": name }),
+        }));
+    }
+    if name.contains('/') || name.contains('\\') || name.is_empty() || name == "." || name == ".." {
+        return Err(IpcError::from(
+            ica_contracts::error::ContractError::Validation {
+                message: "A backup is addressed by its file name, not by a path.".to_string(),
+                details: serde_json::json!({ "backup": name }),
+            },
+        ));
+    }
+    let outcome = ica_application::restore_backup(state.backups(), &name).await?;
+    Ok(dto::RestoreRead {
+        restored_from: outcome.restored_from,
+        database: outcome.database,
+        previous_copy: outcome.previous_copy,
+        message: "The database was restored. The previous state was kept as a safety copy next to the backup.".to_string(),
+    })
+}
+
+// == W6 auth + shares ==
+
+/// `auth_register` — first sign-up bootstraps the tenant as admin.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AuthRegisterArgs {
+    pub email: Option<String>,
+    pub password: Option<String>,
+    pub display_name: Option<String>,
+    pub tenant_id: Option<String>,
+}
+
+pub async fn auth_register(
+    state: &DesktopState,
+    args: AuthRegisterArgs,
+) -> Result<dto::UserRead, IpcError> {
+    let write = body::auth_register(body::RawAuthRegister {
+        email: match args.email {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        password: match args.password {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        display_name: match args.display_name {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        tenant_id: match args.tenant_id {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+    })
+    .map_err(fail)?;
+    let user = ica_application::register(
+        state.auth_repo(),
+        state.auth_security(),
+        &write.email,
+        &write.password,
+        write.display_name.as_deref(),
+        write.tenant_id.as_deref(),
+    )
+    .await?;
+    Ok(dto::UserRead::from(&user))
+}
+
+/// `auth_login` — verify credentials, issue the pair.
+pub async fn auth_login(
+    state: &DesktopState,
+    args: AuthRegisterArgs,
+) -> Result<dto::TokenResponse, IpcError> {
+    let login = body::auth_login(body::RawAuthLogin {
+        email: match args.email {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        password: match args.password {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+    })
+    .map_err(fail)?;
+    let issued = ica_application::login(
+        state.auth_repo(),
+        state.auth_security(),
+        &login.email,
+        &login.password,
+    )
+    .await?;
+    Ok(dto::TokenResponse {
+        access_token: issued.access_token,
+        token_type: "bearer".to_string(),
+        expires_in: issued.expires_in,
+        refresh_token: issued.refresh_token,
+        user: dto::UserRead::from(&issued.user),
+    })
+}
+
+/// `auth_refresh` — single-use rotation.
+pub async fn auth_refresh(
+    state: &DesktopState,
+    refresh_token: String,
+) -> Result<dto::TokenResponse, IpcError> {
+    let token = body::auth_refresh(body::RawAuthRefresh {
+        refresh_token: body::Incoming::Value(refresh_token),
+    })
+    .map_err(fail)?;
+    let issued = ica_application::refresh(state.auth_repo(), state.auth_security(), &token).await?;
+    Ok(dto::TokenResponse {
+        access_token: issued.access_token,
+        token_type: "bearer".to_string(),
+        expires_in: issued.expires_in,
+        refresh_token: issued.refresh_token,
+        user: dto::UserRead::from(&issued.user),
+    })
+}
+
+/// `auth_logout` — revoke one refresh token (idempotent, 204 semantics).
+pub async fn auth_logout(state: &DesktopState, refresh_token: String) -> Result<(), IpcError> {
+    let token = body::auth_refresh(body::RawAuthRefresh {
+        refresh_token: body::Incoming::Value(refresh_token),
+    })
+    .map_err(fail)?;
+    ica_application::logout(state.auth_repo(), state.auth_security(), &token).await?;
+    Ok(())
+}
+
+/// `auth_me` — the current user (local mode answers the synthetic one).
+pub async fn auth_me() -> dto::UserRead {
+    dto::UserRead::from(&ica_application::local_user())
+}
+
+/// Typed args of `shares_create`.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct ShareCreateArgs {
+    pub recipient_id: Option<String>,
+    pub resource_type: Option<String>,
+    pub resource_id: Option<String>,
+    pub permission: Option<String>,
+}
+
+/// `shares_create` — grant (or upgrade) one recipient's access.
+pub async fn shares_create(
+    state: &DesktopState,
+    args: ShareCreateArgs,
+) -> Result<dto::ShareRead, IpcError> {
+    let create = body::share_create(body::RawShareCreate {
+        recipient_id: match args.recipient_id {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        resource_type: match args.resource_type {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        resource_id: match args.resource_id {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+        permission: match args.permission {
+            Some(value) => body::Incoming::Value(value),
+            None => body::Incoming::Absent,
+        },
+    })
+    .map_err(fail)?;
+    let local = ica_application::local_user();
+    let share = ica_application::create_share(
+        state.auth_repo(),
+        &local.id,
+        &create.recipient_id,
+        &create.resource_type,
+        &create.resource_id,
+        &create.permission,
+    )
+    .await?;
+    Ok(dto::ShareRead::from(&share))
+}
+
+/// `shares_list` — the local user's shares, newest first.
+pub async fn shares_list(state: &DesktopState) -> Result<Vec<dto::ShareRead>, IpcError> {
+    let local = ica_application::local_user();
+    let shares = ica_application::list_shares(state.auth_repo(), &local.id).await?;
+    Ok(shares.iter().map(dto::ShareRead::from).collect())
+}
+
+/// `shares_delete` — owner or admin (the local user is admin).
+pub async fn shares_delete(state: &DesktopState, share_id: String) -> Result<(), IpcError> {
+    let local = ica_application::local_user();
+    ica_application::delete_share(state.auth_repo(), &share_id, &local.id, true).await?;
+    Ok(())
+}

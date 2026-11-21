@@ -7,6 +7,19 @@ publish.workspace = true
 description = "SQLite persistence adapters for the ICA backend (sqlx, runtime queries)."
 
 [dependencies]
+sha2 = { workspace = true }
+# W6 auth: bcrypt password hashing, HS256 access tokens, random refresh tokens
+# (the baseline uses passlib/bcrypt + PyJWT + secrets.token_urlsafe).
+bcrypt = "0.15"
+jsonwebtoken = "9"
+rand = "0.8"
+# The OS credential store (W5 ai-key, project ruling): Windows Credential
+# Manager / macOS Keychain via one cross-platform seam.
+keyring = "3"
+# The SQLite online-backup API (W5 backups): consistent copies of the live
+# WAL database, in-place restore through the same file. Version-locked to
+# sqlx's libsqlite3-sys 0.30.x (a `links = "sqlite3"` crate: only one copy).
+rusqlite = { version = "0.32", features = ["backup"] }
 ica-domain.workspace = true
 ica-application.workspace = true
 # The port trait is `#[async_trait]`; implementing it needs the proc macro. It

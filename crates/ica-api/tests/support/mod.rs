@@ -393,14 +393,79 @@ pub async fn app_for(path: &Path) -> Router {
         Arc::new(store.clone()) as Arc<dyn ImportRepository>,
         Arc::new(store.clone()) as Arc<dyn ica_application::BrowserExtractionRepository>,
         Arc::new(store.clone()) as Arc<dyn DataSnapshotRepository>,
+        Arc::new(store.clone()) as Arc<dyn ica_application::AuditTrailRepository>,
+        Arc::new(store.clone()) as Arc<dyn ica_application::AppSettingsRepository>,
+        Arc::new(store.clone()) as Arc<dyn ica_application::AiModelRepository>,
+        Arc::new(store.clone()) as Arc<dyn ica_application::AiUsageRepository>,
+        Arc::new(ica_infra::secret_store::MemorySecretStore::new())
+            as Arc<dyn ica_application::SecretStore>,
+        Arc::new(ica_infra::backup::BackupManager::new(
+            path.parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("ica.db"),
+            path.parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("backups"),
+            10,
+        )) as Arc<dyn ica_application::BackupStore>,
+        Arc::new(store.clone()) as Arc<dyn ica_application::AuthRepository>,
+        Arc::new(ica_infra::auth_store::AuthCrypto {
+            jwt_secret: String::new(),
+            access_token_minutes: 15,
+            refresh_token_days: 7,
+            bcrypt_cost: 4,
+        }) as Arc<dyn ica_application::AuthSecurity>,
+        Arc::new(std::sync::RwLock::new(false)),
+        Arc::new(std::sync::RwLock::new(ica_application::AiBudgetSettings {
+            daily_budget_cents: 0,
+            warning_threshold: 90,
+        })),
         Arc::new(AesGcmSealer) as Arc<dyn ExportSealer>,
         Arc::new(ica_infra::ocr_rapid::RapidOcrEngine) as Arc<dyn OcrEngine>,
         AppConfig {
             app_name: "ICA Personal".to_string(),
             ai_enabled: false,
-            ocr_upload_dir: std::path::PathBuf::from("/tmp/ica-test-ocr"),
+            // The OCR staging area lives inside the same per-test temporary
+            // directory as the database — never a hardcoded POSIX path, so
+            // the fixture works on Windows and WSL alike (DEF-001).
+            ocr_upload_dir: path
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("ocr-uploads"),
+            ai_provider: "openai_compatible".to_string(),
+            ai_model: "glm-4-flash".to_string(),
+            ai_base_url: "https://open.bigmodel.cn/api/paas/v4".to_string(),
+            ai_include_candidate_name: false,
+            database_url: format!("sqlite:///{}", path.display()),
+            backup_dir: path
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("backups")
+                .display()
+                .to_string(),
+            backup_keep_count: 10,
+            data_retention_days: 180,
+            ai_max_tokens: 1500,
+            ai_timeout: 60,
+            ai_temperature: 0.4,
+            ai_daily_budget_cents: 0,
+            ai_budget_warning_threshold: 90,
+            database_path: format!("{}", path.display()),
+            jwt_secret: String::new(),
+            jwt_access_token_expire_minutes: 15,
+            jwt_refresh_token_expire_days: 7,
+            bcrypt_cost: 4,
         },
     ))
+}
+
+/// Install a tracing subscriber once per test binary, so a 500's real cause
+/// is visible when a gate fails (the handler logs it, never echoes it).
+pub fn init_test_logging() {
+    static INIT: std::sync::Once = std::sync::Once::new();
+    INIT.call_once(|| {
+        let _ = tracing_subscriber::fmt().try_init();
+    });
 }
 
 /// One HTTP response, decoded for assertions.
@@ -508,4 +573,43 @@ pub async fn count(pool: &sqlx::SqlitePool, sql: &str, binds: &[&str]) -> i64 {
         query = query.bind(*value);
     }
     query.fetch_one(pool).await.expect("count query")
+}
+
+/// `PUT` with a JSON body — the ai-key endpoints' verb.
+pub async fn put(app: Router, uri: &str, body: &str) -> TestResponse {
+    let request = axum::http::Request::builder()
+        .method("PUT")
+        .uri(uri)
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .expect("build request");
+    send(app, request).await
+}
+
+/// Provision the local identity (default tenant + synthetic user), mirroring
+/// a deployed local-mode installation: the sharing endpoints' owner FK needs
+/// a `users` row for the synthetic local actor, and a fresh database does
+/// not have one (the baseline's empty local DB fails the same way).
+pub async fn seed_local_identity(pool: &sqlx::SqlitePool) {
+    let now = "2026-11-21 00:00:00.000000";
+    sqlx::query(concat!(
+        "INSERT OR IGNORE INTO tenants (id, name, created_at, updated_at)",
+        " VALUES ('00000000-0000-0000-0000-000000000000', 'Local', ?, ?)"
+    ))
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .expect("seed tenant");
+    sqlx::query(concat!(
+        "INSERT OR IGNORE INTO users (id, tenant_id, email, password_hash, display_name,",
+        " role, is_active, created_at, updated_at)",
+        " VALUES ('00000000-0000-0000-0000-000000000001',",
+        " '00000000-0000-0000-0000-000000000000', '', '', 'Local User', 'admin', 1, ?, ?)"
+    ))
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .expect("seed local user");
 }

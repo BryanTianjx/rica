@@ -2002,3 +2002,529 @@ mod draft_tests {
         assert_eq!(issues[0].kind, "string_too_short");
     }
 }
+
+// ── Settings (W5) ──────────────────────────────────────────────────────────
+
+/// Raw `POST /settings/ai-egress/consent` body.
+///
+/// `consent_granted` is **required and explicit** (the baseline's
+/// `AIEgressConsentWrite`): an omitted body must never silently turn egress
+/// on.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAiEgressConsent {
+    pub consent_granted: Incoming<bool>,
+}
+
+/// The validated outbound-AI switch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AiEgressConsent {
+    pub consent_granted: bool,
+}
+
+/// Validate a `POST /settings/ai-egress/consent` body.
+pub fn ai_egress_consent(raw: RawAiEgressConsent) -> Result<AiEgressConsent, ContractError> {
+    let mut issues = Vec::new();
+    let consent_granted = match raw.consent_granted {
+        Incoming::Value(value) => value,
+        Incoming::Null => {
+            issues.push(issue(
+                "bool_type",
+                "consent_granted",
+                "Input should be a valid boolean",
+                Value::Null,
+            ));
+            false
+        }
+        Incoming::Absent => {
+            issues.push(missing_issue("consent_granted"));
+            false
+        }
+    };
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(AiEgressConsent { consent_granted })
+}
+
+// == AI routing / budget (W5) ==
+
+/// Raw `PATCH /ai/routing` body: message type -> tier overrides.
+///
+/// The baseline's `RoutingPatch` is `dict[str, str]` with a default factory,
+/// so an absent body field means "no overrides" and an explicit `null` is a
+/// `dict_type` 422.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAiRoutingPatch {
+    pub routing: Incoming<std::collections::BTreeMap<String, String>>,
+}
+
+/// The validated overrides.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AiRoutingPatch {
+    pub routing: Vec<(String, Option<String>)>,
+}
+
+/// Validate a `PATCH /ai/routing` body.
+pub fn ai_routing_patch(raw: RawAiRoutingPatch) -> Result<AiRoutingPatch, ContractError> {
+    let routing = match raw.routing {
+        Incoming::Absent => Vec::new(),
+        Incoming::Null => {
+            return Err(ContractError::validation(ValidationIssue::new(
+                "dict_type",
+                vec![
+                    Value::String("body".to_string()),
+                    Value::String("routing".to_string()),
+                ],
+                "Input should be a valid dictionary",
+                Value::Null,
+            )));
+        }
+        Incoming::Value(map) => map
+            .into_iter()
+            .map(|(key, value)| (key, Some(value)))
+            .collect(),
+    };
+    Ok(AiRoutingPatch { routing })
+}
+
+/// Raw `PATCH /ai/budget` body: both fields are required.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAiBudgetPatch {
+    pub daily_budget_cents: Incoming<i64>,
+    pub warning_threshold: Incoming<i64>,
+}
+
+/// The validated budget pair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AiBudgetPatch {
+    pub daily_budget_cents: i64,
+    pub warning_threshold: i64,
+}
+
+/// Validate a `PATCH /ai/budget` body (`ge=0` / `ge=1 le=100`).
+pub fn ai_budget_patch(raw: RawAiBudgetPatch) -> Result<AiBudgetPatch, ContractError> {
+    let mut issues = Vec::new();
+    let daily_budget_cents = match raw.daily_budget_cents {
+        Incoming::Value(value) => {
+            if value < 0 {
+                issues.push(issue(
+                    "greater_than_equal",
+                    "daily_budget_cents",
+                    "Input should be greater than or equal to 0",
+                    Value::from(value),
+                ));
+            }
+            value
+        }
+        Incoming::Null => {
+            issues.push(issue(
+                "int_type",
+                "daily_budget_cents",
+                "Input should be a valid integer",
+                Value::Null,
+            ));
+            0
+        }
+        Incoming::Absent => {
+            issues.push(missing_issue("daily_budget_cents"));
+            0
+        }
+    };
+    let warning_threshold = match raw.warning_threshold {
+        Incoming::Value(value) => {
+            if value < 1 {
+                issues.push(issue(
+                    "greater_than_equal",
+                    "warning_threshold",
+                    "Input should be greater than or equal to 1",
+                    Value::from(value),
+                ));
+            }
+            if value > 100 {
+                issues.push(issue(
+                    "less_than_equal",
+                    "warning_threshold",
+                    "Input should be less than or equal to 100",
+                    Value::from(value),
+                ));
+            }
+            value
+        }
+        Incoming::Null => {
+            issues.push(issue(
+                "int_type",
+                "warning_threshold",
+                "Input should be a valid integer",
+                Value::Null,
+            ));
+            90
+        }
+        Incoming::Absent => {
+            issues.push(missing_issue("warning_threshold"));
+            90
+        }
+    };
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(AiBudgetPatch {
+        daily_budget_cents,
+        warning_threshold,
+    })
+}
+
+// == AI key (W5) ==
+
+/// Raw `PUT /settings/ai-key` body: the key is write-only, never echoed.
+///
+/// `model_id` is optional (max 128): when set, the key lands in that model's
+/// own credential slot instead of the installation-wide one.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAiKeyWrite {
+    pub ai_api_key: Incoming<String>,
+    pub model_id: Incoming<String>,
+}
+
+/// The validated write.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AiKeyWrite {
+    pub ai_api_key: String,
+    pub model_id: Option<String>,
+}
+
+/// Validate a `PUT /settings/ai-key` body.
+pub fn ai_key_write(raw: RawAiKeyWrite) -> Result<AiKeyWrite, ContractError> {
+    let mut issues = Vec::new();
+    let ai_api_key = match raw.ai_api_key {
+        Incoming::Value(value) => value,
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "ai_api_key",
+                "Input should be a valid string",
+                Value::Null,
+            ));
+            String::new()
+        }
+        Incoming::Absent => {
+            issues.push(missing_issue("ai_api_key"));
+            String::new()
+        }
+    };
+    let model_id = match raw.model_id {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => {
+            if value.chars().count() > 128 {
+                issues.push(issue(
+                    "string_too_long",
+                    "model_id",
+                    "String should have at most 128 characters",
+                    Value::String(value.clone()),
+                ));
+            }
+            if value.is_empty() {
+                // The baseline treats a falsy model_id as installation-wide.
+                None
+            } else {
+                Some(value)
+            }
+        }
+    };
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(AiKeyWrite {
+        ai_api_key,
+        model_id,
+    })
+}
+
+// == Auth + shares (W6) ==
+
+/// Raw `POST /auth/register` body.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAuthRegister {
+    pub email: Incoming<String>,
+    pub password: Incoming<String>,
+    pub display_name: Incoming<String>,
+    pub tenant_id: Incoming<String>,
+}
+
+/// The validated registration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthRegister {
+    pub email: String,
+    pub password: String,
+    pub display_name: Option<String>,
+    pub tenant_id: Option<String>,
+}
+
+/// Validate a `POST /auth/register` body (pydantic: email/password required,
+/// display_name/tenant_id optional).
+pub fn auth_register(raw: RawAuthRegister) -> Result<AuthRegister, ContractError> {
+    let mut issues = Vec::new();
+    let email = match raw.email {
+        Incoming::Value(value) => value,
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "email",
+                "Input should be a valid string",
+                Value::Null,
+            ));
+            String::new()
+        }
+        Incoming::Absent => {
+            issues.push(missing_issue("email"));
+            String::new()
+        }
+    };
+    let password = match raw.password {
+        Incoming::Value(value) => value,
+        Incoming::Null => {
+            issues.push(issue(
+                "string_type",
+                "password",
+                "Input should be a valid string",
+                Value::Null,
+            ));
+            String::new()
+        }
+        Incoming::Absent => {
+            issues.push(missing_issue("password"));
+            String::new()
+        }
+    };
+    let display_name = match raw.display_name {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => {
+            if value.chars().count() > 200 {
+                issues.push(issue(
+                    "string_too_long",
+                    "display_name",
+                    "String should have at most 200 characters",
+                    Value::String(value.clone()),
+                ));
+            }
+            Some(value)
+        }
+    };
+    let tenant_id = match raw.tenant_id {
+        Incoming::Absent | Incoming::Null => None,
+        Incoming::Value(value) => Some(value),
+    };
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(AuthRegister {
+        email,
+        password,
+        display_name,
+        tenant_id,
+    })
+}
+
+/// Raw `POST /auth/login` body (both fields required).
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAuthLogin {
+    pub email: Incoming<String>,
+    pub password: Incoming<String>,
+}
+
+/// The validated login.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthLogin {
+    pub email: String,
+    pub password: String,
+}
+
+/// Validate a `POST /auth/login` body.
+pub fn auth_login(raw: RawAuthLogin) -> Result<AuthLogin, ContractError> {
+    let mut issues = Vec::new();
+    let email = match raw.email {
+        Incoming::Value(value) => value,
+        _ => {
+            issues.push(missing_issue("email"));
+            String::new()
+        }
+    };
+    let password = match raw.password {
+        Incoming::Value(value) => value,
+        _ => {
+            issues.push(missing_issue("password"));
+            String::new()
+        }
+    };
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(AuthLogin { email, password })
+}
+
+/// Raw `POST /auth/refresh` body (`refresh_token` required, min_length 1).
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAuthRefresh {
+    pub refresh_token: Incoming<String>,
+}
+
+/// Validate a `POST /auth/refresh` body.
+pub fn auth_refresh(raw: RawAuthRefresh) -> Result<String, ContractError> {
+    match raw.refresh_token {
+        Incoming::Value(value) if !value.is_empty() => Ok(value),
+        Incoming::Value(value) => Err(ContractError::validation(ValidationIssue::new(
+            "string_too_short",
+            vec![
+                Value::String("body".to_string()),
+                Value::String("refresh_token".to_string()),
+            ],
+            "String should have at least 1 character",
+            Value::String(value),
+        ))),
+        Incoming::Null => Err(ContractError::validation(ValidationIssue::new(
+            "string_type",
+            vec![
+                Value::String("body".to_string()),
+                Value::String("refresh_token".to_string()),
+            ],
+            "Input should be a valid string",
+            Value::Null,
+        ))),
+        Incoming::Absent => Err(ContractError::validation(ValidationIssue::new(
+            "missing",
+            vec![
+                Value::String("body".to_string()),
+                Value::String("refresh_token".to_string()),
+            ],
+            "Field required",
+            Value::Null,
+        ))),
+    }
+}
+
+/// Raw `POST /auth/logout` body (same shape as refresh).
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawAuthLogout {
+    pub refresh_token: Incoming<String>,
+}
+
+/// Raw `POST /shares` body.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct RawShareCreate {
+    pub recipient_id: Incoming<String>,
+    pub resource_type: Incoming<String>,
+    pub resource_id: Incoming<String>,
+    pub permission: Incoming<String>,
+}
+
+/// The validated share request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShareCreate {
+    pub recipient_id: String,
+    pub resource_type: String,
+    pub resource_id: String,
+    pub permission: String,
+}
+
+/// Validate a `POST /shares` body (pydantic patterns on the enum fields).
+pub fn share_create(raw: RawShareCreate) -> Result<ShareCreate, ContractError> {
+    let mut issues = Vec::new();
+    let recipient_id = match raw.recipient_id {
+        Incoming::Value(value) => {
+            if value.is_empty() {
+                issues.push(issue(
+                    "string_too_short",
+                    "recipient_id",
+                    "String should have at least 1 character",
+                    Value::String(value.clone()),
+                ));
+            }
+            if value.chars().count() > 36 {
+                issues.push(issue(
+                    "string_too_long",
+                    "recipient_id",
+                    "String should have at most 36 characters",
+                    Value::String(value.clone()),
+                ));
+            }
+            value
+        }
+        _ => {
+            issues.push(missing_issue("recipient_id"));
+            String::new()
+        }
+    };
+    let resource_type = match raw.resource_type {
+        Incoming::Value(value) => {
+            if value != "candidate" && value != "position" {
+                issues.push(issue(
+                    "string_pattern_mismatch",
+                    "resource_type",
+                    "String should match pattern '^(candidate|position)$'",
+                    Value::String(value.clone()),
+                ));
+            }
+            value
+        }
+        _ => {
+            issues.push(missing_issue("resource_type"));
+            String::new()
+        }
+    };
+    let resource_id = match raw.resource_id {
+        Incoming::Value(value) => {
+            if value.is_empty() {
+                issues.push(issue(
+                    "string_too_short",
+                    "resource_id",
+                    "String should have at least 1 character",
+                    Value::String(value.clone()),
+                ));
+            }
+            if value.chars().count() > 36 {
+                issues.push(issue(
+                    "string_too_long",
+                    "resource_id",
+                    "String should have at most 36 characters",
+                    Value::String(value.clone()),
+                ));
+            }
+            value
+        }
+        _ => {
+            issues.push(missing_issue("resource_id"));
+            String::new()
+        }
+    };
+    let permission = match raw.permission {
+        Incoming::Absent | Incoming::Null => "read".to_string(),
+        Incoming::Value(value) => {
+            if value != "read" && value != "write" {
+                issues.push(issue(
+                    "string_pattern_mismatch",
+                    "permission",
+                    "String should match pattern '^(read|write)$'",
+                    Value::String(value.clone()),
+                ));
+            }
+            value
+        }
+    };
+    if !issues.is_empty() {
+        return failure(issues);
+    }
+    Ok(ShareCreate {
+        recipient_id,
+        resource_type,
+        resource_id,
+        permission,
+    })
+}

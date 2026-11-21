@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::json_fmt::python_json;
 use sqlx::SqliteConnection;
 
-use crate::store::{new_uuid, to_sql_timestamp, DEFAULT_TENANT_ID, LOCAL_ACTOR};
+use crate::store::{new_uuid, repo_error, to_sql_timestamp, DEFAULT_TENANT_ID, LOCAL_ACTOR};
 
 /// One audit event to append.
 ///
@@ -120,4 +120,87 @@ pub async fn insert_audit(
     .await?;
 
     Ok(())
+}
+
+// ── The read side (W5 `GET /api/audit-events`) ─────────────────────────────
+
+use crate::store::SqliteStore;
+use ica_application::ports::{AuditTrailRepository, RepositoryError};
+use ica_domain::{AuditEvent, AuditEventFilter};
+
+/// One raw `audit_events` row.
+#[derive(sqlx::FromRow)]
+struct AuditEventRow {
+    id: String,
+    event_type: String,
+    entity_type: Option<String>,
+    entity_id: Option<String>,
+    actor: String,
+    summary: Option<String>,
+    metadata_json: Option<String>,
+    created_at: String,
+}
+
+impl AuditEventRow {
+    fn into_event(self) -> Result<AuditEvent, RepositoryError> {
+        let created_at = crate::time::parse_sqlite_datetime(&self.created_at).map_err(|error| {
+            RepositoryError::unavailable(format!(
+                "audit_events.created_at for id '{}': {error}",
+                self.id
+            ))
+        })?;
+        Ok(AuditEvent {
+            id: self.id,
+            event_type: self.event_type,
+            entity_type: self.entity_type,
+            entity_id: self.entity_id,
+            actor: self.actor,
+            summary: self.summary,
+            metadata_json: self.metadata_json,
+            created_at,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl AuditTrailRepository for SqliteStore {
+    async fn recent_events(
+        &self,
+        filter: AuditEventFilter,
+    ) -> Result<Vec<AuditEvent>, RepositoryError> {
+        // Same shape as the baseline's `audit_recent`: equality filters only
+        // when present, `ORDER BY created_at DESC`, `LIMIT ?`. (The baseline
+        // has no secondary sort key either, so ties keep SQLite's scan order.)
+        let mut sql = String::from(
+            "SELECT id, event_type, entity_type, entity_id, actor, summary, \
+             metadata_json, created_at FROM audit_events",
+        );
+        let mut binds: Vec<String> = Vec::new();
+        if let Some(value) = &filter.event_type {
+            sql.push_str(" WHERE event_type = ?");
+            binds.push(value.clone());
+        }
+        if let Some(value) = &filter.entity_type {
+            sql.push_str(if binds.is_empty() { " WHERE" } else { " AND" });
+            sql.push_str(" entity_type = ?");
+            binds.push(value.clone());
+        }
+        if let Some(value) = &filter.entity_id {
+            sql.push_str(if binds.is_empty() { " WHERE" } else { " AND" });
+            sql.push_str(" entity_id = ?");
+            binds.push(value.clone());
+        }
+        sql.push_str(" ORDER BY created_at DESC LIMIT ?");
+
+        let mut query = sqlx::query_as::<_, AuditEventRow>(&sql);
+        for value in &binds {
+            query = query.bind(value.clone());
+        }
+        let rows = query
+            .bind(filter.limit as i64)
+            .fetch_all(self.pool())
+            .await
+            .map_err(repo_error)?;
+        rows.into_iter().map(AuditEventRow::into_event).collect()
+    }
 }

@@ -1,6 +1,10 @@
 //! Test fixtures: a throwaway database built from the exported baseline
 //! schema, plus a seeded variant.
 //!
+//! Each integration test binary compiles this module for itself and uses only
+//! part of it, so unused helpers here are expected rather than dead code.
+#![allow(dead_code)]
+//!
 //! Every test gets its own ``tempfile::TempDir``; nothing here can reach the
 //! baseline database at /mnt/o/ica/backend/ica.db.
 

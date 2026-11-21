@@ -317,41 +317,42 @@ async fn ocr_refuses_a_path_outside_the_staging_directory() {
 #[tokio::test]
 async fn ocr_inside_the_staging_directory_reports_an_undecodable_image() {
     // Since OCR-01-04 the engine does NOT implicitly fall back to the
-    // baseline's Python install — point it at the models explicitly.
-    std::env::set_var(
-        "RAPIDOCR_MODEL_DIR",
-        "/mnt/o/ica/backend/.venv/lib/python3.12/site-packages/rapidocr/models",
-    );
+    // baseline's Python install — point it at the models explicitly when
+    // they are reachable (DEF-001: the venv has a WSL layout but is also
+    // visible through the Windows mount, so both views are probed).
+    if let Some(models) = baseline_models_dir() {
+        std::env::set_var("RAPIDOCR_MODEL_DIR", models);
+    }
     let (app, dir) = w1_app().await;
-    // The path guard passes (the file is inside the staging directory), so
-    // the DECODE is what answers. A file that is not an image is a 4xx
-    // `ocr_image_undecodable`, never a 500 — the baseline maps Pillow's
-    // OSError the same way.
+    // The path guard passes (the probe is inside the staging directory the
+    // fixture configured), so the DECODE is what answers. A file that is not
+    // an image is a 4xx `ocr_image_undecodable`, never a 500 — the baseline
+    // maps Pillow's OSError the same way.
     //
-    // The engine needs its models. They live next to the baseline's Python
-    // install (the port runs the SAME RapidOCR model set, so the recognised
-    // text matches); when they are not there, the engine reports a readable
-    // 503 `ocr_unavailable` instead of panicking, and that is what this test
-    // asserts — the decode path itself is covered by the contract comparison,
-    // which runs both sides with the models present.
-    let staging = std::path::Path::new("/tmp/ica-test-ocr");
-    std::fs::create_dir_all(staging).ok();
+    // The engine needs its models. When they are not reachable, the engine
+    // must report a readable 503 `ocr_unavailable` instead of panicking, and
+    // that is what the other branch asserts — the decode path itself is
+    // covered by the contract comparison, which runs both sides with the
+    // models present.
+    let staging = dir.path().join("ocr-uploads");
+    std::fs::create_dir_all(&staging).expect("create staging");
     let image = staging.join("w4-probe.png");
-    std::fs::write(&image, b"not really a png").ok();
+    std::fs::write(&image, b"not really a png").expect("write the probe");
 
-    let body = format!(
-        r#"{{"candidate_id":"c-1","image_path":"{}"}}"#,
-        image.display()
-    );
+    // serde_json builds the body: a Windows path's backslashes must be
+    // escaped, which the previous format! interpolation never did.
+    let body = serde_json::json!({
+        "candidate_id": "c-1",
+        "image_path": image.display().to_string(),
+    })
+    .to_string();
     let response = post(app, "/api/imports/ocr", &body).await;
-    std::fs::remove_file(&image).ok();
-    let _ = dir;
 
     let code = json(&response.body, "error")["code"]
         .as_str()
         .unwrap_or("")
         .to_string();
-    if ocr_models_available() {
+    if baseline_models_dir().is_some() {
         assert_eq!(
             response.status, 409,
             "with the engine present a non-image is a decode failure: {}",
@@ -366,12 +367,22 @@ async fn ocr_inside_the_staging_directory_reports_an_undecodable_image() {
     }
 }
 
-/// Whether the OCR models are present on this machine.
-fn ocr_models_available() -> bool {
-    let dir = std::path::Path::new(
+/// The baseline's RapidOCR model directory, when reachable from this
+/// machine. One venv, two views: the WSL path and the Windows mount of the
+/// same drive.
+fn baseline_models_dir() -> Option<&'static str> {
+    const CANDIDATES: [&str; 2] = [
         "/mnt/o/ica/backend/.venv/lib/python3.12/site-packages/rapidocr/models",
-    );
-    dir.join("PP-OCRv6_det_small.onnx").is_file() && dir.join("PP-OCRv6_rec_small.onnx").is_file()
+        "O:/ica/backend/.venv/lib/python3.12/site-packages/rapidocr/models",
+    ];
+    CANDIDATES.into_iter().find(|dir| {
+        std::path::Path::new(dir)
+            .join("PP-OCRv6_det_small.onnx")
+            .is_file()
+            && std::path::Path::new(dir)
+                .join("PP-OCRv6_rec_small.onnx")
+                .is_file()
+    })
 }
 
 /// 32 bytes of key material, standard base64.

@@ -4,6 +4,7 @@
 //! driver or an async runtime, so domain code cannot accidentally take on an
 //! infrastructure concern: the layering rule is enforced by the compiler.
 
+pub mod audit;
 pub mod candidate;
 pub mod candidate_extraction;
 pub mod content_hash;
@@ -18,6 +19,7 @@ pub mod redact;
 pub mod search;
 pub mod send_record;
 
+pub use audit::{AuditEvent, AuditEventFilter};
 pub use candidate::{Candidate, CandidateStatus};
 pub use content_hash::content_hash;
 pub use conversation::{Conversation, Message, MessageSource, SenderType, TimelineEntry};

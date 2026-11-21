@@ -17,6 +17,8 @@ pub mod state;
 pub use ica_contracts::{body, dto, query};
 
 pub use error::ApiError;
+pub use ica_application::AiBudgetSettings;
+pub use ica_application::AI_KEY_SLOT;
 pub use ica_contracts::error::ValidationIssue;
 pub use routes::router;
 pub use state::{AppConfig, AppState};
