@@ -1,0 +1,967 @@
+ICA-RUST
+思考了 16s
+
+以下制定正式版本。文档以 ICA-RUST 作为正式产品后端候选主线，以原 Python 项目作为历史业务契约和行为对照基线，重点解决从已有 Rust 工程到可交付 MVP 的差距，而不是重新讨论语言选型。
+
+本次审计基准采用你最新提供的工程快照：
+
+* Rust 仓库：`/mnt/o/ICA-RUST`
+
+* HEAD：`4cbb736`
+
+* 提交数：43
+
+* Python 基线：`/mnt/o/ica`
+
+* Python 基线提交：`9ed173c`
+
+* 文档基准日期：2026-11-20
+
+需要特别区分：此前记录的 `bf2bae4` 测试和覆盖率数据属于历史快照，不能直接认定为 `4cbb736` 的当前测试结果。本文件会把未经当前 HEAD 复核的数据标记为待验证，避免形成虚假的验收结论。
+
+# ICA-RUST MVP 产品化差距审计与实施路线 R1.0
+
+**文档编号：** ICA-ENG-AUDIT-001
+**版本：** R1.0
+**基准日期：** 2026-11-20
+**状态：** 审计基线已确定，工程证据待逐项复核
+**项目：** ICA (Intelligent Candidate Assistant)
+**审计对象：** ICA-RUST
+**产品基线：** ICA Python
+**目标：** ICA MVP 产品化与正式交付
+
+---
+
+# 1. 执行摘要
+
+## 1.1 审计目的
+
+ICA-RUST 已经具备独立 Rust 后端工程基础。本阶段工作的重点不再是验证 Rust 是否能够实现 ICA，而是评估现有 Rust 工程是否具备承接 ICA 产品业务、完成 MVP 功能闭环和正式交付的能力。
+
+本次审计重点回答五个问题：
+
+1. ICA-RUST 当前已经实现了哪些产品功能？
+2. 哪些模块虽然已经实现，但还没有达到产品交付质量？
+3. 与 Python 基线相比，是否存在业务行为、数据模型和 API 契约差异？
+4. 距离 ICA MVP 完整交付还缺少哪些能力？
+5. 如何在不重复开发、不破坏现有成果的前提下完成产品化？
+
+## 1.2 核心结论
+
+本项目采用以下技术与工程方向：
+
+**Rust-First Product Architecture**
+
+- ICA-RUST：正式业务后端。
+- React + TypeScript：前端 GUI。
+- Tauri 2 + Rust：桌面运行环境。
+- SQLite：本地业务数据库。
+- Hermes Agent：独立 Agent Runtime。
+- MCP：Agent 与 ICA 的标准化业务接口。
+- Python：按需保留 OCR、文档解析及其他专项能力。
+
+Python 不再作为默认业务后端，但其历史实现仍然是重要的业务行为参考。
+
+## 1.3 产品化目标
+
+ICA MVP 必须能够支持一名招聘人员独立完成以下业务闭环：
+
+招聘项目管理 → 岗位管理 → 候选人管理 → 应聘管理 → 沟通记录 → 跟进任务 → AI 辅助沟通 → 人工审核与执行。
+
+产品化验收不能只依据 API 数量、代码行数或测试数量。
+
+必须同时满足：
+
+- 领域模型正确。
+- 业务流程完整。
+- API 契约稳定。
+- GUI 可以完成实际操作。
+- 数据安全可靠。
+- 离线业务可用。
+- 安装包能够独立运行。
+- 异常场景能够正确恢复。
+
+---
+
+# 2. 工程审计基线
+
+## 2.1 仓库信息
+
+| 项目 | 基准 |
+|---|---|
+| Rust 仓库 | `/mnt/o/ICA-RUST` |
+| Rust HEAD | `4cbb736` |
+| Rust 提交数量 | 43 |
+| Python 仓库 | `/mnt/o/ica` |
+| Python 基线 | `9ed173c` |
+| Rust 项目类型 | 独立 Git 工程 |
+| 产品方向 | Rust-First |
+| 审计范围 | 后端、领域模型、API、GUI 集成、数据、安全、交付 |
+
+以上提交信息以 2026-11-20 提供的工程快照为准。正式实施前应再次执行 Git 状态和 HEAD 核验。
+
+## 2.2 证据管理原则
+
+本次审计采用三级证据：
+
+| 等级 | 证据类型 | 使用规则 |
+|---|---|---|
+| E1 | 当前 HEAD 源码、测试、数据库和运行结果 | 可作为当前实现结论 |
+| E2 | 历史提交、Python 基线和既有测试报告 | 用于对照和追溯 |
+| E3 | 架构文档、设计方案和未来规划 | 不能直接认定为已实现 |
+
+历史工程快照曾记录：
+
+- 7 个 Rust Crate。
+- 约 24,797 行 Rust 代码。
+- 约 45/68 个 API 端点。
+- 约 46 个 Tauri IPC 命令。
+- 干净 HEAD 测试 333 passed / 0 failed。
+- 交叉语言回放 220/222。
+- W5 15 个、W6 8 个接口尚待完成。
+- `cargo fmt --check` 曾未通过。
+
+这些数据属于此前 `bf2bae4` 工程快照，不能直接替代 `4cbb736` 的当前审计结果。
+
+## 2.3 关键参考文档
+
+需要优先复核：
+
+- `docs/rust-migration-contract.md`
+- `docs/contract-baseline/`
+- 现有架构设计文档。
+- 数据库 Schema 和迁移记录。
+- API / IPC 契约。
+- 测试报告与 CI 配置。
+
+其中，`rust-migration-contract.md` 是跨语言契约核验的重要入口，Python 基线文件用于追溯原始业务行为。
+
+---
+
+# 3. MVP 产品范围
+
+## 3.1 产品定位
+
+ICA 是面向房地产交易企业内部招聘人员的 AI-native Recruitment Workspace。
+
+核心定位：
+
+通过本地优先的数据管理、结构化招聘工作流和 AI 辅助能力，提高招聘人员的日常工作效率。
+
+产品核心不是通用聊天机器人，而是招聘业务工作台。
+
+## 3.2 MVP 必须具备的业务模块
+
+| 模块 | 核心功能 | 优先级 |
+|---|---|---|
+| Dashboard | 招聘概览、待办、活动记录 | P0 |
+| Projects | 招聘项目管理 | P0 |
+| Positions | 岗位管理 | P0 |
+| Candidates | 候选人档案管理 | P0 |
+| Applications | 候选人应聘记录与阶段管理 | P0 |
+| Conversations | 沟通历史 | P0 |
+| Follow-ups | 跟进任务和提醒 | P0 |
+| AI Assistant | 招聘上下文和沟通辅助 | P0 |
+| Settings | 本地配置与 AI 配置 | P0 |
+| Data Management | 备份、恢复、导入、导出 | P0 |
+| Audit | 关键操作追踪 | P1 |
+| Sharing | 外部数据分享 | 暂缓评估 |
+
+## 3.3 核心领域模型
+
+必须确保以下实体边界清晰：
+
+### Candidate
+
+候选人主体。
+
+一个候选人可以与多个岗位建立应聘关系。
+
+### Position
+
+招聘岗位。
+
+岗位归属于招聘项目，承载岗位要求和招聘状态。
+
+### Application
+
+候选人针对特定岗位的一次应聘记录。
+
+这是招聘业务的核心关联实体。
+
+必须支持：
+
+- Candidate 与 Position 的多对多业务关系。
+- 独立的应聘阶段。
+- 应聘状态变更记录。
+- 结束原因。
+- 应聘历史。
+
+不能将 Candidate 的全局状态与 Application 的岗位应聘状态混为一谈。
+
+### Conversation
+
+候选人与招聘人员之间的沟通上下文。
+
+### Follow-up
+
+与候选人或具体 Application 关联的后续任务。
+
+### AI Draft
+
+AI 生成的沟通草稿。
+
+必须保留人工审核和确认机制。
+
+---
+
+# 4. 工程架构审计
+
+## 4.1 目标架构
+
+```text
+ICA Desktop
+│
+├── React + TypeScript
+│   ├── Dashboard
+│   ├── Recruitment Workspace
+│   ├── Candidate Management
+│   ├── Application Management
+│   └── AI Assistant
+│
+├── Tauri 2 / Rust Host
+│   ├── Application Lifecycle
+│   ├── IPC
+│   ├── Process Management
+│   ├── Security
+│   └── System Integration
+│
+├── ICA-RUST Backend
+│   ├── API Layer
+│   ├── Application Layer
+│   ├── Domain Layer
+│   ├── Infrastructure Layer
+│   ├── Repository
+│   └── Services
+│
+├── SQLite
+│   ├── Recruitment Data
+│   ├── Configuration
+│   └── Audit Records
+│
+└── Local File Storage
+    ├── Attachments
+    ├── Backups
+    └── Exports
+```
+
+独立扩展边界：
+
+```text
+ICA
+│
+├── Hermes Agent Runtime
+│   ├── Agent
+│   ├── Skills
+│   ├── MCP Client
+│   └── Task Execution
+│
+├── Browser Subsystem
+│   ├── Browser Session
+│   ├── Page Interaction
+│   └── Permission Control
+│
+└── Optional Python Services
+    ├── OCR
+    └── Document Processing
+```
+
+## 4.2 架构职责
+
+| 组件 | 主要职责 | 不应承担的职责 |
+|---|---|---|
+| React | UI、用户交互 | 直接访问数据库 |
+| Tauri Host | 桌面运行管理 | 重复实现招聘业务 |
+| Rust Backend | 招聘领域与业务 API | Agent 自主决策 |
+| SQLite | 本地持久化 | 业务规则判断 |
+| Hermes | Agent 推理和任务执行 | 绕过 ICA 直接修改业务库 |
+| Browser | 受控外部交互 | 未授权自动操作 |
+| Python Services | 专项处理 | 重复实现完整业务后端 |
+
+## 4.3 架构验收要求
+
+- Domain 不依赖具体 HTTP 框架。
+- Application 层负责业务用例编排。
+- Infrastructure 层负责数据库和外部依赖。
+- API 层只负责协议转换和请求处理。
+- GUI 不直接访问 SQLite。
+- Agent 通过受控 API 或 MCP 操作业务。
+- 关键业务操作具备事务一致性。
+- 数据库迁移具备版本管理和回滚策略。
+
+---
+
+# 5. MVP 产品化差距审计矩阵
+
+本章是整个审计的核心。所有项目必须通过当前 HEAD 的源码、测试和运行证据填写最终状态。
+
+状态定义：
+
+- PASS：已实现且验收通过。
+- PARTIAL：已有实现，但存在功能或质量缺口。
+- FAIL：存在明确缺陷或验收失败。
+- MISSING：尚未实现。
+- VERIFY：缺少当前 HEAD 的有效证据。
+
+## 5.1 核心业务功能
+
+| ID | 审计项目 | 验收要求 | 当前状态 |
+|---|---|---|---|
+| BIZ-01 | Project | 完整 CRUD | VERIFY |
+| BIZ-02 | Position | 完整 CRUD | VERIFY |
+| BIZ-03 | Candidate | 完整 CRUD | VERIFY |
+| BIZ-04 | Candidate Search | 搜索、筛选 | VERIFY |
+| BIZ-05 | Application | 创建与岗位关联 | VERIFY |
+| BIZ-06 | Application Lifecycle | 阶段管理 | VERIFY |
+| BIZ-07 | Status History | 状态变更留痕 | VERIFY |
+| BIZ-08 | Conversation | 沟通历史 | VERIFY |
+| BIZ-09 | Follow-up | 任务管理 | VERIFY |
+| BIZ-10 | Reminder | 到期与逾期处理 | VERIFY |
+| BIZ-11 | Dashboard | 业务统计和待办 | VERIFY |
+| BIZ-12 | AI Draft | AI 沟通草稿 | VERIFY |
+
+重点审查：
+
+1. 是否真正存在独立 Application 实体。
+2. Candidate 是否支持多个 Application。
+3. Application 状态是否独立管理。
+4. Conversation 是否能够关联正确的业务上下文。
+5. Follow-up 是否支持完成、延期和逾期。
+6. Dashboard 是否由真实业务数据计算。
+
+## 5.2 API 契约
+
+| ID | 审计项目 | 验收要求 | 当前状态 |
+|---|---|---|---|
+| API-01 | REST API | 路由完整性 | VERIFY |
+| API-02 | Request Schema | 参数校验 | VERIFY |
+| API-03 | Response Schema | 响应契约稳定 | VERIFY |
+| API-04 | Error Contract | 错误格式统一 | VERIFY |
+| API-05 | Pagination | 分页一致性 | VERIFY |
+| API-06 | Filtering | 查询条件正确 | VERIFY |
+| API-07 | Validation | 输入边界检查 | VERIFY |
+| API-08 | Transaction | 事务完整性 | VERIFY |
+| API-09 | Idempotency | 重试和重复请求控制 | VERIFY |
+| API-10 | API Documentation | 文档与实现一致 | VERIFY |
+
+特别审查 Python 与 Rust 在以下方面的差异：
+
+- 空值与缺省值。
+- 时间格式与时区。
+- 枚举值。
+- 字段命名。
+- 数组排序。
+- 分页边界。
+- 错误码。
+- 删除与归档语义。
+
+## 5.3 数据层
+
+| ID | 审计项目 | 验收要求 | 当前状态 |
+|---|---|---|---|
+| DB-01 | Schema | 模型完整 | VERIFY |
+| DB-02 | Migration | 数据库版本迁移 | VERIFY |
+| DB-03 | Foreign Keys | 关联约束 | VERIFY |
+| DB-04 | Indexes | 查询索引 | VERIFY |
+| DB-05 | Transactions | 原子性 | VERIFY |
+| DB-06 | Soft Delete | 删除策略 | VERIFY |
+| DB-07 | Backup | 数据备份 | VERIFY |
+| DB-08 | Restore | 数据恢复 | VERIFY |
+| DB-09 | Integrity | 数据一致性检查 | VERIFY |
+| DB-10 | Export | 数据导出 | VERIFY |
+
+重点关注：
+
+- Application 外键和唯一性约束。
+- 删除候选人时的关联处理。
+- 多表状态更新的一致性。
+- 数据库升级时的历史数据保护。
+- 备份文件完整性。
+- 恢复失败后的数据保护。
+
+## 5.4 AI 能力
+
+| ID | 审计项目 | 验收要求 | 当前状态 |
+|---|---|---|---|
+| AI-01 | Provider | 模型供应商配置 | VERIFY |
+| AI-02 | Adapter | 统一模型调用接口 | VERIFY |
+| AI-03 | Prompt | Prompt 模板管理 | VERIFY |
+| AI-04 | Context | 招聘上下文构建 | VERIFY |
+| AI-05 | Draft | 消息草稿生成 | VERIFY |
+| AI-06 | Summary | 沟通摘要 | VERIFY |
+| AI-07 | Error Handling | 超时和异常处理 | VERIFY |
+| AI-08 | Human Review | 人工审核 | VERIFY |
+| AI-09 | Privacy | 敏感数据控制 | VERIFY |
+
+AI 必须具备明确的业务上下文，不能只提供一个脱离招聘数据的通用聊天窗口。
+
+首期不允许未经人工确认自动发送招聘消息。
+
+## 5.5 GUI 与桌面集成
+
+| ID | 审计项目 | 验收要求 | 当前状态 |
+|---|---|---|---|
+| GUI-01 | Dashboard | 页面功能完整 | VERIFY |
+| GUI-02 | Candidate | 候选人管理完整 | VERIFY |
+| GUI-03 | Position | 岗位管理完整 | VERIFY |
+| GUI-04 | Application | 应聘流程完整 | VERIFY |
+| GUI-05 | Conversation | 沟通时间线 | VERIFY |
+| GUI-06 | Follow-up | 待办操作完整 | VERIFY |
+| GUI-07 | AI Assistant | AI 交互完整 | VERIFY |
+| GUI-08 | Loading | 加载状态 | VERIFY |
+| GUI-09 | Error State | 错误反馈 | VERIFY |
+| GUI-10 | Empty State | 空状态 | VERIFY |
+| GUI-11 | IPC | IPC 契约一致 | VERIFY |
+| GUI-12 | Lifecycle | 服务启动和退出 | VERIFY |
+
+重点：
+
+GUI 页面存在不代表功能完成。
+
+必须验证真实操作是否能够经过前端、IPC/API、Application、Repository 完成完整业务闭环。
+
+## 5.6 安全与可靠性
+
+| ID | 审计项目 | 验收要求 | 当前状态 |
+|---|---|---|---|
+| SEC-01 | Local Access | 本地服务访问限制 | VERIFY |
+| SEC-02 | Authentication | 服务访问认证策略 | VERIFY |
+| SEC-03 | Authorization | 操作权限边界 | VERIFY |
+| SEC-04 | Secrets | API Key 安全存储 | VERIFY |
+| SEC-05 | Encryption | 敏感数据保护 | VERIFY |
+| SEC-06 | Input Validation | 输入校验 | VERIFY |
+| SEC-07 | File Access | 文件路径安全 | VERIFY |
+| SEC-08 | Audit | 关键操作留痕 | VERIFY |
+| SEC-09 | Dependency | 依赖漏洞检查 | VERIFY |
+| SEC-10 | Recovery | 异常恢复 | VERIFY |
+
+需要特别注意：
+
+本地桌面应用并不意味着天然安全。Localhost 服务仍然需要评估未经授权的本地请求、端口暴露、Origin 校验和文件路径访问风险。
+
+---
+
+# 6. Python 与 Rust 契约差异审计
+
+## 6.1 基线原则
+
+Python 项目 `9ed173c` 作为历史行为参考。
+
+Rust 项目不要求逐行复制 Python 实现，而是要求保持经过确认的业务语义和外部契约。
+
+如果 Python 存在历史缺陷，应通过明确的 ADR 记录修正，而不是将缺陷机械迁移到 Rust。
+
+## 6.2 差异审计内容
+
+| 类别 | 核查内容 |
+|---|---|
+| Domain | 实体、关系、状态定义 |
+| API | 请求和响应 |
+| Database | Schema、约束和索引 |
+| Validation | 输入校验 |
+| Business Rule | 业务规则 |
+| Error | 错误码和错误信息 |
+| Time | 日期、时区和时间精度 |
+| Import | 导入冲突处理 |
+| OCR | 识别结果与数据转换 |
+| Dashboard | 聚合和统计逻辑 |
+
+## 6.3 差异处理策略
+
+每项差异必须归类：
+
+- COMPATIBLE：行为一致。
+- INTENTIONAL：经过批准的主动调整。
+- BUG：Rust 实现缺陷。
+- BASELINE_BUG：Python 历史缺陷。
+- UNRESOLVED：尚未确认。
+
+禁止通过忽略测试差异来宣告迁移完成。
+
+## 6.4 契约回放
+
+需要建立统一的测试输入与输出样本。
+
+```text
+Contract Replay
+│
+├── Input Fixtures
+│
+├── Python Baseline
+│   └── Expected Behavior
+│
+├── Rust Implementation
+│   └── Actual Behavior
+│
+└── Diff Engine
+    ├── Match
+    ├── Intentional Difference
+    └── Regression
+```
+
+要求：
+
+- 测试数据固定。
+- 测试环境隔离。
+- 排除无意义的动态字段差异。
+- 关键业务结果必须一致。
+- 所有允许差异均有记录。
+
+---
+
+# 7. 实施路线
+
+## Phase 0：工程基线冻结
+
+**目标：确认审计对象和工程现状。**
+
+任务：
+
+1. 确认 `4cbb736` 是否为实际 HEAD。
+2. 检查 Git 工作区是否干净。
+3. 确认所有 Crate 和模块结构。
+4. 获取完整 API 清单。
+5. 获取完整 IPC 清单。
+6. 获取数据库 Schema。
+7. 获取测试清单和执行结果。
+8. 核对 Python 基线 `9ed173c`。
+9. 核对迁移契约文档。
+
+交付物：
+
+- `audit/baseline-report.md`
+- `audit/module-inventory.md`
+- `audit/api-inventory.md`
+- `audit/test-baseline.md`
+
+通过条件：
+
+当前工程状态、代码范围和测试基线均有可复核证据。
+
+## Phase 1：核心领域与数据闭环
+
+**目标：保证招聘业务模型正确。**
+
+优先任务：
+
+1. 审查 Candidate。
+2. 审查 Position。
+3. 审查 Project。
+4. 审查 Application。
+5. 审查 Conversation。
+6. 审查 Follow-up。
+7. 审查状态流转。
+8. 审查数据库事务。
+9. 审查数据库迁移。
+
+重点任务：
+
+建立完整的 Candidate → Application → Conversation → Follow-up 业务关系。
+
+通过条件：
+
+- 多岗位应聘关系正确。
+- 状态变化完整。
+- 关键业务操作具备事务保障。
+- 数据关联完整。
+- 主要领域测试通过。
+
+## Phase 2：API 与 IPC 契约闭合
+
+**目标：使后端能够被 GUI 和 Agent 稳定调用。**
+
+任务：
+
+1. 完成缺失 API。
+2. 修复响应契约差异。
+3. 统一错误结构。
+4. 统一分页规则。
+5. 统一日期时间格式。
+6. 统一参数校验。
+7. 修复 IPC 与后端契约不一致问题。
+8. 更新 API 文档。
+
+历史快照中的 W5、W6 未完成接口数量只作为待核对线索，必须依据当前 HEAD 的实际接口清单重新确定任务。
+
+通过条件：
+
+- P0 API 全部实现。
+- API 测试全部通过。
+- IPC 调用无契约漂移。
+- GUI 所需接口全部可用。
+
+## Phase 3：AI 能力产品化
+
+**目标：让 AI 真正服务于招聘工作流。**
+
+任务：
+
+1. 统一 AI Provider。
+2. 建立 AI Adapter。
+3. 建立 Prompt 管理机制。
+4. 建立招聘上下文构建器。
+5. 实现沟通消息生成。
+6. 实现沟通摘要。
+7. 实现跟进建议。
+8. 实现 AI 错误恢复。
+9. 实现人工审核。
+
+AI 上下文至少包含：
+
+- 当前候选人。
+- 关联岗位。
+- Application 阶段。
+- 历史沟通。
+- 用户输入的任务要求。
+
+通过条件：
+
+AI 输出具备明确业务上下文，结果能够审核、修改、保存和复用。
+
+## Phase 4：GUI 联调与桌面集成
+
+**目标：形成完整可操作的桌面产品。**
+
+任务：
+
+1. 完成 GUI 与 Rust Backend 联调。
+2. 统一 API 和 IPC 错误处理。
+3. 完善页面加载状态。
+4. 完善空状态。
+5. 完善错误提示。
+6. 完善后台服务启动。
+7. 完善服务异常恢复。
+8. 完善桌面退出清理。
+9. 完善 Windows 打包。
+
+通过条件：
+
+招聘人员不需要通过命令行即可完成 MVP 业务闭环。
+
+## Phase 5：数据安全与交付
+
+**目标：达到可安装、可使用、可恢复的产品标准。**
+
+任务：
+
+1. 完成备份。
+2. 完成恢复。
+3. 完成数据导出。
+4. 完成数据导入。
+5. 完成数据库迁移验证。
+6. 完成依赖安全检查。
+7. 完成安装包验证。
+8. 完成升级验证。
+9. 完成离线场景测试。
+
+通过条件：
+
+- 全新安装正常。
+- 重启后数据正常。
+- 备份恢复正常。
+- 升级后数据完整。
+- 无网络时核心业务可用。
+
+## Phase 6：Hermes Agent 集成
+
+**目标：将 ICA 从 AI 辅助工作台升级为 Agent 辅助工作台。**
+
+此阶段与 MVP 核心业务验收分开管理，不得因 Agent 集成延迟阻塞基础招聘产品交付。
+
+任务：
+
+1. 定义 ICA MCP Server。
+2. 定义工具调用契约。
+3. 定义工具权限。
+4. 定义候选人查询工具。
+5. 定义岗位查询工具。
+6. 定义 Application 查询工具。
+7. 定义沟通记录工具。
+8. 定义 Follow-up 工具。
+9. 定义 AI Draft 工具。
+10. 定义人工确认机制。
+11. 建立 Agent 操作审计。
+
+Agent 不允许绕过业务 API 直接修改 SQLite。
+
+首期优先只读工具和草稿生成工具，写操作必须经过权限校验，重要操作需要人工确认。
+
+---
+
+# 8. 测试与质量门禁
+
+## 8.1 必须通过的测试
+
+| 测试类型 | 验收标准 |
+|---|---|
+| Unit Test | 核心业务规则通过 |
+| Integration Test | API 与数据库通过 |
+| Contract Test | Python/Rust 差异有解释 |
+| IPC Test | GUI 调用契约正确 |
+| Migration Test | 数据库迁移成功 |
+| Recovery Test | 备份恢复成功 |
+| Security Test | 核心安全用例通过 |
+| E2E Test | 核心招聘流程通过 |
+| Build Test | Windows 构建通过 |
+| Lint | fmt、Clippy 无未处理问题 |
+
+## 8.2 核心 E2E 测试
+
+测试场景：
+
+```text
+1. 创建招聘项目
+       ↓
+2. 创建岗位
+       ↓
+3. 创建候选人
+       ↓
+4. 建立 Application
+       ↓
+5. 推进应聘阶段
+       ↓
+6. 创建沟通记录
+       ↓
+7. 创建跟进任务
+       ↓
+8. 调用 AI 生成沟通草稿
+       ↓
+9. 人工审核和修改
+       ↓
+10. 保存草稿及沟通结果
+       ↓
+11. 重启应用
+       ↓
+12. 验证所有业务数据
+```
+
+必须覆盖异常场景：
+
+- AI 服务不可用。
+- 数据库写入失败。
+- 重复提交。
+- 服务异常退出。
+- 文件访问失败。
+- 数据库迁移失败。
+- 备份恢复中断。
+
+## 8.3 发布门禁
+
+必须满足：
+
+- P0 功能全部验收。
+- 所有阻塞级缺陷关闭。
+- 核心 E2E 测试通过。
+- 数据备份与恢复通过。
+- Windows 安装包通过。
+- 依赖安全检查通过。
+- 无未经批准的 API 契约变化。
+
+---
+
+# 9. 风险管理
+
+| 风险 | 影响 | 控制措施 |
+|---|---|---|
+| Python/Rust 契约漂移 | 业务错误 | 契约回放 |
+| Application 模型不完整 | 招聘流程错误 | 专项领域审计 |
+| API 数量不足 | GUI 功能受限 | P0 API 清单 |
+| IPC 与 API 重复 | 维护成本增加 | 统一契约 |
+| SQLite 事务问题 | 数据不一致 | 事务测试 |
+| AI 上下文错误 | 输出质量下降 | Context Test |
+| AI 服务依赖网络 | 离线体验受影响 | AI 可选，核心业务离线 |
+| Agent 权限过大 | 数据风险 | 最小权限与人工确认 |
+| 浏览器自动化过早引入 | 范围膨胀 | 独立阶段验收 |
+| 过度 Rust 化 | 开发成本上升 | 只解决真实工程问题 |
+
+---
+
+# 10. MVP 最终验收标准
+
+ICA-RUST 只有同时满足以下条件，才可以认定为 MVP 产品化完成。
+
+## 10.1 业务验收
+
+- [ ] 招聘项目管理。
+- [ ] 岗位管理。
+- [ ] 候选人管理。
+- [ ] Application 管理。
+- [ ] 应聘阶段流转。
+- [ ] 沟通记录。
+- [ ] 跟进任务。
+- [ ] Dashboard。
+- [ ] AI 招聘助手。
+
+## 10.2 工程验收
+
+- [ ] Domain / Application / Infrastructure 边界清晰。
+- [ ] 数据库迁移稳定。
+- [ ] API 契约完整。
+- [ ] IPC 契约完整。
+- [ ] 错误处理统一。
+- [ ] 核心测试通过。
+- [ ] Clippy 通过。
+- [ ] fmt 检查通过。
+- [ ] 无阻塞级缺陷。
+
+## 10.3 产品验收
+
+- [ ] Windows 安装包。
+- [ ] 应用正常启动。
+- [ ] 后端正常运行。
+- [ ] GUI 完整可用。
+- [ ] 数据持久化。
+- [ ] 备份和恢复。
+- [ ] 离线核心业务。
+- [ ] 异常恢复。
+- [ ] 基础安全检查。
+
+---
+
+# 11. 项目管理与交付物
+
+建议将实施工作拆分为独立任务包。
+
+| 任务包 | 内容 | 优先级 |
+|---|---|---|
+| WP-00 | 基线核验与审计 | P0 |
+| WP-01 | 领域模型与数据审计 | P0 |
+| WP-02 | API 与 IPC 契约闭合 | P0 |
+| WP-03 | 核心招聘业务闭环 | P0 |
+| WP-04 | AI 能力产品化 | P0 |
+| WP-05 | GUI 联调 | P0 |
+| WP-06 | 数据安全与备份恢复 | P0 |
+| WP-07 | 桌面安装和交付 | P0 |
+| WP-08 | Hermes MCP 集成 | P1 |
+| WP-09 | 浏览器子系统集成 | P2 |
+| WP-10 | 云端管理与团队协作 | P2 |
+
+## 11.1 文档交付结构
+
+建议在 ICA-RUST 仓库中建立以下文档结构：
+
+```text
+docs/
+├── architecture/
+│   ├── system-architecture.md
+│   ├── domain-architecture.md
+│   └── runtime-architecture.md
+│
+├── contracts/
+│   ├── api-contract.md
+│   ├── ipc-contract.md
+│   └── mcp-contract.md
+│
+├── audit/
+│   ├── README.md
+│   ├── baseline-report.md
+│   ├── module-inventory.md
+│   ├── api-inventory.md
+│   ├── test-baseline.md
+│   └── reports/
+│       └── mvp-productization-gap-audit-r1.0.md
+│
+├── implementation/
+│   ├── mvp-roadmap.md
+│   ├── work-packages.md
+│   └── acceptance-criteria.md
+│
+└── adr/
+    ├── ADR-001-rust-first-backend.md
+    ├── ADR-002-domain-boundaries.md
+    └── ADR-003-hermes-integration.md
+```
+
+---
+
+# 12. 最终决策
+
+## 12.1 技术决策
+
+确定采用 Rust-First 产品架构。
+
+Rust 负责正式业务后端和桌面系统能力；React 负责 GUI；Hermes 负责 Agent Runtime；Python 仅在必要的专项能力中保留。
+
+## 12.2 工程决策
+
+不进行无必要的整体重写。
+
+不以代码行数和模块数量作为产品化完成标准。
+
+不因引入 Hermes 而重复建设 Agent Runtime。
+
+不让 Agent 绕过 ICA 业务接口操作数据库。
+
+不在 MVP 阶段引入未经验证的浏览器自动化和复杂云端能力。
+
+## 12.3 实施决策
+
+严格按照以下顺序推进：
+
+```text
+工程基线冻结
+      ↓
+领域模型审计
+      ↓
+数据与契约闭合
+      ↓
+核心招聘业务闭环
+      ↓
+AI 能力产品化
+      ↓
+GUI 联调
+      ↓
+安全与交付
+      ↓
+MVP 验收
+      ↓
+Hermes Agent 集成
+      ↓
+浏览器与云端扩展
+```
+
+## 12.4 最终目标
+
+ICA-RUST 的最终目标不是成为一个单纯的 Rust 后端工程，而是成为 ICA 产品的稳定业务核心。
+
+**产品目标：一个招聘人员能够依靠 ICA 独立完成日常招聘管理和沟通工作的 AI-native Recruitment Workspace。**
+
+**工程目标：建立可测试、可维护、可扩展、可交付的 Rust-Native Desktop Application。**
+
+**长期目标：通过 Hermes Agent、MCP 和受控浏览器能力，将 ICA 从招聘管理工作台逐步升级为招聘 Agent 工作平台。**
+
+---
+
+**文档结束**
+
+**版本：R1.0**
+**状态：待当前 HEAD 工程证据核验与正式审计确认**
+
+### 后续执行建议
+
+这份 R1.0 是审计框架与实施路线，不应把所有 `VERIFY` 项目直接当作缺陷。下一步应先完成 WP-00，而不是立即开始修复代码。
+
+建议实际执行顺序：
+
+* 核验 `4cbb736` 的 Git 工作区、Crate、模块和依赖。
+
+* 读取 Rust 源码、API、IPC、数据库及测试。
+
+* 对照 Python `9ed173c` 和迁移契约。
+
+* 将上述矩阵中的 `VERIFY` 转换为有源码和测试证据的 `PASS / PARTIAL / FAIL / MISSING`。
+
+* 形成可执行的工程任务清单和验收门禁。
+
+重要工程边界： 当前只做审计和文档，不自动修改代码，不自动提交、推送或合并。
+
