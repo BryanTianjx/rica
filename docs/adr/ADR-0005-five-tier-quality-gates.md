@@ -100,3 +100,15 @@ Q4 落地时，该目录扩展为完整的 `wave-acceptance/W4/` 结构，
 并补上 `acceptance-decision.md`（当前尚未有放行决定）。
 
 `w4-done` tag **只是 Q4 通过的标记**，不是 Q4 的证据。
+
+---
+
+## 批准前澄清项（已答）
+
+草稿（ADR-BATCH v1「待澄清项汇总」）就 ADR-0005 列的三问，逐条答案与出处如下。ADR 正文未直接写明「仓内 / 仓外」，该问按正文的相对路径加磁盘实测判定，并如实标注。
+
+| 问题 | 答案 | 出处 |
+| --- | --- | --- |
+| `wave-acceptance/` 目录的确切位置（仓内 vs 仓外）？ | **仓内**：仓库工作树根目录下的 `wave-acceptance/<Wave>/`。本文 §2 的目录树与总方案 §4.7 均按此相对路径书写；磁盘实测 `wave-acceptance/W4/` 已存在（含 `implementation-commit.txt`、`baseline-commit.txt`、`independent-review.md`、`acceptance-decision.md` 等）。 | 本文 §2 L55–65、§5 L96–100；`docs/ICA-RUST 当前设计总方案.md:403–410`；磁盘实测 `wave-acceptance/W4/` |
+| Q4 独立审计员的来源与排期（人力瓶颈）？ | 来源必须是**非实现方的独立审计员**：本文规则 2「Q4 必须由非实现方执行」，D-1 追加「独立审计员重新审查，不由修复者自行宣布通过」。排期：Q4 是人力瓶颈，排期必须预留；W4 实测由 `docs/audits/w4-independent/` 三份报告承担两轮独立审计。 | 本文 §2 L44–50、§4 L92；ADR-0003 D-1 L29、L68；实测 `wave-acceptance/W4/acceptance-decision.md` 签署栏 |
+| `acceptance-decision.md` 的签署格式？ | 文件名固定为 `acceptance-decision.md`，置于 `wave-acceptance/<Wave>/`；内容含 Decision（放行 / 不放行）、裁决依据（每条绑定确切 SHA 而非 tag）、持续有效的放行条件、签署栏（实现+复验 / 独立审计 / 放行依据）。署名、日期、结论口径三栏齐备，来源为用户本人。 | 本文 §2 L64、§5 L96–102；实测 `wave-acceptance/W4/acceptance-decision.md`；`docs/architecture/browser/b0-deliverables-r1.md:59–60`（裁决署名口径） |

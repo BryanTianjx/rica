@@ -103,3 +103,15 @@ D-1 已裁决「重锚到 `9ed173c`」，这属于**已做出的 Accept 决定**
 
 - 把当前锚点 SHA 收敛到一处（建议契约文档顶部 + 迁移快照文件），
   其余位置引用它而不复制。
+
+---
+
+## 批准前澄清项（已答）
+
+草稿（ADR-BATCH v1「待澄清项汇总」）就 ADR-0006 列的三问，逐条答案与出处如下。
+
+| 问题 | 答案 | 出处 |
+| --- | --- | --- |
+| 当前锚点 SHA 的单一权威位置定在哪？ | 收敛到一处：**契约文档顶部**（`docs/rust-migration-contract.md` 的 Contract authority）+ **迁移快照**（`docs/migration/snapshot-r1.md`），其余位置只引用不复制。快照已记录 `9ed173c`；契约文档顶部与 §1.1 仍写 `d39e321`，总方案 §6.1 标为**未闭合**（G0-02 待改写）——这是待办遗留，不是两份 ADR 之间的答案冲突。 | 本文 §4「缓解」L102–105；`docs/migration/snapshot-r1.md:14`；`docs/ICA-RUST 当前设计总方案.md:745–754`；ADR-0003 D-1（L27–30） |
+| Baseline Diff Report 的模板与存放位置？ | 存放于 `docs/migration/`；实测实例 `docs/migration/baseline-diff-report-r1.md`（G0-02 交付物）。模板字段即本文 §2「裁决记录必须留痕」六项：旧 / 新 SHA、受影响端点编号、逐项分类（Accept / Reject / Deferred / Out of Scope）、裁决人与日期、对 Rust 实现的影响面；D-1 的 `d39e321 → 9ed173c` 三处差异裁决记录在该报告内。 | 本文 §2 L49–69、§3 L81–84；实测 `docs/migration/baseline-diff-report-r1.md:1–5` |
+| 谁是基线变更的默认裁决人？ | **用户本人**（项目所有者，署名 Bryan / BryanTianjx）。本文规定 Contract Baseline 由人工裁决、每份报告记裁决人与日期、契约变更权明确在人；D-12 进一步规定该规则的解释权归用户，判断不准时 fail-closed，执行方不得自行扩大授权。 | 本文 §2 L42–47、L61–69、§4 L94；ADR-0003 D-12 L420–421；实测同族裁决署名 `docs/adr/ADR-0008-endpoint-scope-and-noncontract-deltas.md:51` |
