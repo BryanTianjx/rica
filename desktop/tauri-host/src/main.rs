@@ -658,14 +658,34 @@ fn main() {
         &format!("host: starting; unit={} ({how})", unit.display()),
     );
 
-    // The Rust server is the primary backend: failure is fatal.
-    let rust_port = match spawn_rust_server(&unit, &data_root) {
-        Ok(p) => p,
+    // The Rust server is the primary backend: failure is fatal. Dev affordance
+    // (mirror of ICA_SIDECAR_PORT): adopt an externally started server — e.g.
+    // both backends running inside WSL so the shared SQLite file gets native
+    // same-OS locking (a WAL database does not survive the /mnt 9p boundary
+    // between a Windows backend and a WSL sidecar — measured split-brain).
+    let spawn_or_fatal = |log: &PathBuf| match spawn_rust_server(&unit, &data_root) {
+        Ok(port) => port,
         Err(e) => {
-            log_line(&host_log, &format!("host: FATAL rust server: {e}"));
+            log_line(log, &format!("host: FATAL rust server: {e}"));
             eprintln!("FATAL: rust server: {e}");
             std::process::exit(1);
         }
+    };
+    let rust_port = match std::env::var("ICA_RUST_SERVER_PORT") {
+        Ok(port) if !port.is_empty() => match port.parse::<u16>() {
+            Ok(p) if p != 0 => {
+                log_line(
+                    &host_log,
+                    &format!("host: adopted external ica-server on 127.0.0.1:{p} (ICA_RUST_SERVER_PORT)"),
+                );
+                p
+            }
+            _ => {
+                log_line(&host_log, "host: ICA_RUST_SERVER_PORT invalid; spawning");
+                spawn_or_fatal(&host_log)
+            }
+        },
+        _ => spawn_or_fatal(&host_log),
     };
     RUST_PORT.store(rust_port, Ordering::SeqCst);
     log_line(
@@ -680,16 +700,35 @@ fn main() {
 
     // The Python sidecar is the secondary backend (browser/v1 + AI-EXT):
     // absence degrades to 502 on those routes instead of failing the launch.
-    let py_port = match spawn_sidecar(&unit, &data_root, &host_log) {
-        Ok(Some(p)) => p,
-        Ok(None) => 0,
-        Err(e) => {
-            log_line(
-                &host_log,
-                &format!("host: python sidecar failed to spawn ({e}); continuing Rust-only"),
-            );
-            0
-        }
+    let py_port = match std::env::var("ICA_SIDECAR_PORT") {
+        // Dev/WSL affordance (F1-1 drill): adopt an externally started sidecar
+        // — e.g. the baseline running under WSL, reachable via WSL2's
+        // localhost forwarding — instead of spawning the bundled one.
+        Ok(port) if !port.is_empty() => match port.parse::<u16>() {
+            Ok(p) if p != 0 => {
+                log_line(
+                    &host_log,
+                    &format!("host: adopted external sidecar on 127.0.0.1:{p} (ICA_SIDECAR_PORT)"),
+                );
+                p
+            }
+            _ => {
+                log_line(&host_log, "host: ICA_SIDECAR_PORT invalid; no sidecar");
+                0
+            }
+        },
+        Ok(_) => 0,
+        _ => match spawn_sidecar(&unit, &data_root, &host_log) {
+            Ok(Some(p)) => p,
+            Ok(None) => 0,
+            Err(e) => {
+                log_line(
+                    &host_log,
+                    &format!("host: python sidecar failed to spawn ({e}); continuing Rust-only"),
+                );
+                0
+            }
+        },
     };
     PY_PORT.store(py_port, Ordering::SeqCst);
     if py_port != 0 {
