@@ -142,6 +142,44 @@ impl From<AiUsageRowRaw> for AiUsageRow {
     }
 }
 
+/// `BudgetGuard.record_usage`'s SQL: create-or-increment on the
+/// `(usage_date, model_id)` unique pair — the ON CONFLICT the baseline runs
+/// through SQLAlchemy's sqlite insert dialect. Shared by the repository port
+/// and the generator's persist transaction (the baseline records usage INSIDE
+/// the draft's transaction; a pool connection there would deadlock on the
+/// transaction's own write lock).
+pub(crate) async fn upsert_usage(
+    connection: &mut sqlx::SqliteConnection,
+    date: &str,
+    model_id: &str,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    cost_cents: i64,
+) -> Result<(), sqlx::Error> {
+    let now = to_sql_timestamp(&chrono::Utc::now());
+    sqlx::query(
+        "INSERT INTO ai_usage_daily (usage_date, model_id, prompt_tokens, \
+         completion_tokens, estimated_cost_cents, request_count, id, created_at, \
+         updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?) \
+         ON CONFLICT (usage_date, model_id) DO UPDATE SET \
+         prompt_tokens = prompt_tokens + excluded.prompt_tokens, \
+         completion_tokens = completion_tokens + excluded.completion_tokens, \
+         estimated_cost_cents = estimated_cost_cents + excluded.estimated_cost_cents, \
+         request_count = request_count + 1, updated_at = excluded.updated_at",
+    )
+    .bind(date)
+    .bind(model_id)
+    .bind(prompt_tokens)
+    .bind(completion_tokens)
+    .bind(cost_cents)
+    .bind(new_uuid())
+    .bind(&now)
+    .bind(&now)
+    .execute(connection)
+    .await?;
+    Ok(())
+}
+
 #[async_trait::async_trait]
 impl AiUsageRepository for SqliteStore {
     async fn list_rows(&self) -> Result<Vec<AiUsageRow>, RepositoryError> {
@@ -154,5 +192,26 @@ impl AiUsageRepository for SqliteStore {
         .await
         .map_err(repo_error)?;
         Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn record_usage(
+        &self,
+        model_id: &str,
+        prompt_tokens: i64,
+        completion_tokens: i64,
+        cost_cents: i64,
+    ) -> Result<(), RepositoryError> {
+        let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        upsert_usage(
+            &mut connection,
+            &date,
+            model_id,
+            prompt_tokens,
+            completion_tokens,
+            cost_cents,
+        )
+        .await
+        .map_err(repo_error)
     }
 }

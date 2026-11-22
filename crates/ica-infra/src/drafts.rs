@@ -4,7 +4,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use ica_application::{
-    ApplicationError, DraftFilter, DraftGenerator, DraftRepository, RepositoryError,
+    ApplicationError, DraftFilter, DraftGeneration, DraftGenerator, DraftRepository,
+    RepositoryError,
 };
 use ica_domain::{GeneratedDraft, Message};
 use serde_json::json;
@@ -209,7 +210,7 @@ impl DraftGenerator for NotConfiguredDraftGenerator {
     async fn generate(
         &self,
         request: ica_application::ai_context::GenerateDraftRequest,
-    ) -> Result<GeneratedDraft, ApplicationError> {
+    ) -> Result<DraftGeneration, ApplicationError> {
         // An unresolvable model is reported before the key is even looked for,
         // exactly like the baseline (`registry.get_model` runs first).
         let model = resolve_requested_model(&request)?;
@@ -529,20 +530,6 @@ impl DraftRepository for SqliteStore {
                 .await
                 .map_err(repo_error)?;
         rows.into_iter().map(DraftRow::into_draft).collect()
-    }
-}
-
-#[async_trait]
-impl DraftGenerator for SqliteStore {
-    async fn generate(
-        &self,
-        request: ica_application::ai_context::GenerateDraftRequest,
-    ) -> Result<GeneratedDraft, ApplicationError> {
-        let model = resolve_requested_model(&request)?;
-        Err(ApplicationError::ProviderUnavailable {
-            message: format!("No API key found for model '{model}' in env var 'AI_API_KEY'"),
-            details: serde_json::json!({}),
-        })
     }
 }
 

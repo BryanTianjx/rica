@@ -13,7 +13,6 @@ use ica_application::{
     DraftGenerator, DraftRepository, ExportSealer, FollowUpRepository, ImportRepository,
     MessageRepository, OcrEngine, PositionRepository, SecretStore, SendRecordRepository,
 };
-use ica_infra::drafts::NotConfiguredDraftGenerator;
 use ica_infra::export_crypto::AesGcmSealer;
 use ica_infra::ocr_rapid::RapidOcrEngine;
 use ica_infra::SqliteStore;
@@ -104,6 +103,40 @@ impl DesktopState {
     /// Assemble the views over an existing store — what the integration tests
     /// and (later) the Tauri shell builder use when the pool already exists.
     pub fn from_store(store: SqliteStore, config: DesktopConfig) -> Self {
+        // W5 ai-key: the OS credential store seam (same ruling as the server).
+        // Windows/macOS go through the platform vault; Linux (dev host) uses
+        // the baseline's 0600-file fallback under `<data root>/secrets` —
+        // derived from the database path the host injected.
+        let secrets: Arc<dyn SecretStore> = Arc::new(
+            ica_infra::secret_store::KeyringSecretStore::with_fallback_dir(
+                PathBuf::from(&config.database_path)
+                    .parent()
+                    .map(|root| root.join("secrets"))
+                    .unwrap_or_else(|| PathBuf::from("secrets")),
+            ),
+        );
+        // The process-local budget pair, shared between the settings patch
+        // and the generator's gate.
+        let ai_budget = Arc::new(std::sync::RwLock::new(ica_application::AiBudgetSettings {
+            daily_budget_cents: config.ai_daily_budget_cents,
+            warning_threshold: config.ai_budget_warning_threshold,
+        }));
+        // W5's real AI port (the same adapter the server wires), fed from the
+        // injected configuration.
+        let draft_generator = ica_infra::ai_client::AiDraftGenerator::new(
+            store.clone(),
+            secrets.clone(),
+            ica_application::AiSettingsView {
+                ai_enabled: config.ai_enabled,
+                ai_provider: config.ai_provider.clone(),
+                ai_model: config.ai_model.clone(),
+                ai_base_url: config.ai_base_url.clone(),
+                ai_max_tokens: config.ai_max_tokens,
+                ai_timeout: config.ai_timeout,
+                ai_temperature: config.ai_temperature,
+            },
+            ai_budget.clone(),
+        );
         Self {
             positions: Arc::new(store.clone()),
             candidates: Arc::new(store.clone()),
@@ -113,9 +146,7 @@ impl DesktopState {
             follow_ups: Arc::new(store.clone()),
             dashboard: Arc::new(store.clone()),
             drafts: Arc::new(store.clone()),
-            // W3: no provider configured, so `generate` answers the baseline's
-            // 503 `ai_provider_error`. W5 supplies the real provider.
-            draft_generator: Arc::new(NotConfiguredDraftGenerator),
+            draft_generator: Arc::new(draft_generator),
             // W4 ports. The same store serves the import and snapshot
             // repositories, so a write and its audit event share one
             // transaction.
@@ -130,9 +161,7 @@ impl DesktopState {
             // pair (same semantics as the server).
             ai_models: Arc::new(store.clone()),
             ai_usage: Arc::new(store.clone()),
-            // W5 ai-key: the OS credential store seam (same ruling as the
-            // server) and the runtime flag from the config seed.
-            secrets: Arc::new(ica_infra::secret_store::KeyringSecretStore),
+            secrets,
             backups: Arc::new(ica_infra::backup::BackupManager::new(
                 PathBuf::from(&config.database_path),
                 PathBuf::from(&config.backup_dir),
@@ -146,10 +175,7 @@ impl DesktopState {
                 bcrypt_cost: config.bcrypt_cost,
             }),
             ai_key_present: Arc::new(std::sync::RwLock::new(config.ai_enabled)),
-            ai_budget: Arc::new(std::sync::RwLock::new(ica_application::AiBudgetSettings {
-                daily_budget_cents: config.ai_daily_budget_cents,
-                warning_threshold: config.ai_budget_warning_threshold,
-            })),
+            ai_budget,
             export_sealer: Arc::new(AesGcmSealer),
             ocr: Arc::new(RapidOcrEngine),
             config,

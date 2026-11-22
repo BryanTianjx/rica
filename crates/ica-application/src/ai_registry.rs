@@ -18,8 +18,9 @@
 //!   read back by the baseline, so a restart resets to the env/default
 //!   (baseline quirk, reproduced rather than "fixed").
 
+use crate::ai_key::resolve_model_api_key;
 use crate::error::ApplicationError;
-use crate::ports::{AiModelRepository, AiUsageRepository};
+use crate::ports::{AiModelRepository, AiUsageRepository, SecretStore};
 use std::collections::BTreeMap;
 
 fn unavailable(error: crate::ports::RepositoryError) -> ApplicationError {
@@ -156,33 +157,40 @@ pub struct AiModelRead {
 ///
 /// The fallback fires only when the table has **no rows at all**; the single
 /// fallback model carries `source: "settings"` and `api_key_env: "AI_API_KEY"`.
-/// Key presence: the model's env var, or the V1.0 installation key — the
-/// credential-store slot is part of the ai-key decision and stays deferred.
+/// Key presence follows the baseline's three-level resolution (the model's
+/// credential-store slot → its `api_key_env` → the installation-wide slot).
 pub async fn list_ai_models(
     models: &dyn AiModelRepository,
+    secrets: &dyn SecretStore,
     view: &AiSettingsView,
 ) -> Result<AiModelsOverview, ApplicationError> {
     let rows = models.list_configs().await.map_err(unavailable)?;
     let fallback_needed = rows.is_empty() && !view.ai_model.is_empty();
-    let mut items: Vec<AiModelRead> = rows
-        .into_iter()
-        .map(|row| {
-            // An invalid stored tier degrades to economy on load, never a
-            // failure (registry._load).
-            let quality_tier = if QUALITY_TIERS.contains(&row.quality_tier.as_str()) {
-                row.quality_tier.clone()
-            } else {
-                "economy".to_string()
-            };
-            AiModelRead {
-                api_key_configured: api_key_resolved(&row.api_key_env, view.ai_enabled),
-                source: "database".to_string(),
-                quality_tier,
-                ..AiModelRead::from(row)
-            }
-        })
-        .collect();
+    let mut items: Vec<AiModelRead> = Vec::with_capacity(rows.len());
+    for row in rows {
+        // An invalid stored tier degrades to economy on load, never a
+        // failure (registry._load).
+        let quality_tier = if QUALITY_TIERS.contains(&row.quality_tier.as_str()) {
+            row.quality_tier.clone()
+        } else {
+            "economy".to_string()
+        };
+        let api_key_configured = resolve_model_api_key(secrets, &row.api_key_env, &row.model_id)
+            .await
+            .map_err(unavailable)?
+            .is_some();
+        items.push(AiModelRead {
+            api_key_configured,
+            source: "database".to_string(),
+            quality_tier,
+            ..AiModelRead::from(row)
+        });
+    }
     if fallback_needed {
+        let api_key_configured = resolve_model_api_key(secrets, "AI_API_KEY", &view.ai_model)
+            .await
+            .map_err(unavailable)?
+            .is_some();
         items.push(AiModelRead {
             model_id: view.ai_model.clone(),
             display_name: view.ai_model.clone(),
@@ -199,7 +207,7 @@ pub async fn list_ai_models(
             enabled: true,
             is_default: true,
             sort_order: 0,
-            api_key_configured: view.ai_enabled,
+            api_key_configured,
             source: "settings".to_string(),
         });
     }
@@ -210,16 +218,248 @@ pub async fn list_ai_models(
     })
 }
 
-/// Key presence: the model's `api_key_env` var, or the V1.0 installation key.
-fn api_key_resolved(api_key_env: &str, v1_key_present: bool) -> bool {
-    if !api_key_env.is_empty()
-        && std::env::var(api_key_env)
-            .map(|value| !value.trim().is_empty())
-            .unwrap_or(false)
-    {
-        return true;
+/// `registry.get_model`: resolve one id, refusing unknown ids and disabled
+/// rows with the baseline's exact 503 texts. With an empty table the V1.0
+/// settings model resolves to the fallback config (`ModelRegistry._load`).
+pub async fn get_model(
+    models: &dyn AiModelRepository,
+    view: &AiSettingsView,
+    model_id: &str,
+) -> Result<AiModelData, ApplicationError> {
+    let rows = models.list_configs().await.map_err(unavailable)?;
+    if rows.is_empty() {
+        if view.ai_model == model_id && !view.ai_model.is_empty() {
+            return Ok(fallback_model(view));
+        }
+        return Err(ApplicationError::ProviderUnavailable {
+            message: format!("Unknown model '{model_id}'. No matching configuration found."),
+            details: serde_json::json!({ "model_id": model_id }),
+        });
     }
-    v1_key_present
+    let Some(mut row) = rows.into_iter().find(|row| row.model_id == model_id) else {
+        return Err(ApplicationError::ProviderUnavailable {
+            message: format!("Unknown model '{model_id}'. No matching configuration found."),
+            details: serde_json::json!({ "model_id": model_id }),
+        });
+    };
+    if !QUALITY_TIERS.contains(&row.quality_tier.as_str()) {
+        row.quality_tier = "economy".to_string();
+    }
+    if !row.enabled {
+        return Err(ApplicationError::ProviderUnavailable {
+            message: format!("Model '{model_id}' is disabled and cannot be used."),
+            details: serde_json::json!({ "model_id": model_id, "enabled": false }),
+        });
+    }
+    Ok(row)
+}
+
+/// The V1.0 fallback built from the settings view (`_default_config_from_settings`).
+fn fallback_model(view: &AiSettingsView) -> AiModelData {
+    AiModelData {
+        model_id: view.ai_model.clone(),
+        display_name: view.ai_model.clone(),
+        provider_type: view.ai_provider.clone(),
+        base_url: view.ai_base_url.clone(),
+        api_key_env: "AI_API_KEY".to_string(),
+        quality_tier: "economy".to_string(),
+        input_cost_per_1k_tokens: 0.0,
+        output_cost_per_1k_tokens: 0.0,
+        max_output_tokens: view.ai_max_tokens,
+        max_input_tokens: 8000,
+        timeout: view.ai_timeout,
+        temperature: view.ai_temperature,
+        enabled: true,
+        is_default: true,
+        sort_order: 0,
+    }
+}
+
+/// `registry.get_default_model`: the enabled `is_default` row with the lowest
+/// `sort_order`, else the first enabled row, else `None` (the settings
+/// fallback fires when the table is empty, mirroring `ModelRegistry._load`).
+pub async fn get_default_model(
+    models: &dyn AiModelRepository,
+    view: &AiSettingsView,
+) -> Result<Option<AiModelData>, ApplicationError> {
+    let rows = models.list_configs().await.map_err(unavailable)?;
+    if rows.is_empty() {
+        if view.ai_model.is_empty() {
+            return Ok(None);
+        }
+        return Ok(Some(fallback_model(view)));
+    }
+    let enabled: Vec<&AiModelData> = rows.iter().filter(|row| row.enabled).collect();
+    let default = enabled
+        .iter()
+        .filter(|row| row.is_default)
+        .min_by_key(|row| row.sort_order)
+        .or_else(|| enabled.first());
+    Ok(default.map(|row| (*row).clone()))
+}
+
+/// `registry.get_model_by_tier`: the lowest-`sort_order` enabled model in the
+/// tier, or the baseline's 503 when the tier is empty.
+pub async fn get_model_by_tier(
+    models: &dyn AiModelRepository,
+    tier: &str,
+) -> Result<AiModelData, ApplicationError> {
+    let rows = models.list_configs().await.map_err(unavailable)?;
+    let candidates: Vec<&AiModelData> = rows
+        .iter()
+        .filter(|row| row.enabled && row.quality_tier == tier)
+        .collect();
+    match candidates.iter().min_by_key(|row| row.sort_order) {
+        Some(row) => Ok((*row).clone()),
+        None => Err(ApplicationError::ProviderUnavailable {
+            message: format!("No enabled model found for tier '{tier}'."),
+            details: serde_json::json!({ "quality_tier": tier }),
+        }),
+    }
+}
+
+/// The outcome of a routing decision, recorded on every draft
+/// (`app/ai/router.py::RoutingDecision`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoutingDecision {
+    pub model: AiModelData,
+    pub requested_tier: String,
+    pub actual_tier: String,
+    /// `"scenario_match" | "budget_downgrade" | "manual_override"`.
+    pub reason: String,
+}
+
+/// Downgrade one level; `None` when already at the lowest tier
+/// (`router._downgrade_tier`).
+fn downgrade_tier(tier: &str) -> Option<&'static str> {
+    match tier {
+        "premium" => Some("standard"),
+        "standard" => Some("economy"),
+        _ => None,
+    }
+}
+
+/// `Router.select` — choose the model for one message type.
+///
+/// 1. a manual id resolves directly (`manual_override`);
+/// 2. otherwise the tier for the message type (override layered on the
+///    default table) picks the tier's active model (`scenario_match`);
+/// 3. with the budget warning active the tier is downgraded one level
+///    (`budget_downgrade`); at economy the request is rejected with 503;
+/// 4. a tier gap falls back to the default model so it never blocks
+///    generation.
+pub async fn select_model(
+    models: &dyn AiModelRepository,
+    usage: &dyn AiUsageRepository,
+    budget: &AiBudgetSettings,
+    view: &AiSettingsView,
+    message_type: &str,
+    manual_model_id: Option<&str>,
+    today: &str,
+) -> Result<RoutingDecision, ApplicationError> {
+    if let Some(manual_model_id) = manual_model_id.filter(|id| !id.is_empty()) {
+        let model = get_model(models, view, manual_model_id).await?;
+        let tier = model.quality_tier.clone();
+        return Ok(RoutingDecision {
+            model,
+            requested_tier: tier.clone(),
+            actual_tier: tier,
+            reason: "manual_override".to_string(),
+        });
+    }
+
+    let requested_tier = requested_tier_for(models, message_type).await?;
+    let mut actual_tier = requested_tier.clone();
+    let mut reason = "scenario_match".to_string();
+
+    let budget_warning = if budget.daily_budget_cents > 0 {
+        let spend = today_spend_cents(usage, today).await?;
+        warning_active(budget, spend)
+    } else {
+        false
+    };
+    if budget_warning {
+        match downgrade_tier(&requested_tier) {
+            None => {
+                let spend = today_spend_cents(usage, today).await?;
+                return Err(ApplicationError::ProviderUnavailable {
+                    message: "Daily AI budget near the limit and already at the lowest tier; \
+                              draft generation is paused until tomorrow."
+                        .to_string(),
+                    details: serde_json::json!({
+                        "requested_tier": requested_tier,
+                        "daily_spend_cents": spend,
+                        "daily_budget_cents": budget.daily_budget_cents,
+                    }),
+                });
+            }
+            Some(downgraded) => {
+                actual_tier = downgraded.to_string();
+                reason = "budget_downgrade".to_string();
+            }
+        }
+    }
+
+    match get_model_by_tier(models, &actual_tier).await {
+        Ok(model) => Ok(RoutingDecision {
+            model,
+            requested_tier,
+            actual_tier,
+            reason,
+        }),
+        // No enabled model in the (possibly downgraded) tier: fall back to
+        // the default model so a tier gap never blocks draft generation.
+        Err(tier_error) => match get_default_model(models, view).await? {
+            Some(model) => {
+                let actual_tier = model.quality_tier.clone();
+                Ok(RoutingDecision {
+                    model,
+                    requested_tier,
+                    actual_tier,
+                    reason,
+                })
+            }
+            None => Err(tier_error),
+        },
+    }
+}
+
+/// The tier for one message type: the stored override, else the default
+/// table (`Router.requested_tier_for`).
+async fn requested_tier_for(
+    models: &dyn AiModelRepository,
+    message_type: &str,
+) -> Result<String, ApplicationError> {
+    for (message_type_override, tier) in models.routing_overrides().await.map_err(unavailable)? {
+        if message_type_override == message_type && QUALITY_TIERS.contains(&tier.as_str()) {
+            return Ok(tier);
+        }
+    }
+    match DEFAULT_ROUTING
+        .iter()
+        .find(|(known, _)| *known == message_type)
+    {
+        Some((_, tier)) => Ok(tier.to_string()),
+        None => Err(ApplicationError::ProviderUnavailable {
+            message: format!("Unknown message type '{message_type}'. No routing entry exists."),
+            details: serde_json::json!({ "message_type": message_type }),
+        }),
+    }
+}
+
+/// `budget.estimate_cost_cents` — cents (人民币分) from token counts and
+/// per-1k rates. Python rounds half-even at an exact `.5`; the parity diff
+/// parses the number, so only exact-half values could diverge (same accepted
+/// risk as `round4` below).
+pub fn estimate_cost_cents(
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    input_cost_per_1k: f64,
+    output_cost_per_1k: f64,
+) -> i64 {
+    let input_cents = (prompt_tokens as f64 / 1000.0) * input_cost_per_1k * 100.0;
+    let output_cents = (completion_tokens as f64 / 1000.0) * output_cost_per_1k * 100.0;
+    (input_cents + output_cents).round() as i64
 }
 
 impl From<AiModelData> for AiModelRead {

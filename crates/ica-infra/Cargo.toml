@@ -16,6 +16,11 @@ rand = "0.8"
 # The OS credential store (W5 ai-key, project ruling): Windows Credential
 # Manager / macOS Keychain via one cross-platform seam.
 keyring = "3"
+# The outbound AI provider (W5 real DraftGenerator): OpenAI-compatible chat
+# completions over TLS; rustls keeps Linux/Windows builds off system OpenSSL.
+reqwest.workspace = true
+# The reasoning-block stripper in extract_json (Python re.DOTALL behavior).
+regex.workspace = true
 # The SQLite online-backup API (W5 backups): consistent copies of the live
 # WAL database, in-place restore through the same file. Version-locked to
 # sqlx's libsqlite3-sys 0.30.x (a `links = "sqlite3"` crate: only one copy).

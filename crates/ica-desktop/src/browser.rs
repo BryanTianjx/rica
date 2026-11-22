@@ -85,6 +85,7 @@ pub fn discover_chromium() -> Option<PathBuf> {
     // pinning only the old name silently finds nothing on current caches.
     let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"));
     if let Some(home) = home {
+        #[cfg_attr(not(windows), allow(unused_mut))]
         let mut roots = vec![PathBuf::from(&home).join(".cache").join("ms-playwright")];
         #[cfg(windows)]
         roots.push(

@@ -175,3 +175,38 @@ pub fn api_key_resolved(
     let _ = model_id;
     v1_key_present
 }
+
+/// The three-level key resolution (`app/ai/registry.py::resolve_api_key`):
+/// the model's own credential-store slot → the `api_key_env` environment
+/// variable → the installation-wide `AI_API_KEY` slot. `None` means "not
+/// configured" and the caller answers the baseline's 503.
+///
+/// A broken store must not block resolution: the adapter degrades an
+/// unreadable slot to absent and the fall-through continues (the baseline's
+/// `load_secret`).
+pub async fn resolve_model_api_key(
+    secrets: &dyn SecretStore,
+    api_key_env: &str,
+    model_id: &str,
+) -> Result<Option<String>, crate::ports::RepositoryError> {
+    let slot_value = secrets.load(&slot_for(Some(model_id))).await?;
+    if let Some(value) = slot_value {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return Ok(Some(trimmed.to_string()));
+        }
+    }
+
+    if !api_key_env.is_empty() {
+        let from_env = std::env::var(api_key_env).unwrap_or_default();
+        let trimmed = from_env.trim();
+        if !trimmed.is_empty() {
+            return Ok(Some(trimmed.to_string()));
+        }
+    }
+
+    let installation = secrets.load(AI_KEY_SLOT).await?;
+    Ok(installation
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty()))
+}

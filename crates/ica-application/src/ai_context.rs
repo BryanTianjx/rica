@@ -230,3 +230,99 @@ fn candidate_blocks(status: CandidateStatus) -> bool {
         CandidateStatus::Rejected | CandidateStatus::Withdrawn | CandidateStatus::Closed
     )
 }
+
+/// Render the context as the user-facing prompt block — a value-for-value
+/// port of `app/ai/context.py::render_context`. The block is explicit that
+/// unknown and conflicting information must be preserved as such.
+pub fn render_context(context: &AiContext) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    lines.push("## Candidate profile".to_string());
+    lines.push(python_json_pretty(&context.candidate_summary));
+
+    if let Some(position_summary) = &context.position_summary {
+        lines.push("\n## Position".to_string());
+        lines.push(python_json_pretty(position_summary));
+    }
+
+    lines.push("\n## Communication history (older first)".to_string());
+    if !context.messages.is_empty() {
+        for message in &context.messages {
+            let sender = message
+                .get("sender")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("Unknown");
+            let stamp = message
+                .get("time")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("time unknown");
+            let content = message
+                .get("content")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
+            lines.push(format!("- [{sender} | {stamp}]: {content}"));
+        }
+    } else {
+        lines.push("(no messages recorded)".to_string());
+    }
+
+    if !context.notes.is_empty() {
+        lines.push("\n## Recruiter notes (human judgement)".to_string());
+        lines.extend(context.notes.iter().map(|note| format!("- {note}")));
+    }
+
+    if !context.unknowns.is_empty() {
+        lines.push("\n## Unknown information — must not be invented".to_string());
+        lines.extend(context.unknowns.iter().map(|item| format!("- {item}")));
+    }
+
+    if !context.conflicts.is_empty() {
+        lines.push("\n## Conflicting information — ask the user to clarify".to_string());
+        lines.extend(context.conflicts.iter().map(|item| format!("- {item}")));
+    }
+
+    lines.join("\n")
+}
+
+/// `json.dumps(value, ensure_ascii=False, indent=2)` — Python's pretty
+/// printer: two spaces per level, `": "` after keys, `,` between items with a
+/// newline, and `{}` / `[]` for the empty containers (no newline inside).
+fn python_json_pretty(value: &serde_json::Value) -> String {
+    python_json_pretty_at(value, 1)
+}
+
+/// `depth` is the nesting level of the *entries* inside the container being
+/// rendered; the closing bracket sits one level above.
+fn python_json_pretty_at(value: &serde_json::Value, depth: usize) -> String {
+    match value {
+        serde_json::Value::Object(entries) => {
+            if entries.is_empty() {
+                return "{}".to_string();
+            }
+            let pad = "  ".repeat(depth);
+            let items: Vec<String> = entries
+                .iter()
+                .map(|(key, item)| {
+                    format!(
+                        "{pad}{}: {}",
+                        serde_json::to_string(key).expect("key"),
+                        python_json_pretty_at(item, depth + 1)
+                    )
+                })
+                .collect();
+            format!("{{\n{}\n{}}}", items.join(",\n"), "  ".repeat(depth - 1))
+        }
+        serde_json::Value::Array(items) => {
+            if items.is_empty() {
+                return "[]".to_string();
+            }
+            let pad = "  ".repeat(depth);
+            let rendered: Vec<String> = items
+                .iter()
+                .map(|item| format!("{pad}{}", python_json_pretty_at(item, depth + 1)))
+                .collect();
+            format!("[\n{}\n{}]", rendered.join(",\n"), "  ".repeat(depth - 1))
+        }
+        serde_json::Value::String(text) => serde_json::to_string(text).expect("string"),
+        other => other.to_string(),
+    }
+}

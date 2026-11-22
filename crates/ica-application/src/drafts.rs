@@ -155,10 +155,10 @@ pub async fn generate(
 
     // The AI port: with no configured key the adapter answers the baseline's
     // 503 (`ai_provider_error`), which propagates unchanged.
-    generator
+    let outcome = generator
         .generate(crate::ai_context::GenerateDraftRequest {
-            candidate_id: request.candidate_id,
-            task_id: request.task_id,
+            candidate_id: request.candidate_id.clone(),
+            task_id: request.task_id.clone(),
             message_type: request.message_type,
             tone: request.tone,
             user_instruction: request.user_instruction,
@@ -167,15 +167,36 @@ pub async fn generate(
             model_id: request.model_id,
             comparison_models: request.comparison_models,
         })
-        .await
-        .map(|draft| GenerateOutcome::Created(Box::new(draft)))
+        .await?;
+
+    // The draft now exists and awaits review, so the task moves to Reviewing
+    // — the single-model path only (the baseline advances the task after the
+    // commit; the A/B group path leaves the task untouched until one member
+    // is selected).
+    let outcome = match outcome {
+        crate::ports::DraftGeneration::Single(draft) => {
+            if let Some(task_id) = &draft.task_id {
+                advance_task(
+                    follow_ups,
+                    task_id,
+                    ica_domain::FollowUpTaskStatus::Reviewing,
+                    "A draft was generated",
+                )
+                .await?;
+            }
+            GenerateOutcome::Created(draft)
+        }
+        crate::ports::DraftGeneration::Group(drafts) => GenerateOutcome::Group(drafts),
+    };
+    Ok(outcome)
 }
 
-/// What `generate` produced: W3 only ever observes the not-configured error,
-/// but the shape is the W5 success path's contract.
+/// What `generate` produced: a single draft, or the whole A/B comparison
+/// group (one draft per requested model under one `draft_group_id`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GenerateOutcome {
     Created(Box<GeneratedDraft>),
+    Group(Vec<GeneratedDraft>),
 }
 
 /// Patch a draft's wording. `approved`/`copied` can no longer be edited (409);

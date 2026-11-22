@@ -709,14 +709,25 @@ async fn get_draft(
     Ok(Json(DraftRead::from(draft)))
 }
 
-/// `POST /api/drafts/generate` — 201 with the created draft.
+/// The generate response: one draft, or the whole A/B comparison group —
+/// the baseline returns `draft_to_read(...)` or the plain list, so the
+/// untagged enum keeps both wire shapes.
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+enum GenerateResponse {
+    Single(Box<DraftRead>),
+    Group(Vec<DraftRead>),
+}
+
+/// `POST /api/drafts/generate` — 201 with the created draft (or the whole
+/// group when `comparison_models` is set).
 ///
 /// With no provider configured the AI port answers the baseline's
 /// `503 ai_provider_error`, which propagates before anything is persisted.
 async fn generate_draft(
     State(state): State<AppState>,
     body: Bytes,
-) -> Result<(StatusCode, Json<DraftRead>), ApiError> {
+) -> Result<(StatusCode, Json<GenerateResponse>), ApiError> {
     let raw: body::RawGenerateRequest = body::parse(&body)?;
     let request = body::generate_request(raw)?;
     let outcome = ica_application::generate(
@@ -729,9 +740,16 @@ async fn generate_draft(
     )
     .await?;
     match outcome {
-        ica_application::drafts::GenerateOutcome::Created(draft) => {
-            Ok((StatusCode::CREATED, Json(DraftRead::from(*draft))))
-        }
+        ica_application::drafts::GenerateOutcome::Created(draft) => Ok((
+            StatusCode::CREATED,
+            Json(GenerateResponse::Single(Box::new(DraftRead::from(*draft)))),
+        )),
+        ica_application::drafts::GenerateOutcome::Group(drafts) => Ok((
+            StatusCode::CREATED,
+            Json(GenerateResponse::Group(
+                drafts.into_iter().map(DraftRead::from).collect(),
+            )),
+        )),
     }
 }
 
@@ -1090,8 +1108,12 @@ async fn write_ai_egress_consent(
 
 /// `GET /ai/models` — the registry with the V1.0 fallback, key presence only.
 async fn list_ai_models(State(state): State<AppState>) -> Result<Json<AiModelsRead>, ApiError> {
-    let overview =
-        ica_application::list_ai_models(state.ai_models(), &state.ai_settings_view()).await?;
+    let overview = ica_application::list_ai_models(
+        state.ai_models(),
+        state.secrets(),
+        &state.ai_settings_view(),
+    )
+    .await?;
     Ok(Json(AiModelsRead {
         models: overview.models.into_iter().map(Into::into).collect(),
         routing: overview.routing,

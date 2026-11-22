@@ -803,16 +803,25 @@ pub trait ExportSealer: Send + Sync {
     ) -> Result<(String, String, String), ApplicationError>;
 }
 
+/// What one generation produced: a single draft, or the whole A/B comparison
+/// group (the baseline's `generate_draft` returning `GeneratedDraft |
+/// list[DraftRead]`).
+pub enum DraftGeneration {
+    Single(Box<GeneratedDraft>),
+    Group(Vec<GeneratedDraft>),
+}
+
 /// The AI generation port. `ica-application` never talks to a provider: the
-/// adapter implements this against whatever backend is configured (W5 wires
-/// the real HTTP client; the W3 implementation answers with the baseline's
-/// not-configured error, byte-for-byte).
+/// adapter implements this against whatever backend is configured — model
+/// registry, routing, budget gate, key resolution, the HTTP call, validation
+/// and persistence all live behind it (the baseline's
+/// `app/ai/service.py::generate_draft`).
 #[async_trait]
 pub trait DraftGenerator: Send + Sync {
     async fn generate(
         &self,
         request: crate::ai_context::GenerateDraftRequest,
-    ) -> Result<GeneratedDraft, ApplicationError>;
+    ) -> Result<DraftGeneration, ApplicationError>;
 }
 
 // ── Browser candidate extraction (W7) ──────────────────────────────────────
@@ -996,6 +1005,17 @@ pub trait AiModelRepository: Send + Sync {
 pub trait AiUsageRepository: Send + Sync {
     /// Every row, ordered by `usage_date` (the usage endpoint's scan order).
     async fn list_rows(&self) -> Result<Vec<AiUsageRow>, RepositoryError>;
+
+    /// Record one call's token usage (`BudgetGuard.record_usage`): the
+    /// `(usage_date, model_id)` row is created or incremented — tokens, cost
+    /// and `request_count` all accumulate.
+    async fn record_usage(
+        &self,
+        model_id: &str,
+        prompt_tokens: i64,
+        completion_tokens: i64,
+        cost_cents: i64,
+    ) -> Result<(), RepositoryError>;
 }
 
 /// The OS credential store seam (W5 ai-key).

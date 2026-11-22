@@ -122,6 +122,46 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let repository = SqliteStore::new(pool);
+    // W5 ai-key: the OS credential store (project ruling). Windows/macOS go
+    // through the platform vault; Linux (a dev host) mirrors the baseline's
+    // 0600-file fallback under `<data dir>/secrets`.
+    let secrets: Arc<dyn ica_application::ports::SecretStore> = Arc::new(
+        ica_infra::secret_store::KeyringSecretStore::with_fallback_dir(
+            std::path::Path::new(&data_dir).join("secrets"),
+        ),
+    );
+    // The process-local budget pair, shared between the PATCH endpoint and
+    // the generator's gate (the baseline mutates one singleton).
+    let ai_budget = Arc::new(std::sync::RwLock::new(AiBudgetSettings {
+        daily_budget_cents: ai_daily_budget_cents,
+        warning_threshold: ai_budget_warning_threshold,
+    }));
+    // The AI-side view the generator's V1.0 fallback needs (the same fields
+    // the registry fallback uses).
+    let ai_view = ica_application::AiSettingsView {
+        ai_enabled,
+        ai_provider: env_or("AI_PROVIDER", "openai_compatible"),
+        ai_model: env_or("AI_MODEL", "glm-4-flash"),
+        ai_base_url: env_or("AI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"),
+        ai_max_tokens: env_or("AI_MAX_TOKENS", "1500")
+            .parse()
+            .map_err(|error| format!("AI_MAX_TOKENS is not an integer: {error}"))?,
+        ai_timeout: env_or("AI_TIMEOUT", "60")
+            .parse()
+            .map_err(|error| format!("AI_TIMEOUT is not an integer: {error}"))?,
+        ai_temperature: env_or("AI_TEMPERATURE", "0.4")
+            .parse()
+            .map_err(|error| format!("AI_TEMPERATURE is not a number: {error}"))?,
+    };
+    // W5's real AI port: the OpenAI-compatible provider (registry routing,
+    // budget gate, OS-store key resolution, the HTTP call, validation and the
+    // draft+usage+audit transaction).
+    let draft_generator = ica_infra::ai_client::AiDraftGenerator::new(
+        repository.clone(),
+        secrets.clone(),
+        ai_view,
+        ai_budget.clone(),
+    );
     // One adapter, nine port views: the HTTP layer sees only the traits, and a
     // write plus its audit event always share the same pool/transaction.
     let state = AppState::new(
@@ -133,9 +173,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),
-        // W3's AI port: no provider is configured, so every call answers the
-        // baseline's 503 `ai_provider_error`. The real provider is W5's job.
-        Arc::new(ica_infra::drafts::NotConfiguredDraftGenerator),
+        Arc::new(draft_generator),
         // W4 ports. The same pool-backed store serves the import repository and
         // the snapshot repository, so a write and its audit event share one
         // transaction; sealing and OCR are separate adapters.
@@ -152,10 +190,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         // never reads back, and resets on restart).
         Arc::new(repository.clone()),
         Arc::new(repository.clone()),
-        // W5 ai-key: the OS credential store (project ruling) — and the
-        // runtime flag seeded from the env key, then overlaid by the stored
-        // installation-wide slot (the baseline's apply_stored_secrets).
-        Arc::new(ica_infra::secret_store::KeyringSecretStore),
+        // W5 ai-key: the OS credential store shared with the generator — and
+        // the runtime flag seeded from the env key, then overlaid by the
+        // stored installation-wide slot (the baseline's apply_stored_secrets).
+        secrets,
         Arc::new(ica_infra::backup::BackupManager::new(
             std::path::PathBuf::from(&database_path),
             std::path::PathBuf::from(&backup_dir),
@@ -179,10 +217,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .map_err(|error| format!("BCRYPT_COST is not an integer: {error}"))?,
         }),
         Arc::new(std::sync::RwLock::new(ai_key_present)),
-        Arc::new(std::sync::RwLock::new(AiBudgetSettings {
-            daily_budget_cents: ai_daily_budget_cents,
-            warning_threshold: ai_budget_warning_threshold,
-        })),
+        ai_budget,
         Arc::new(ica_infra::export_crypto::AesGcmSealer),
         Arc::new(ica_infra::ocr_rapid::RapidOcrEngine),
         AppConfig {

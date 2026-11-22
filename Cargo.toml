@@ -51,6 +51,10 @@ uuid = { version = "1", features = ["v4"] }
 
 # ── HTTP ──────────────────────────────────────────────────────────────────
 axum = "0.8"
+# The outbound AI provider client (W5's real DraftGenerator): plain
+# OpenAI-compatible chat completions. rustls keeps the WSL and Windows builds
+# free of a system OpenSSL.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 # `preserve_order` keeps a JSON object's insertion order, which the baseline's
 # `json.dumps(metadata)` relies on — it does NOT sort the keys.

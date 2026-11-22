@@ -1133,6 +1133,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "ica-domain",
+ "regex",
  "serde_json",
 ]
 
@@ -1196,6 +1197,8 @@ dependencies = [
  "keyring",
  "rand 0.8.8",
  "rapidocr-core",
+ "regex",
+ "reqwest",
  "rusqlite",
  "serde_json",
  "sha2",
@@ -1212,6 +1215,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "ica-api",
+ "ica-application",
  "ica-infra",
  "tokio",
  "tracing",

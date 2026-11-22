@@ -28,7 +28,6 @@ use ica_application::{
     DraftGenerator, DraftRepository, ExportSealer, FollowUpRepository, ImportRepository,
     MessageRepository, OcrEngine, PositionRepository, SendRecordRepository,
 };
-use ica_infra::drafts::NotConfiguredDraftGenerator;
 use ica_infra::export_crypto::AesGcmSealer;
 use ica_infra::{connect, SqliteStore};
 
@@ -380,6 +379,30 @@ pub async fn app_for(path: &Path) -> Router {
         .await
         .expect("open seeded database");
     let store = SqliteStore::new(pool);
+    // The real AI generator over the in-memory secret store: every AI-error
+    // path (unknown model, no key) is exercised for real, byte-for-byte
+    // against the baseline. The HTTP client is never reached because the
+    // store stays empty.
+    let secrets = Arc::new(ica_infra::secret_store::MemorySecretStore::new())
+        as Arc<dyn ica_application::SecretStore>;
+    let ai_budget = Arc::new(std::sync::RwLock::new(ica_application::AiBudgetSettings {
+        daily_budget_cents: 0,
+        warning_threshold: 90,
+    }));
+    let draft_generator = ica_infra::ai_client::AiDraftGenerator::new(
+        store.clone(),
+        secrets.clone(),
+        ica_application::AiSettingsView {
+            ai_enabled: false,
+            ai_provider: "openai_compatible".to_string(),
+            ai_model: "glm-4-flash".to_string(),
+            ai_base_url: "https://open.bigmodel.cn/api/paas/v4".to_string(),
+            ai_max_tokens: 1500,
+            ai_timeout: 60,
+            ai_temperature: 0.4,
+        },
+        ai_budget.clone(),
+    );
     ica_api::router(AppState::new(
         Arc::new(store.clone()) as Arc<dyn PositionRepository>,
         Arc::new(store.clone()) as Arc<dyn CandidateRepository>,
@@ -389,7 +412,7 @@ pub async fn app_for(path: &Path) -> Router {
         Arc::new(store.clone()) as Arc<dyn FollowUpRepository>,
         Arc::new(store.clone()) as Arc<dyn DashboardRepository>,
         Arc::new(store.clone()) as Arc<dyn DraftRepository>,
-        Arc::new(NotConfiguredDraftGenerator) as Arc<dyn DraftGenerator>,
+        Arc::new(draft_generator) as Arc<dyn DraftGenerator>,
         Arc::new(store.clone()) as Arc<dyn ImportRepository>,
         Arc::new(store.clone()) as Arc<dyn ica_application::BrowserExtractionRepository>,
         Arc::new(store.clone()) as Arc<dyn DataSnapshotRepository>,
@@ -397,8 +420,7 @@ pub async fn app_for(path: &Path) -> Router {
         Arc::new(store.clone()) as Arc<dyn ica_application::AppSettingsRepository>,
         Arc::new(store.clone()) as Arc<dyn ica_application::AiModelRepository>,
         Arc::new(store.clone()) as Arc<dyn ica_application::AiUsageRepository>,
-        Arc::new(ica_infra::secret_store::MemorySecretStore::new())
-            as Arc<dyn ica_application::SecretStore>,
+        secrets,
         Arc::new(ica_infra::backup::BackupManager::new(
             path.parent()
                 .unwrap_or(std::path::Path::new("."))
@@ -416,10 +438,7 @@ pub async fn app_for(path: &Path) -> Router {
             bcrypt_cost: 4,
         }) as Arc<dyn ica_application::AuthSecurity>,
         Arc::new(std::sync::RwLock::new(false)),
-        Arc::new(std::sync::RwLock::new(ica_application::AiBudgetSettings {
-            daily_budget_cents: 0,
-            warning_threshold: 90,
-        })),
+        ai_budget,
         Arc::new(AesGcmSealer) as Arc<dyn ExportSealer>,
         Arc::new(ica_infra::ocr_rapid::RapidOcrEngine) as Arc<dyn OcrEngine>,
         AppConfig {

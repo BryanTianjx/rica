@@ -5,6 +5,7 @@
 //! driver. [`SqliteStore`] implements every application port over one pool, so
 //! a business write and the audit event it produces share a transaction.
 
+pub mod ai_client;
 pub mod ai_models;
 pub mod audit;
 pub mod auth_store;

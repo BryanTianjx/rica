@@ -21,19 +21,22 @@ pub mod imports;
 pub mod payload;
 pub mod ports;
 pub mod positions;
+pub mod prompts;
 pub mod send_records;
 pub mod settings;
 pub mod sync;
+pub mod validators;
 
 pub use ai_key::{
-    api_key_resolved, clear_ai_key, mask_key, slot_for, write_ai_key, AI_KEY_SLOT,
-    AI_KEY_SLOT_PREFIX,
+    api_key_resolved, clear_ai_key, mask_key, resolve_model_api_key, slot_for, write_ai_key,
+    AI_KEY_SLOT, AI_KEY_SLOT_PREFIX,
 };
 pub use ai_registry::{
-    budget_read, budget_status, get_ai_routing, get_ai_usage, list_ai_models, routing_table,
+    budget_read, budget_status, estimate_cost_cents, get_ai_routing, get_ai_usage,
+    get_default_model, get_model, get_model_by_tier, list_ai_models, routing_table, select_model,
     today_spend_cents, update_ai_routing, AiBudgetSettings, AiModelData, AiModelRead,
     AiModelsOverview, AiSettingsView, AiUsageAllTime, AiUsageByModel, AiUsageRow, BudgetRead,
-    TodayUsage, UsageDay, UsageOverview, DEFAULT_ROUTING,
+    RoutingDecision, TodayUsage, UsageDay, UsageOverview, DEFAULT_ROUTING, QUALITY_TIERS,
 };
 pub use audit_trail::recent_audit_events;
 pub use auth::{
@@ -75,8 +78,8 @@ pub use ports::{
     AiModelRepository, AiUsageRepository, AppSettingsRepository, AuditTrailRepository,
     AuthRepository, AuthSecurity, BackupRecord, BackupStore, BrowserExtractionRepository,
     CandidateConfirm, CandidateConfirmOutcome, CandidateRepository, ConversationRepository,
-    DashboardRepository, DataSnapshotRepository, DraftGenerator, DraftRepository, ExportSealer,
-    ExtractionDraft, FollowUpPolicyRecord, FollowUpRepository, ImportConfirmOutcome,
+    DashboardRepository, DataSnapshotRepository, DraftGeneration, DraftGenerator, DraftRepository,
+    ExportSealer, ExtractionDraft, FollowUpPolicyRecord, FollowUpRepository, ImportConfirmOutcome,
     ImportRecordCorrection, ImportRepository, MessageRepository, NewFollowUpTaskRow,
     NewImportRecordRow, NewImportSessionRow, OcrEngine, PositionFilter, PositionRepository,
     RepositoryError, RestoreOutcome, SecretStore, SendRecordRepository, SnapshotOutcome,

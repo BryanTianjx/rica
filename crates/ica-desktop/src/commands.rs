@@ -652,11 +652,21 @@ pub async fn drafts_get(state: &DesktopState, draft_id: &str) -> Result<dto::Dra
     Ok(dto::DraftRead::from(draft))
 }
 
-/// `drafts_generate` — the guard chain, then the AI port's 503.
+/// The generate response: one draft, or the whole A/B comparison group —
+/// the same untagged shapes the HTTP route emits.
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+pub enum DraftGenerateResponse {
+    Single(Box<dto::DraftRead>),
+    Group(Vec<dto::DraftRead>),
+}
+
+/// `drafts_generate` — the guard chain, then the AI port (the real provider
+/// when a model and key resolve; otherwise the baseline's 503).
 pub async fn drafts_generate(
     state: &DesktopState,
     payload: &Value,
-) -> Result<dto::DraftRead, IpcError> {
+) -> Result<DraftGenerateResponse, IpcError> {
     let raw: body::RawGenerateRequest = parse_body(payload)?;
     let request = body::generate_request(raw).map_err(fail)?;
     match ica_application::generate(
@@ -669,9 +679,12 @@ pub async fn drafts_generate(
     )
     .await?
     {
-        ica_application::drafts::GenerateOutcome::Created(draft) => {
-            Ok(dto::DraftRead::from(*draft))
-        }
+        ica_application::drafts::GenerateOutcome::Created(draft) => Ok(
+            DraftGenerateResponse::Single(Box::new(dto::DraftRead::from(*draft))),
+        ),
+        ica_application::drafts::GenerateOutcome::Group(drafts) => Ok(
+            DraftGenerateResponse::Group(drafts.into_iter().map(dto::DraftRead::from).collect()),
+        ),
     }
 }
 
@@ -1027,8 +1040,12 @@ pub async fn ai_egress_consent(
 
 /// `ai_models_list` — the registry with the V1.0 fallback, key presence only.
 pub async fn ai_models_list(state: &DesktopState) -> Result<dto::AiModelsRead, IpcError> {
-    let overview =
-        ica_application::list_ai_models(state.ai_models(), &state.ai_settings_view()).await?;
+    let overview = ica_application::list_ai_models(
+        state.ai_models(),
+        state.secrets(),
+        &state.ai_settings_view(),
+    )
+    .await?;
     Ok(dto::AiModelsRead {
         models: overview.models.into_iter().map(Into::into).collect(),
         routing: overview.routing,

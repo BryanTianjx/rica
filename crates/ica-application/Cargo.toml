@@ -18,6 +18,9 @@ chrono.workspace = true
 # The state machine's 409 details ship a JSON array (`settable`), so the
 # application error carries a serde_json value. Pure data, no runtime.
 serde_json.workspace = true
+# The content validator ports the baseline's regex rules (promises,
+# fabricated facts, leaked identifiers).
+regex.workspace = true
 
 [dev-dependencies]
 # Test fixtures build Position values, whose timestamps are chrono types.
