@@ -171,14 +171,9 @@ impl DiagnosticEvent {
 /// conservative: matching a token marker beats trying to enumerate every
 /// possible secret shape.
 pub fn redact(value: &str) -> String {
-    let lowered = value.to_ascii_lowercase();
-    let marker = [
-        "bearer ", "jwt ", "api_key", "apikey", "secret", "password", "token",
-    ];
-    if marker.iter().any(|needle| lowered.contains(needle)) {
-        return "[REDACTED]".to_string();
-    }
-    value.to_string()
+    // ARCH-P4: one scrubber for logs and protocol DTOs, owned by the
+    // transport-neutral contract crate. No second marker list can drift.
+    ica_contracts::sidecar_protocol::redact(value)
 }
 
 #[cfg(test)]

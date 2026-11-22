@@ -19,6 +19,7 @@ pub mod error;
 pub mod events;
 pub mod proxy_headers;
 pub mod query;
+pub mod sidecar_protocol;
 
 pub use auth_session::{
     auth_transition, AuthEvent, AuthPhase, AuthSessionState, SessionEndReason, ALL_AUTH_PHASES,
@@ -48,4 +49,10 @@ pub use query::{
     RawListConversationsQuery, RawListDraftsQuery, RawListFollowUpsQuery, RawListMessagesQuery,
     RawListPositionsQuery, RawListSendRecordsQuery, RawTimelineQuery, DEFAULT_LIMIT,
     DEFAULT_MESSAGE_LIMIT, MAX_LIMIT, MAX_MESSAGE_LIMIT,
+};
+pub use sidecar_protocol::{
+    decode_request, decode_response, encode_request, encode_response, negotiate_version,
+    new_request_id, redact, validate_request, validate_response, CapabilityGrant, PathAccess,
+    PathGrant, SidecarError, SidecarProtocolError, SidecarRequest, SidecarResponse,
+    PROTOCOL_VERSION, SUPPORTED_VERSIONS,
 };
