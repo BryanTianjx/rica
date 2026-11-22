@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ICA Personal",
+  "version": "0.2.2",
+  "identifier": "com.ica.personal",
+  "build": {
+    "frontendDist": "./bundle-resources/ui"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico"],
+    "resources": [
+      "bundle-resources/sidecar",
+      "bundle-resources/ui",
+      "bundle-resources/browsers",
+      "bundle-resources/version-manifest.json",
+      "bundle-resources/SHA256SUMS"
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "./installer-hooks.nsh"
+      }
+    }
+  }
+}

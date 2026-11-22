@@ -32,7 +32,7 @@ supersedes: null
 
 | 卡 | 内容 | 验收 |
 |---|---|---|
-| **F1-1 Host 集成 Rust server** | Tauri 宿主 spawn `ica-server`(替代/并存 Python sidecar;P1 分流规则:`/api/browser/v1/*`+AI-EXT → sidecar,其余 → Rust) | 宿主启动即用 Rust 后端;health 探测通过 |
+| **F1-1 Host 集成 Rust server** | ✅ **已实现(2026-11-22)**:宿主迁入 `desktop/tauri-host`(ADR-0007),spawn `ica-server`(PORT=0 + stdout 握手)+ Python sidecar(P1 分流:`/api/browser/v1/*`+AI-EXT 模型 CRUD → sidecar,其余 → Rust;sidecar 缺席降级 502)。路由决策为纯函数 `route_backend` 带 4 组单测 | 宿主 11 测试全绿(含原 R3-008 协议边界测试);sidecar 缺席时 Rust-only 启动验证路径在位 |
 | **F1-2 Positions IPC 切片** | `positions_*` 五命令(ica-desktop 已有)接 Backend Client positions 分支(`invoke()`);HTTP 与 IPC 双实现对拍 | 同操作同结果同错误语义同落库(方案 F1 验收原文) |
 | **F1-3 事件通道** | Tauri Events 定义(后端事件 → 前端),替换"手动 reload 链"的首个场景 | 一处 reload 链改为事件驱动 |
 | **F1-4 IPC 权限白名单** | 命令白名单机制落地(方案 §3 要求) | 白名单外 invoke 被拒并有测试 |

@@ -1,0 +1,21 @@
+# Detached from the backend's workspace on purpose (see the root Cargo.toml
+# exclude): the desktop shell builds and ships independently of the crates.
+[workspace]
+
+[package]
+name = "ica-desktop-host"
+version = "0.2.1"
+edition = "2021"
+description = "ICA Personal desktop host (Tauri 2) — spawns the version unit's sidecar and serves its UI"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde_json = "1"
+
+[profile.release]
+opt-level = 2
+strip = true

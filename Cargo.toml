@@ -9,6 +9,10 @@ members = [
     "crates/ica-desktop",
     "crates/ica-server",
 ]
+# The Tauri desktop host (P1 dual-backend routing, migrated per the signed
+# ADR-0007) is its own workspace: tauri 2's dependency tree must not share
+# the backend's build plan.
+exclude = ["desktop/tauri-host"]
 
 [workspace.package]
 version = "0.1.0"

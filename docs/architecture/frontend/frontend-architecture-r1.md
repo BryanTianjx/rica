@@ -134,6 +134,12 @@ src/
 
 ## 4. 四阶段过渡
 
+> **实施进度(2026-11-22):** ADR-0007 已签署(前端迁入本仓 frontend/,F0-1 完成);
+> F1-1 的 P1 双后端分流已在 `desktop/tauri-host` 落地 —— 宿主 spawn Rust ica-server
+> (主)+ Python sidecar(次),`/api/browser/v1/*` 与 AI-EXT 模型 CRUD 走 sidecar,
+> 其余 68 条契约走 Rust;sidecar 缺席降级 502 而不阻断启动。本节以下的文本为
+> 签署时的方案原文。
+
 ### F0：前端现状冻结与通信抽象
 
 **目标：不改变现有页面和业务流程。**

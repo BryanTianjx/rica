@@ -32,3 +32,10 @@ crates/*/models/
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+
+# The Tauri host's staged bundle (P1: filled by the packaging flow, never
+# committed; the tauri-build resource check needs the directories present).
+desktop/tauri-host/bundle-resources/*
+!desktop/tauri-host/bundle-resources/ui/
+desktop/tauri-host/target/
+desktop/tauri-host/gen/
