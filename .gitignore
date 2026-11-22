@@ -26,3 +26,9 @@ __pycache__/
 
 # The OCR engine's model cache is created at runtime; never commit it.
 crates/*/models/
+
+# Frontend (F0-1: migrated from the baseline repo per ADR-0007). Build
+# artefacts and dependency trees never enter version control.
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/

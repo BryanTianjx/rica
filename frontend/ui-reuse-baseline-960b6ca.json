@@ -1,0 +1,959 @@
+{
+  "tool": "check-ui-reuse",
+  "version": "1.2.0",
+  "generated_at": "2026-11-09T01:12:18.486Z",
+  "base": "960b6ca",
+  "scope": {
+    "source_files": 21,
+    "test_files": 11,
+    "css_class_selectors": 50,
+    "className_usages": 329
+  },
+  "checks": [
+    {
+      "id": "C1",
+      "title": "className tokens and variant literals resolve to a CSS rule",
+      "status": "fail",
+      "measured": {
+        "undefined_class_sites": 7,
+        "compound_mismatch_sites": 7,
+        "unresolved_tone_sites": 0,
+        "needs_manual_review_sites": 0
+      },
+      "threshold": {
+        "undefined_class_sites": 0,
+        "compound_mismatch_sites": 0,
+        "unresolved_tone_sites": 0,
+        "needs_manual_review_sites": 0
+      },
+      "violations": {
+        "undefined_classes": [
+          {
+            "token": "confirm-bar",
+            "where": "src/pages/CandidatesPage.tsx:329",
+            "tag": "div"
+          },
+          {
+            "token": "inactive",
+            "where": "src/pages/ConversationsPage.tsx:122",
+            "tag": "li"
+          },
+          {
+            "token": "confirm-bar",
+            "where": "src/pages/PositionsPage.tsx:294",
+            "tag": "div"
+          },
+          {
+            "token": "stat-value",
+            "where": "src/pages/SettingsPage.tsx:309",
+            "tag": "div"
+          },
+          {
+            "token": "stat-value",
+            "where": "src/pages/SettingsPage.tsx:313",
+            "tag": "div"
+          },
+          {
+            "token": "stat-value",
+            "where": "src/pages/SettingsPage.tsx:317",
+            "tag": "div"
+          },
+          {
+            "token": "confirm-bar",
+            "where": "src/pages/SettingsPage.tsx:583",
+            "tag": "div"
+          }
+        ],
+        "compound_mismatch": [
+          {
+            "token": "bad",
+            "where": "src/pages/CandidatesPage.tsx:321",
+            "tag": "button",
+            "selectors": [
+              ".badge.bad"
+            ]
+          },
+          {
+            "token": "bad",
+            "where": "src/pages/CandidatesPage.tsx:333",
+            "tag": "button",
+            "selectors": [
+              ".badge.bad"
+            ]
+          },
+          {
+            "token": "active",
+            "where": "src/pages/ConversationsPage.tsx:122",
+            "tag": "li",
+            "selectors": [
+              ".nav-link.active"
+            ]
+          },
+          {
+            "token": "bad",
+            "where": "src/pages/PositionsPage.tsx:286",
+            "tag": "button",
+            "selectors": [
+              ".badge.bad"
+            ]
+          },
+          {
+            "token": "bad",
+            "where": "src/pages/PositionsPage.tsx:298",
+            "tag": "button",
+            "selectors": [
+              ".badge.bad"
+            ]
+          },
+          {
+            "token": "bad",
+            "where": "src/pages/SettingsPage.tsx:588",
+            "tag": "button",
+            "selectors": [
+              ".badge.bad"
+            ]
+          },
+          {
+            "token": "bad",
+            "where": "src/pages/SettingsPage.tsx:600",
+            "tag": "button",
+            "selectors": [
+              ".badge.bad"
+            ]
+          }
+        ],
+        "unresolved_tones": [],
+        "needs_manual_review": []
+      }
+    },
+    {
+      "id": "C2",
+      "title": "error regions carry role=\"alert\"",
+      "status": "fail",
+      "measured": {
+        "bare_error_regions": 11
+      },
+      "threshold": {
+        "bare_error_regions": 0
+      },
+      "violations": [
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:280",
+          "line": "{actionError && <div className=\"error\">{actionError}</div>}"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:295",
+          "line": "{profileError && <div className=\"error\">{profileError}</div>}"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:166",
+          "line": "{rowError && <div className=\"error\">{rowError}</div>}"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:171",
+          "line": "{formError && <div className=\"error\">{formError}</div>}"
+        },
+        {
+          "where": "src/pages/ConversationsPage.tsx:103",
+          "line": "{error && <div className=\"error\">{error}</div>}"
+        },
+        {
+          "where": "src/pages/DraftsPage.tsx:86",
+          "line": "{error && <div className=\"error\">{error}</div>}"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:153",
+          "line": "{error && <div className=\"error\">{error}</div>}"
+        },
+        {
+          "where": "src/pages/LoginPage.tsx:41",
+          "line": "{error && <div className=\"error\">{error}</div>}"
+        },
+        {
+          "where": "src/pages/PositionsPage.tsx:147",
+          "line": "{error && <div className=\"error\">{error}</div>}"
+        },
+        {
+          "where": "src/pages/PositionsPage.tsx:148",
+          "line": "{rowError && <div className=\"error\">{rowError}</div>}"
+        },
+        {
+          "where": "src/pages/SettingsPage.tsx:129",
+          "line": "{error && <div className=\"error\">{error}</div>}"
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "title": "status values are union-typed and fully toned",
+      "status": "fail",
+      "measured": {
+        "union_values": 33,
+        "toned_values": 18,
+        "unmapped_values": [
+          "New",
+          "Contacted",
+          "ReadNoReply",
+          "Replied",
+          "Draft",
+          "OnHold",
+          "Eligible",
+          "Drafting",
+          "Reviewing",
+          "Copied",
+          "AwaitingResult",
+          "Passed",
+          "Candidate",
+          "Recruiter",
+          "System"
+        ],
+        "status_props_typed_as_string": 2
+      },
+      "threshold": {
+        "unmapped_values": 0,
+        "status_props_typed_as_string": 0
+      },
+      "violations": {
+        "unmapped": [
+          "New",
+          "Contacted",
+          "ReadNoReply",
+          "Replied",
+          "Draft",
+          "OnHold",
+          "Eligible",
+          "Drafting",
+          "Reviewing",
+          "Copied",
+          "AwaitingResult",
+          "Passed",
+          "Candidate",
+          "Recruiter",
+          "System"
+        ],
+        "stringStatusProps": [
+          {
+            "where": "src/components/ui.tsx:15"
+          },
+          {
+            "where": "src/pages/PositionsPage.tsx:61"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C4",
+      "title": "no static inline styles",
+      "status": "fail",
+      "measured": {
+        "inline_styles_total": 32,
+        "inline_styles_static": 32
+      },
+      "threshold": {
+        "inline_styles_static": 0
+      },
+      "violations": {
+        "static": [
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:405",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:507",
+            "snippet": "style={{ marginTop: 18 }}>预览（尚未写入）</h3>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:536",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:645",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:647",
+            "snippet": "style={{ marginBottom: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:660",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:669",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:682",
+            "snippet": "style={{ marginTop: 20 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:694",
+            "snippet": "style={{ marginTop: 8 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:722",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:738",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:795",
+            "snippet": "style={{ marginTop: 8 }}>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:33",
+            "snippet": "style={{ marginBottom: 16 }}>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:48",
+            "snippet": "style={{ marginBottom: 16 }}>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:100",
+            "snippet": "style={{ textAlign: 'right' }}>{count}</td>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:139",
+            "snippet": "style={{ marginTop: 10, marginBottom: 0 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:176",
+            "snippet": "style={{ marginTop: 18 }}>备选话术</h3>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:187",
+            "snippet": "style={{ marginTop: 18 }}>依据</h3>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:199",
+            "snippet": "style={{ marginTop: 14 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:210",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:221",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:234",
+            "snippet": "style={{ marginTop: 14 }}>"
+          },
+          {
+            "where": "src/pages/FollowUpsPage.tsx:233",
+            "snippet": "style={{ marginTop: 4 }}>"
+          },
+          {
+            "where": "src/pages/FollowUpsPage.tsx:325",
+            "snippet": "style={{ marginTop: 6 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:164",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:181",
+            "snippet": "style={{ fontSize: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:196",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:220",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:306",
+            "snippet": "style={{ marginBottom: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:373",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:378",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:407",
+            "snippet": "style={{ marginTop: 16 }}>"
+          }
+        ],
+        "all": [
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:405",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:507",
+            "snippet": "style={{ marginTop: 18 }}>预览（尚未写入）</h3>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:536",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:645",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:647",
+            "snippet": "style={{ marginBottom: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:660",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:669",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:682",
+            "snippet": "style={{ marginTop: 20 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:694",
+            "snippet": "style={{ marginTop: 8 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:722",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:738",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/CandidateDetailPage.tsx:795",
+            "snippet": "style={{ marginTop: 8 }}>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:33",
+            "snippet": "style={{ marginBottom: 16 }}>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:48",
+            "snippet": "style={{ marginBottom: 16 }}>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:100",
+            "snippet": "style={{ textAlign: 'right' }}>{count}</td>"
+          },
+          {
+            "where": "src/pages/DashboardPage.tsx:139",
+            "snippet": "style={{ marginTop: 10, marginBottom: 0 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:176",
+            "snippet": "style={{ marginTop: 18 }}>备选话术</h3>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:187",
+            "snippet": "style={{ marginTop: 18 }}>依据</h3>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:199",
+            "snippet": "style={{ marginTop: 14 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:210",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:221",
+            "snippet": "style={{ marginTop: 10 }}>"
+          },
+          {
+            "where": "src/pages/DraftsPage.tsx:234",
+            "snippet": "style={{ marginTop: 14 }}>"
+          },
+          {
+            "where": "src/pages/FollowUpsPage.tsx:233",
+            "snippet": "style={{ marginTop: 4 }}>"
+          },
+          {
+            "where": "src/pages/FollowUpsPage.tsx:325",
+            "snippet": "style={{ marginTop: 6 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:164",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:181",
+            "snippet": "style={{ fontSize: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:196",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:220",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:306",
+            "snippet": "style={{ marginBottom: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:373",
+            "snippet": "style={{ marginTop: 12 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:378",
+            "snippet": "style={{ marginTop: 16 }}>"
+          },
+          {
+            "where": "src/pages/SettingsPage.tsx:407",
+            "snippet": "style={{ marginTop: 16 }}>"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C5",
+      "title": "page-pair duplication under threshold",
+      "status": "fail",
+      "measured": {
+        "pairs_evaluated": 36,
+        "worst_pair": {
+          "pair": [
+            "src/pages/CandidatesPage.tsx",
+            "src/pages/PositionsPage.tsx"
+          ],
+          "identical_substantial_lines": 50,
+          "shorter_substantial_lines": 124,
+          "share_pct": 40.3,
+          "duplicate_blocks_ge4": 2
+        }
+      },
+      "threshold": {
+        "max_share_pct": 10,
+        "max_identical_substantial_lines": 30,
+        "max_duplicate_blocks_ge4": 2
+      },
+      "violations": {
+        "failing_pairs": [
+          {
+            "pair": [
+              "src/pages/CandidatesPage.tsx",
+              "src/pages/PositionsPage.tsx"
+            ],
+            "identical_substantial_lines": 50,
+            "shorter_substantial_lines": 124,
+            "share_pct": 40.3,
+            "duplicate_blocks_ge4": 2
+          },
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/SettingsPage.tsx"
+            ],
+            "identical_substantial_lines": 40,
+            "shorter_substantial_lines": 224,
+            "share_pct": 17.9,
+            "duplicate_blocks_ge4": 0
+          }
+        ],
+        "top_pairs": [
+          {
+            "pair": [
+              "src/pages/CandidatesPage.tsx",
+              "src/pages/PositionsPage.tsx"
+            ],
+            "identical_substantial_lines": 50,
+            "shorter_substantial_lines": 124,
+            "share_pct": 40.3,
+            "duplicate_blocks_ge4": 2
+          },
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/SettingsPage.tsx"
+            ],
+            "identical_substantial_lines": 40,
+            "shorter_substantial_lines": 224,
+            "share_pct": 17.9,
+            "duplicate_blocks_ge4": 0
+          },
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/DraftsPage.tsx"
+            ],
+            "identical_substantial_lines": 29,
+            "shorter_substantial_lines": 110,
+            "share_pct": 26.4,
+            "duplicate_blocks_ge4": 0
+          },
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/PositionsPage.tsx"
+            ],
+            "identical_substantial_lines": 25,
+            "shorter_substantial_lines": 124,
+            "share_pct": 20.2,
+            "duplicate_blocks_ge4": 0
+          },
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/ConversationsPage.tsx"
+            ],
+            "identical_substantial_lines": 23,
+            "shorter_substantial_lines": 121,
+            "share_pct": 19,
+            "duplicate_blocks_ge4": 1
+          },
+          {
+            "pair": [
+              "src/pages/PositionsPage.tsx",
+              "src/pages/SettingsPage.tsx"
+            ],
+            "identical_substantial_lines": 23,
+            "shorter_substantial_lines": 124,
+            "share_pct": 18.5,
+            "duplicate_blocks_ge4": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "C6",
+      "title": "shared primitives are imported by a test",
+      "status": "fail",
+      "measured": {
+        "shared_exports": 9,
+        "untested": [
+          "Loading",
+          "ErrorBox",
+          "EmptyState",
+          "useAsync",
+          "useMutation"
+        ]
+      },
+      "threshold": {
+        "untested": 0
+      },
+      "violations": [
+        {
+          "name": "Loading",
+          "module": "src/components/ui.tsx"
+        },
+        {
+          "name": "ErrorBox",
+          "module": "src/components/ui.tsx"
+        },
+        {
+          "name": "EmptyState",
+          "module": "src/components/ui.tsx"
+        },
+        {
+          "name": "useAsync",
+          "module": "src/hooks/useAsync.ts"
+        },
+        {
+          "name": "useMutation",
+          "module": "src/hooks/useAsync.ts"
+        }
+      ]
+    },
+    {
+      "id": "C7",
+      "title": "no dead shared exports",
+      "status": "fail",
+      "measured": {
+        "dead_exports": 1
+      },
+      "threshold": {
+        "dead_exports": 0
+      },
+      "violations": [
+        {
+          "name": "useMutation",
+          "module": "src/hooks/useAsync.ts",
+          "external_usage_files": 0,
+          "external_call_sites": 0
+        }
+      ]
+    },
+    {
+      "id": "C8",
+      "title": "status vocabulary is not duplicated in pages",
+      "status": "fail",
+      "measured": {
+        "page_lines_with_status_literals": 52
+      },
+      "threshold": {
+        "page_lines_with_status_literals": 0
+      },
+      "violations": [
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:18",
+          "literal": "New"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:19",
+          "literal": "Contacted"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:20",
+          "literal": "ReadNoReply"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:21",
+          "literal": "Replied"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:22",
+          "literal": "Active"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:23",
+          "literal": "Interview"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:24",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:25",
+          "literal": "Withdrawn"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:26",
+          "literal": "Closed"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:781",
+          "literal": "generated"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:9",
+          "literal": "New"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:10",
+          "literal": "Contacted"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:11",
+          "literal": "ReadNoReply"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:12",
+          "literal": "Replied"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:13",
+          "literal": "Active"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:14",
+          "literal": "Interview"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:15",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:16",
+          "literal": "Withdrawn"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:17",
+          "literal": "Closed"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:9",
+          "literal": "Pending"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:10",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:11",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:12",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:13",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:14",
+          "literal": "Approved"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:15",
+          "literal": "Copied"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:16",
+          "literal": "AwaitingResult"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:17",
+          "literal": "Completed"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:18",
+          "literal": "Cancelled"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:19",
+          "literal": "Expired"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:20",
+          "literal": "Blocked"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:42",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:43",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:44",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:52",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:61",
+          "literal": "Pending"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:62",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:63",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:64",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:65",
+          "literal": "Approved"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:66",
+          "literal": "Copied"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:67",
+          "literal": "AwaitingResult"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:75",
+          "literal": "Pending"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:76",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:77",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:78",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:79",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:80",
+          "literal": "Approved"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:81",
+          "literal": "Copied"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:82",
+          "literal": "AwaitingResult"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:83",
+          "literal": "Blocked"
+        },
+        {
+          "where": "src/pages/PositionsPage.tsx:7",
+          "literal": "Draft"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "C1": {
+      "undefined_class_sites": 7,
+      "compound_mismatch_sites": 7,
+      "unresolved_tone_sites": 0,
+      "needs_manual_review_sites": 0
+    },
+    "C2": {
+      "bare_error_regions": 11
+    },
+    "C3": {
+      "unmapped_union_values": 15,
+      "status_props_typed_as_string": 2,
+      "toned_union_values": 18
+    },
+    "C4": {
+      "inline_styles_total": 32,
+      "inline_styles_static": 32
+    },
+    "C5": {
+      "worst_pair_identical_substantial_lines": 50,
+      "worst_pair_share_pct": 40.3,
+      "worst_pair_duplicate_blocks_ge4": 2
+    },
+    "C6": {
+      "untested_shared_exports": 5
+    },
+    "C7": {
+      "dead_exports": 1
+    },
+    "C8": {
+      "page_lines_with_status_literals": 52
+    }
+  },
+  "failed": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+  ],
+  "passed": [],
+  "verdict": {
+    "checks_total": 8,
+    "checks_failed": 8,
+    "all_checks_pass": false,
+    "regression_gate": "not-evaluated"
+  }
+}
