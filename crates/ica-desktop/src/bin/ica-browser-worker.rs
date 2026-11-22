@@ -28,8 +28,10 @@
 //! ```
 //!
 //! Every reply carries the same `seq`; a failure replies
-//! `{"seq": n, "ok": false, "error": "..."}` and the worker STAYS ALIVE —
-//! one failed command is not a crashed runtime.
+//! `{"seq": n, "ok": false, "code": "…", "error": "..."}` and the worker
+//! STAYS ALIVE — one failed command is not a crashed runtime. The `code` is
+//! the shared §9.2 vocabulary from `ica-contracts`; `error` is the legacy
+//! human-readable text the supervisor already parses.
 
 use std::io::{BufRead, Write};
 use std::path::Path;
@@ -62,9 +64,11 @@ async fn async_main() {
         let command: Value = match serde_json::from_str(&line) {
             Ok(value) => value,
             Err(error) => {
+                let message = format!("bad command json: {error}");
+                let code = ica_contracts::error::sidecar::code_for_error_message(&message);
                 reply(
                     &stdout,
-                    json!({"ok": false, "error": format!("bad command json: {error}")}),
+                    json!({"ok": false, "code": code, "error": message}),
                 );
                 continue;
             }
@@ -80,7 +84,11 @@ async fn async_main() {
                 reply(&stdout, value);
             }
             Err(error) => {
-                reply(&stdout, json!({"seq": seq, "ok": false, "error": error}));
+                let code = ica_contracts::error::sidecar::code_for_error_message(&error);
+                reply(
+                    &stdout,
+                    json!({"seq": seq, "ok": false, "code": code, "error": error}),
+                );
             }
         }
         if line.contains("\"stop\"") {

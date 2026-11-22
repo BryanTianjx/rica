@@ -80,6 +80,45 @@ fn details_value(details: &BTreeMap<String, String>) -> Value {
     Value::Object(map)
 }
 
+/// The wire vocabulary every transport renders (§9.2). Keep the codes in one
+/// place so HTTP, IPC and the sidecar cannot drift apart; adapters must use
+/// [`ContractError::envelope`] rather than rebuilding the object.
+pub mod code {
+    pub const NOT_FOUND: &str = "not_found";
+    pub const VALIDATION: &str = "validation_error";
+    pub const BUSINESS_RULE: &str = "business_rule_violation";
+    pub const HTTP: &str = "http_error";
+    pub const INTERNAL: &str = "internal_error";
+    pub const PROVIDER: &str = "ai_provider_error";
+    pub const UNAUTHORIZED: &str = "unauthorized";
+}
+
+/// Sidecar replies use a line protocol, but their `code` comes from the same
+/// §9.2 vocabulary as HTTP/IPC. The worker stays alive after an error and
+/// keeps its legacy `error` text field; `code` is additive.
+pub mod sidecar {
+    use super::code;
+
+    /// Classify a worker error message into the shared business-error code.
+    pub fn code_for_error_message(message: &str) -> &'static str {
+        if message.starts_with("bad command json") {
+            code::VALIDATION
+        } else {
+            code::INTERNAL
+        }
+    }
+}
+
+/// The `error` object both adapters put on the wire, byte-for-byte identical.
+/// HTTP wraps it in the JSON response; IPC puts it in `IpcError.error`; the
+/// sidecar reuses the same code constants.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ErrorEnvelope {
+    pub code: String,
+    pub message: String,
+    pub details: Value,
+}
+
 /// A request the adapter refuses to serve.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ContractError {
@@ -181,17 +220,43 @@ impl ContractError {
     /// transport renders. The HTTP status codes are an adapter concern.
     pub fn code(&self) -> &str {
         match self {
-            Self::NotFound { .. } => "not_found",
-            Self::ValidationIssues { .. } | Self::Validation { .. } => "validation_error",
+            Self::NotFound { .. } => code::NOT_FOUND,
+            Self::ValidationIssues { .. } | Self::Validation { .. } => code::VALIDATION,
             Self::ValidationWithCode { code, .. } => code,
             Self::StatusWithCode { code, .. } => code,
-            Self::Conflict { .. } => "business_rule_violation",
+            Self::Conflict { .. } => code::BUSINESS_RULE,
             // The caller chose this code (`ocr_path_not_allowed`, …), so it is
             // not a `&'static str` literal.
             Self::ConflictWithCode { code, .. } => code,
-            Self::ProviderUnavailable { .. } => "ai_provider_error",
-            Self::Http { .. } => "http_error",
-            Self::Internal { .. } => "internal_error",
+            Self::ProviderUnavailable { .. } => code::PROVIDER,
+            Self::Http { .. } => code::HTTP,
+            Self::Internal { .. } => code::INTERNAL,
+        }
+    }
+
+    /// The canonical HTTP status for this business error. HTTP uses it
+    /// directly; IPC has no status line but the adapter contract test asserts
+    /// both transports render the same code/details/message for every input.
+    pub fn http_status(&self) -> u16 {
+        match self {
+            Self::NotFound { .. } => 404,
+            Self::ValidationIssues { .. } | Self::Validation { .. } => 422,
+            Self::ValidationWithCode { .. } => 422,
+            Self::Conflict { .. } | Self::ConflictWithCode { .. } => 409,
+            Self::StatusWithCode { status, .. } => *status,
+            Self::ProviderUnavailable { .. } => 503,
+            Self::Http { status, .. } => *status,
+            Self::Internal { .. } => 500,
+        }
+    }
+
+    /// The single shared envelope builder. Both adapters must call this so a
+    /// fix to one code or message cannot leave the other transport stale.
+    pub fn envelope(&self) -> ErrorEnvelope {
+        ErrorEnvelope {
+            code: self.code().to_string(),
+            message: self.wire_message().to_string(),
+            details: self.wire_details(),
         }
     }
 
@@ -306,6 +371,96 @@ mod tests {
             panic!("expected a 409");
         };
         assert_eq!(message, "nope");
+    }
+
+    #[test]
+    fn application_and_contract_error_vocabularies_agree() {
+        // AC4: one business error vocabulary, from the use case to every wire
+        // adapter. A drift in either mapping turns this test red.
+        let mut details = BTreeMap::new();
+        details.insert("k".to_string(), "v".to_string());
+        let cases = vec![
+            ApplicationError::not_found("Position", "p-1"),
+            ApplicationError::validation("bad", details.clone()),
+            ApplicationError::conflict("nope", details.clone()),
+            ApplicationError::conflict_value("nope", serde_json::json!({"settable": []})),
+            ApplicationError::ValidationWithCode {
+                code: "invalid_encryption_key",
+                message: "bad key".to_string(),
+                details: serde_json::json!({}),
+            },
+            ApplicationError::StatusWithCode {
+                status: 503,
+                code: "ocr_unavailable",
+                message: "no engine".to_string(),
+                details: serde_json::json!({}),
+            },
+            ApplicationError::ConflictWithCode {
+                code: "ocr_path_not_allowed",
+                message: "outside".to_string(),
+                details: serde_json::json!({}),
+            },
+            ApplicationError::ProviderUnavailable {
+                message: "provider down".to_string(),
+                details: serde_json::json!({}),
+            },
+            ApplicationError::Unavailable {
+                message: "db said no".to_string(),
+            },
+        ];
+        for error in cases {
+            let expected_code = error.code().to_string();
+            let expected_status = error.http_status();
+            let contract: ContractError = error.into();
+            assert_eq!(contract.code(), expected_code);
+            assert_eq!(contract.http_status(), expected_status);
+            assert_eq!(contract.envelope().code, expected_code);
+        }
+    }
+
+    #[test]
+    fn the_sidecar_classifier_only_emits_shared_codes() {
+        assert_eq!(
+            sidecar::code_for_error_message("bad command json: oops"),
+            code::VALIDATION
+        );
+        assert_eq!(
+            sidecar::code_for_error_message("cdp send failed"),
+            code::INTERNAL
+        );
+        for code_value in [
+            sidecar::code_for_error_message("bad command json: x"),
+            sidecar::code_for_error_message("anything else"),
+        ] {
+            assert!(matches!(
+                code_value,
+                code::VALIDATION
+                    | code::INTERNAL
+                    | code::NOT_FOUND
+                    | code::BUSINESS_RULE
+                    | code::HTTP
+                    | code::PROVIDER
+                    | code::UNAUTHORIZED
+            ));
+        }
+    }
+
+    #[test]
+    fn the_envelope_has_exactly_the_shared_error_shape() {
+        let envelope = ContractError::not_found("Position 'p' was not found").envelope();
+        assert_eq!(
+            serde_json::to_value(&envelope).expect("serialise"),
+            serde_json::json!({
+                "code": "not_found",
+                "message": "Position 'p' was not found",
+                "details": {}
+            })
+        );
+        // A 500 never echoes the real cause on any transport.
+        let envelope = ContractError::internal("sql: no such column").envelope();
+        assert_eq!(envelope.code, code::INTERNAL);
+        assert_eq!(envelope.message, "An unexpected error occurred");
+        assert_eq!(envelope.details, serde_json::json!({}));
     }
 
     #[test]

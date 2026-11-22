@@ -40,7 +40,7 @@ pub use dto::{
     ImportConfirmResult, ImportOcrResult, ImportRecordRead, ImportResult, ImportSessionRead,
     MessageRead, PageResponse, PositionRead, SendRecordRead, TimelineEntryRead,
 };
-pub use error::{ContractError, ValidationIssue};
+pub use error::{code, sidecar, ContractError, ErrorEnvelope, ValidationIssue};
 pub use query::{
     typed_limit, typed_offset, validate, validate_candidates, validate_conversations,
     validate_drafts, validate_follow_ups, validate_messages, validate_send_records,

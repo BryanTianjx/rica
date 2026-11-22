@@ -119,12 +119,14 @@ async fn local_mode_does_not_gate_business_routes_on_a_bearer_token() {
 }
 
 /// SEC04 AC3 source assertion: HTTP and IPC adapters call the SAME
-/// `ica_application` use cases for the auth/share surface. Neither transport
-/// owns its own authorization rules.
+/// `ica_application` use cases for the auth/share surface, and neither
+/// transport decides authorization itself. ARCH-P2 moved the trusted actor
+/// into a `RequestContext` and the permission checks into the use cases.
 #[test]
 fn http_and_ipc_share_and_auth_paths_use_the_same_use_cases() {
     const HTTP: &str = include_str!("../src/routes.rs");
     const IPC: &str = include_str!("../../ica-desktop/src/commands.rs");
+    const AUTH: &str = include_str!("../../ica-application/src/auth.rs");
 
     for call in [
         "ica_application::create_share(",
@@ -140,18 +142,20 @@ fn http_and_ipc_share_and_auth_paths_use_the_same_use_cases() {
         assert!(IPC.contains(call), "IPC adapter must call {call}");
     }
 
-    // The actor passed to every share use case comes from the trusted local
-    // identity, never from a request parameter, on BOTH transports.
-    assert_eq!(
-        HTTP.matches("&local.id").count(),
-        3,
-        "HTTP: create/list/delete share pass the trusted actor"
-    );
-    assert_eq!(
-        IPC.matches("&local.id").count(),
-        3,
-        "IPC: create/list/delete share pass the trusted actor"
-    );
+    // Both transports build the trusted identity the same way and never pass
+    // a caller-controlled actor id or a hand-picked `is_admin` boolean.
+    assert_eq!(HTTP.matches("RequestContext::local()").count(), 3);
+    assert_eq!(IPC.matches("RequestContext::local()").count(), 3);
+    for source in [HTTP, IPC] {
+        assert!(!source.contains("is_admin"));
+        assert!(!source.contains("&local.id"));
+    }
+
+    // Authorization itself is executed in the Application layer.
+    assert!(AUTH.contains("authorize(ctx, Permission::SharesCreate)?"));
+    assert!(AUTH.contains("authorize(ctx, Permission::SharesRead)?"));
+    assert!(AUTH.contains("authorize(ctx, Permission::SharesDelete)?"));
+    assert!(AUTH.contains("ctx.can_administer(&share.owner_id)"));
 }
 
 async fn get_with_header(app: axum::Router, uri: &str, name: &str, value: &str) -> TestResponse {

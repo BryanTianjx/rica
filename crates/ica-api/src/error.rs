@@ -74,76 +74,18 @@ impl From<ContractError> for ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, code, message, details) = match self.0 {
-            ContractError::NotFound { message } => {
-                (StatusCode::NOT_FOUND, "not_found", message, json!({}))
-            }
-            ContractError::ValidationIssues { issues } => (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "validation_error",
-                "Request payload failed validation".to_string(),
-                json!({ "errors": issues }),
-            ),
-            ContractError::Validation { message, details } => (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "validation_error",
-                message,
-                details,
-            ),
-            ContractError::StatusWithCode {
-                status,
-                code,
-                message,
-                details,
-            } => (
-                StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
-                code,
-                message,
-                details,
-            ),
-            ContractError::ValidationWithCode {
-                code,
-                message,
-                details,
-            } => (StatusCode::UNPROCESSABLE_ENTITY, code, message, details),
-            ContractError::ConflictWithCode {
-                code,
-                message,
-                details,
-            } => (StatusCode::CONFLICT, code, message, details),
-            ContractError::Conflict { message, details } => (
-                StatusCode::CONFLICT,
-                "business_rule_violation",
-                message,
-                details,
-            ),
-            ContractError::ProviderUnavailable { message, details } => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "ai_provider_error",
-                message,
-                details,
-            ),
-            ContractError::Http { status, message } => (
-                StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
-                "http_error",
-                message,
-                json!({}),
-            ),
-            ContractError::Internal { message } => {
-                // Log the cause; answer with the generic baseline text.
-                tracing::error!("request failed: {message}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "internal_error",
-                    "An unexpected error occurred".to_string(),
-                    json!({}),
-                )
-            }
-        };
+        // Log the cause; answer with the generic baseline text. The envelope
+        // builder is shared with IPC and the sidecar (ARCH-P2 AC4).
+        if let ContractError::Internal { message } = &self.0 {
+            tracing::error!("request failed: {message}");
+        }
+        let status =
+            StatusCode::from_u16(self.0.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let envelope = self.0.envelope();
         (
             status,
             Json(json!({
-                "error": {"code": code, "message": message, "details": details}
+                "error": envelope
             })),
         )
             .into_response()

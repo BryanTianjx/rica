@@ -876,11 +876,8 @@ async fn get_import(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
 ) -> Result<Json<ImportSessionRead>, ApiError> {
-    let session = state.imports().find(&session_id).await?.ok_or_else(|| {
-        ApiError::from(ContractError::not_found(format!(
-            "Import session '{session_id}' was not found"
-        )))
-    })?;
+    // The 404 and the repository error both come from the shared use case.
+    let session = ica_application::get_import(state.imports(), &session_id).await?;
     Ok(Json(ImportSessionRead::from(session)))
 }
 
@@ -1275,37 +1272,12 @@ async fn restore_backup_endpoint(
     Path(name): Path<String>,
     body: Bytes,
 ) -> Result<Json<RestoreRead>, ApiError> {
-    // Confirm first (the baseline checks confirm BEFORE the file is touched).
+    // Business rules (confirm, file-name guard, existence pre-check) live in
+    // the shared Application use case; IPC executes the identical code.
     let payload: serde_json::Value = body::parse(&body)?;
     let confirmed = payload["confirm"].as_bool().unwrap_or(false);
-    if !confirmed {
-        return Err(ApiError::from(ica_contracts::error::ContractError::Conflict {
-            message: "Restoring a backup replaces the current data. Send confirm=true once you are sure.".to_string(),
-            details: serde_json::json!({ "backup": name }),
-        }));
-    }
-    if name.contains('/') || name.contains('\\') || name.is_empty() || name == "." || name == ".." {
-        return Err(ApiError::from(
-            ica_contracts::error::ContractError::Validation {
-                message: "A backup is addressed by its file name, not by a path.".to_string(),
-                details: serde_json::json!({ "backup": name }),
-            },
-        ));
-    }
-    // The endpoint pre-checks existence (404 with the not-found envelope)
-    // before the file is touched, exactly like the baseline.
-    let known = ica_application::list_backups(state.backups())
-        .await?
-        .iter()
-        .any(|record| record.name == name);
-    if !known {
-        return Err(ApiError::from(
-            ica_contracts::error::ContractError::NotFound {
-                message: format!("No backup file named '{name}' was found"),
-            },
-        ));
-    }
-    let outcome = ica_application::restore_backup(state.backups(), &name).await?;
+    let outcome =
+        ica_application::restore_backup_checked(state.backups(), &name, confirmed).await?;
     Ok(Json(RestoreRead {
         restored_from: outcome.restored_from,
         database: outcome.database,
@@ -1398,10 +1370,12 @@ async fn create_share_endpoint(
 ) -> Result<(StatusCode, Json<ShareRead>), ApiError> {
     let raw: body::RawShareCreate = body::parse(&body)?;
     let create = body::share_create(raw)?;
-    let local = ica_application::local_user();
+    // The trusted identity travels in a RequestContext; authorization runs in
+    // the Application use case on BOTH transports.
+    let ctx = ica_application::RequestContext::local();
     let share = ica_application::create_share(
         state.auth_repo(),
-        &local.id,
+        &ctx,
         &create.recipient_id,
         &create.resource_type,
         &create.resource_id,
@@ -1415,17 +1389,17 @@ async fn create_share_endpoint(
 async fn list_shares_endpoint(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ShareRead>>, ApiError> {
-    let local = ica_application::local_user();
-    let shares = ica_application::list_shares(state.auth_repo(), &local.id).await?;
+    let ctx = ica_application::RequestContext::local();
+    let shares = ica_application::list_shares(state.auth_repo(), &ctx).await?;
     Ok(Json(shares.iter().map(ShareRead::from).collect()))
 }
 
-/// `DELETE /shares/{id}` — owner or admin (the local user is admin).
+/// `DELETE /shares/{id}` — owner or admin, decided by the Application layer.
 async fn delete_share_endpoint(
     State(state): State<AppState>,
     Path(share_id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
-    let local = ica_application::local_user();
-    ica_application::delete_share(state.auth_repo(), &share_id, &local.id, true).await?;
+    let ctx = ica_application::RequestContext::local();
+    ica_application::delete_share(state.auth_repo(), &ctx, &share_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
