@@ -26,9 +26,10 @@
 //   4. <exe dir>/ui — flat dev layout (Rust-only dev slice)
 //
 // Data root: %LOCALAPPDATA%\ICA\data (the paths.py contract). run_sidecar
-// creates the subdirectories and the JWT secret itself; the host only logs.
-// The Rust server receives a per-launch JWT_SECRET the host generates, so
-// the token flow survives the local default "" (which PyJWT refuses).
+// creates its own secret; the host loads-or-creates a separate 256-bit CSPRNG
+// signing key for the Rust server and passes it via JWT_SECRET, so the token
+// flow survives the local default "" (which PyJWT refuses). SEC-01: that key
+// lives in the OS credential store (0600 file fallback) and is never logged.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{BufRead, BufReader, Read, Write};
@@ -201,16 +202,19 @@ fn resolve_data_root() -> PathBuf {
     }
 }
 
-/// A per-launch JWT secret (32 hex chars) for the Rust server's token
-/// signing. stdlib-only: time + pid are enough for a per-run secret that
-/// never persists.
+/// Load-or-create the 256-bit JWT signing key for the Rust server.
+///
+/// SEC-01: the key comes from the OS CSPRNG via the shared infrastructure
+/// component, is persisted in the OS credential store (0600 file fallback on
+/// Linux), and never appears in source or logs. No `SystemTime`, no PID, no
+/// fixed default. If the store is unavailable we fail fast rather than sign
+/// tokens with a predictable key.
 fn generate_jwt_secret() -> String {
-    let seed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0)
-        ^ ((std::process::id() as u128) << 64);
-    format!("{seed:032x}")
+    let provider = ica_desktop::jwt_key::JwtKeyProvider::new(resolve_data_root());
+    let key = provider
+        .load_or_create()
+        .expect("JWT signing key store unavailable: refusing to start with a predictable secret");
+    key.to_hex()
 }
 
 /// The Rust server's listening event, parsed exactly like the sidecar's

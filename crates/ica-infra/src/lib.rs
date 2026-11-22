@@ -21,6 +21,7 @@ pub mod extractions;
 pub mod follow_ups;
 pub mod imports;
 pub mod json_fmt;
+pub mod jwt_key;
 pub mod migrations;
 pub mod ocr_rapid;
 pub mod repository;
