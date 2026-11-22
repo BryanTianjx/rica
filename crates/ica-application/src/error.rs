@@ -110,6 +110,42 @@ impl ApplicationError {
         }
     }
 
+    /// The shared business error code (§9.2). `ica-contracts` renders this
+    /// same vocabulary on every transport; a unit test in that crate asserts
+    /// the two mappings stay identical.
+    pub fn code(&self) -> &str {
+        match self {
+            ApplicationError::NotFound { .. } => "not_found",
+            ApplicationError::Validation { .. } => "validation_error",
+            ApplicationError::Conflict { .. } | ApplicationError::ConflictValue { .. } => {
+                "business_rule_violation"
+            }
+            ApplicationError::ValidationWithCode { code, .. }
+            | ApplicationError::StatusWithCode { code, .. }
+            | ApplicationError::ConflictWithCode { code, .. } => code,
+            ApplicationError::ProviderUnavailable { .. } => "ai_provider_error",
+            ApplicationError::Unavailable { .. } => "internal_error",
+        }
+    }
+
+    /// The HTTP status the contract assigns this business error. IPC has no
+    /// status line, but uses the same code/details envelope; the sidecar uses
+    /// the same code vocabulary. Kept here so no adapter may invent a code.
+    pub fn http_status(&self) -> u16 {
+        match self {
+            ApplicationError::NotFound { .. } => 404,
+            ApplicationError::Validation { .. } | ApplicationError::ValidationWithCode { .. } => {
+                422
+            }
+            ApplicationError::Conflict { .. }
+            | ApplicationError::ConflictValue { .. }
+            | ApplicationError::ConflictWithCode { .. } => 409,
+            ApplicationError::StatusWithCode { status, .. } => *status,
+            ApplicationError::ProviderUnavailable { .. } => 503,
+            ApplicationError::Unavailable { .. } => 500,
+        }
+    }
+
     /// Human-readable message, unchanged from the source that produced it.
     pub fn message(&self) -> &str {
         match self {

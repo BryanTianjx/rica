@@ -1261,21 +1261,13 @@ pub async fn backups_restore(
     args: BackupsRestoreArgs,
 ) -> Result<dto::RestoreRead, IpcError> {
     let name = args.name.unwrap_or_default();
-    if !args.confirm.unwrap_or(false) {
-        return Err(IpcError::from(ica_contracts::error::ContractError::Conflict {
-            message: "Restoring a backup replaces the current data. Send confirm=true once you are sure.".to_string(),
-            details: serde_json::json!({ "backup": name }),
-        }));
-    }
-    if name.contains('/') || name.contains('\\') || name.is_empty() || name == "." || name == ".." {
-        return Err(IpcError::from(
-            ica_contracts::error::ContractError::Validation {
-                message: "A backup is addressed by its file name, not by a path.".to_string(),
-                details: serde_json::json!({ "backup": name }),
-            },
-        ));
-    }
-    let outcome = ica_application::restore_backup(state.backups(), &name).await?;
+    // The shared use case owns confirm, path guard and existence pre-check.
+    let outcome = ica_application::restore_backup_checked(
+        state.backups(),
+        &name,
+        args.confirm.unwrap_or(false),
+    )
+    .await?;
     Ok(dto::RestoreRead {
         restored_from: outcome.restored_from,
         database: outcome.database,
@@ -1429,10 +1421,10 @@ pub async fn shares_create(
         },
     })
     .map_err(fail)?;
-    let local = ica_application::local_user();
+    let ctx = ica_application::RequestContext::local();
     let share = ica_application::create_share(
         state.auth_repo(),
-        &local.id,
+        &ctx,
         &create.recipient_id,
         &create.resource_type,
         &create.resource_id,
@@ -1444,14 +1436,14 @@ pub async fn shares_create(
 
 /// `shares_list` — the local user's shares, newest first.
 pub async fn shares_list(state: &DesktopState) -> Result<Vec<dto::ShareRead>, IpcError> {
-    let local = ica_application::local_user();
-    let shares = ica_application::list_shares(state.auth_repo(), &local.id).await?;
+    let ctx = ica_application::RequestContext::local();
+    let shares = ica_application::list_shares(state.auth_repo(), &ctx).await?;
     Ok(shares.iter().map(dto::ShareRead::from).collect())
 }
 
-/// `shares_delete` — owner or admin (the local user is admin).
+/// `shares_delete` — owner or admin, decided by the Application layer.
 pub async fn shares_delete(state: &DesktopState, share_id: String) -> Result<(), IpcError> {
-    let local = ica_application::local_user();
-    ica_application::delete_share(state.auth_repo(), &share_id, &local.id, true).await?;
+    let ctx = ica_application::RequestContext::local();
+    ica_application::delete_share(state.auth_repo(), &ctx, &share_id).await?;
     Ok(())
 }

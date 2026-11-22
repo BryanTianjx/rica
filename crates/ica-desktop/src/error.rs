@@ -10,19 +10,16 @@ use serde::Serialize;
 
 use ica_contracts::error::ContractError;
 
-/// The `Result` error type of every command in this crate.
+/// The `Result` error type of every command in this crate. Its body is the
+/// exact `ErrorEnvelope` the HTTP adapter renders, so one error-parsing path
+/// serves both transports.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct IpcError {
     pub error: IpcErrorBody,
 }
 
 /// The envelope body, field-for-field the HTTP side's `error` object.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct IpcErrorBody {
-    pub code: String,
-    pub message: String,
-    pub details: serde_json::Value,
-}
+pub type IpcErrorBody = ica_contracts::error::ErrorEnvelope;
 
 impl IpcError {
     pub fn from_contract(error: ContractError) -> Self {
@@ -31,11 +28,7 @@ impl IpcError {
             tracing::error!("command failed: {message}");
         }
         Self {
-            error: IpcErrorBody {
-                code: error.code().to_string(),
-                message: error.wire_message().to_string(),
-                details: error.wire_details(),
-            },
+            error: error.envelope(),
         }
     }
 
@@ -54,5 +47,17 @@ impl From<ContractError> for IpcError {
 impl From<ica_application::ApplicationError> for IpcError {
     fn from(error: ica_application::ApplicationError) -> Self {
         Self::from_contract(error.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_sidecar_uses_the_same_error_code_vocabulary() {
+        // The worker is a separate binary; a source-level check keeps it on
+        // the shared classifier even though no Chromium runs on this host.
+        const WORKER: &str = include_str!("bin/ica-browser-worker.rs");
+        assert!(WORKER.contains("ica_contracts::error::sidecar::code_for_error_message"));
+        assert!(WORKER.contains("\"code\": code"));
     }
 }

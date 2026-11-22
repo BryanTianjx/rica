@@ -23,6 +23,8 @@ pub mod payload;
 pub mod ports;
 pub mod positions;
 pub mod prompts;
+pub mod request_context;
+pub mod runtime;
 pub mod send_records;
 pub mod settings;
 pub mod sync;
@@ -48,7 +50,7 @@ pub use auth_recovery::{
     transition as auth_transition, AuthEvent, AuthPhase, AuthSessionState, SessionEndReason,
     ALL_AUTH_PHASES,
 };
-pub use backup::{create_backup, list_backups, restore_backup};
+pub use backup::{create_backup, list_backups, restore_backup, restore_backup_checked};
 pub use candidates::{
     create_candidate, delete_candidate, get_candidate, get_candidate_detail, list_candidates,
     update_candidate, CandidateDetail, ListCandidates,
@@ -92,6 +94,8 @@ pub use ports::{
 pub use positions::{
     create_position, delete_position, get_position, list_positions, update_position, ListPositions,
 };
+pub use request_context::{authorize, Permission, RequestContext};
+pub use runtime::{AppRuntime, RuntimeConfig};
 pub use send_records::{list_send_records, record_send, ListSendRecords};
 pub use settings::{
     read_egress_disclosure, write_egress_consent, EgressDisclosure, SettingsConfigView,

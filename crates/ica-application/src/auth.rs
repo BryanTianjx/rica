@@ -15,6 +15,7 @@
 
 use crate::error::ApplicationError;
 use crate::ports::AuthRepository;
+use crate::request_context::{authorize, Permission, RequestContext};
 use std::collections::BTreeMap;
 
 /// The synthetic local user's id (`settings.default_user_id`).
@@ -327,12 +328,14 @@ async fn issue_pair(
 /// new permission, not a conflict — the baseline's upsert.
 pub async fn create_share(
     repository: &dyn AuthRepository,
-    actor_id: &str,
+    ctx: &RequestContext,
     recipient_id: &str,
     resource_type: &str,
     resource_id: &str,
     permission: &str,
 ) -> Result<ShareData, ApplicationError> {
+    // Authorization is an Application concern: no transport may skip it.
+    authorize(ctx, Permission::SharesCreate)?;
     if resource_type != "candidate" && resource_type != "position" {
         return Err(validation(
             "resource_type must be one of ['candidate', 'position']",
@@ -350,12 +353,12 @@ pub async fn create_share(
             message: format!("User '{recipient_id}' was not found"),
         });
     }
-    if recipient_id == actor_id {
+    if recipient_id == ctx.actor_id {
         return Err(validation("Cannot share with yourself"));
     }
     repository
         .upsert_share(
-            actor_id,
+            &ctx.actor_id,
             recipient_id,
             resource_type,
             resource_id,
@@ -368,21 +371,24 @@ pub async fn create_share(
 /// `GET /shares` — the user's shares (granted or received), newest first.
 pub async fn list_shares(
     repository: &dyn AuthRepository,
-    user_id: &str,
+    ctx: &RequestContext,
 ) -> Result<Vec<ShareData>, ApplicationError> {
+    authorize(ctx, Permission::SharesRead)?;
     repository
-        .list_shares_for_user(user_id)
+        .list_shares_for_user(&ctx.actor_id)
         .await
         .map_err(|error| error.application_error())
 }
 
 /// `DELETE /shares/{id}` — owner or admin only (the local user is admin).
+/// The owner check needs the share row, so it stays here in the Application
+/// layer where the row is available — never in an adapter.
 pub async fn delete_share(
     repository: &dyn AuthRepository,
+    ctx: &RequestContext,
     share_id: &str,
-    actor_id: &str,
-    is_admin: bool,
 ) -> Result<(), ApplicationError> {
+    authorize(ctx, Permission::SharesDelete)?;
     let share = repository
         .get_share(share_id)
         .await
@@ -392,7 +398,7 @@ pub async fn delete_share(
             message: format!("Share '{share_id}' was not found"),
         });
     };
-    if share.owner_id != actor_id && !is_admin {
+    if !ctx.can_administer(&share.owner_id) {
         return Err(unauthorized("Only the owner can revoke this share"));
     }
     repository
