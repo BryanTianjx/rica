@@ -40,7 +40,18 @@ DEFAULT_DOC = Path(__file__).resolve().parent.parent / "docs" / "rust-migration-
 #: The browser subsystem is a separate vertical slice, excluded from this
 #: migration by ICA's own architecture documents (see
 #: docs/rust-migration-scope-20261118.md). Repeatable on the command line.
-DEFAULT_EXCLUDE_PREFIXES = ("/api/browser/",)
+DEFAULT_EXCLUDE_PREFIXES: tuple[str, ...] = ("/api/browser/",)
+#: Post-freeze routes that ADR-0008 (signed 2026-11-22) rules OUT of the
+#: 68-route contract.  Exact (method, path) pairs — NOT a prefix — so a new
+#: route under these families that is not on this list still shows as missing.
+#: 4 ai/models CRUD -> AI-EXT; confirm-candidate -> W7. 68 + 4 + 1 = 73 live.
+NONCONTRACT_ROUTES: frozenset[tuple[str, str]] = frozenset({
+    ("POST", "/api/ai/models"),
+    ("PUT", "/api/ai/models/{model_id:path}"),
+    ("PUT", "/api/ai/models/{model_id:path}/default"),
+    ("DELETE", "/api/ai/models/{model_id:path}"),
+    ("POST", "/api/imports/{session_id}/confirm-candidate"),
+})
 SKIP_PATHS = {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
 
 ROW = re.compile(
@@ -142,12 +153,32 @@ def self_test() -> int:
     if missing != [("GET", "/api/never-planned")]:
         failures.append(f"new in-scope route: expected it missing, got {missing}")
 
+    # ADR-0008: 5 contract-external routes must be excluded by exact match,
+    # and an UNLISTED new route under the same family must still be reported.
+    extra_live = {
+        ("POST", "/api/ai/models"),
+        ("PUT", "/api/ai/models/{model_id:path}"),
+        ("PUT", "/api/ai/models/{model_id:path}/default"),
+        ("DELETE", "/api/ai/models/{model_id:path}"),
+        ("POST", "/api/imports/{session_id}/confirm-candidate"),
+    }
+    in_scope, _ = split_scope(scope | browser | extra_live, prefixes)
+    still_missing, _ = compare(in_scope - NONCONTRACT_ROUTES, documented)
+    if still_missing:
+        failures.append(f"ADR-0008 exclusion: expected exact match, got {still_missing}")
+    unlisted = {("POST", "/api/ai/models/new-unlisted")}
+    in_scope, _ = split_scope(scope | browser | extra_live | unlisted, prefixes)
+    still_missing, _ = compare(in_scope - NONCONTRACT_ROUTES, documented)
+    if still_missing != [("POST", "/api/ai/models/new-unlisted")]:
+        failures.append(f"ADR-0008 unlisted route: expected it missing, got {still_missing}")
+
     if failures:
         for failure in failures:
             print(f"SELF-TEST FAIL: {failure}")
         return 1
-    print("self-test: 3/3 assertions passed"
-          " (no-exclusion mismatch, exclusion match, new-route mismatch)")
+    print("self-test: 5/5 assertions passed"
+          " (no-exclusion mismatch, exclusion match, new-route mismatch,"
+          " ADR-0008 exact exclusion, ADR-0008 unlisted-route mismatch)")
     return 0
 
 
@@ -189,8 +220,24 @@ def main(argv: list[str]) -> int:
     documented = documented_routes(Path(args.doc))
     in_scope, excluded = split_scope(live, prefixes)
 
+    # ADR-0008 (signed 2026-11-22): 5 post-freeze routes are out of contract.
+    # Remove by EXACT (method, path) so an unlisted new route still shows up.
+    noncontract_present = in_scope & NONCONTRACT_ROUTES
+    in_scope = in_scope - NONCONTRACT_ROUTES
+
     print(f"live /api routes:        {len(live)}")
     print(f"excluded (out of scope): {len(excluded)}   prefix: {' '.join(prefixes)}")
+    print(f"excluded (ADR-0008):     {len(noncontract_present)}   contract-external exact routes")
+    for route in sorted(noncontract_present):
+        print(f"    out of contract: {route[0]:7s} {route[1]}")
+    # Fail if the ADR-0008 list has drifted: every listed route must actually
+    # exist live, otherwise a future removal would silently shrink the set.
+    if noncontract_present != NONCONTRACT_ROUTES:
+        print(
+            f"\nRESULT: MISMATCH — ADR-0008 lists {sorted(NONCONTRACT_ROUTES)} "
+            f"but live has {sorted(noncontract_present)}"
+        )
+        return 1
     for route in sorted(excluded):
         print(f"    out of scope: {route[0]:7s} {route[1]}")
     print(f"compared live routes:    {len(in_scope)}")
