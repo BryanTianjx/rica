@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
-import { dashboardApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { EmptyState, ErrorBox, Loading, LocalTime, Stat, StatusBadge } from '../components/ui';
 import { MonthCalendar } from '../components/dashboard/MonthCalendar';
 
 export function DashboardPage() {
-  const { data, error, loading, reload } = useAsync(() => dashboardApi.get(), []);
+  const { data, error, loading, reload } = useAsync(() => backend.dashboard.get(), []);
 
   if (loading) return <Loading />;
   if (error) return <ErrorBox message={error} />;

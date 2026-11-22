@@ -15,8 +15,8 @@
  */
 
 import { useState } from 'react';
-import { aiApi } from '../services/endpoints';
-import { ApiError } from '../services/api';
+import { backend } from '../services/backend';
+import { ApiError } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading } from './ui';
 import { ConfirmBar } from './ConfirmBar';
 import type { AiModel, AiModelsResponse, AiModelWrite, AiQualityTier } from '../types';
@@ -308,10 +308,10 @@ export function AiModelConfigPanel({
     setActionError(null);
     try {
       if (existing) {
-        await aiApi.updateModel(existing.model_id, payload);
+        await backend.ai.updateModel(existing.model_id, payload);
         setNotice(`模型配置「${modelId}」已更新。`);
       } else {
-        await aiApi.createModel({ model_id: modelId, ...payload });
+        await backend.ai.createModel({ model_id: modelId, ...payload });
         setNotice(`模型配置「${modelId}」已创建。`);
       }
       setDraft(null);
@@ -329,7 +329,7 @@ export function AiModelConfigPanel({
     setActionError(null);
     setNotice(null);
     try {
-      await aiApi.setDefaultModel(model.model_id);
+      await backend.ai.setDefaultModel(model.model_id);
       setNotice(`已把「${model.model_id}」设为默认生效模型。`);
       onReload();
     } catch (caught: unknown) {
@@ -344,7 +344,7 @@ export function AiModelConfigPanel({
     setActionError(null);
     setNotice(null);
     try {
-      await aiApi.deleteModel(modelId);
+      await backend.ai.deleteModel(modelId);
       if (editingId === modelId) {
         setDraft(null);
         setEditingId(null);

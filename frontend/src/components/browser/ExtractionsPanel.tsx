@@ -7,8 +7,8 @@
  */
 
 import { useMemo, useState } from 'react';
-import { browserApi } from '../../services/endpoints';
-import { ApiError } from '../../services/api';
+import { backend } from '../../services/backend';
+import { ApiError } from '../../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading } from '../ui';
 import { ConfirmBar } from '../ConfirmBar';
 import { useAsync } from '../../hooks/useAsync';
@@ -31,7 +31,7 @@ function errText(exc: unknown): string {
 }
 
 export function ExtractionsPanel() {
-  const list = useAsync(async () => (await browserApi.listExtractions()).extractions, []);
+  const list = useAsync(async () => (await backend.browser.listExtractions()).extractions, []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<BrowserExtractionFields>({});
   const [original, setOriginal] = useState<Record<string, string | null>>({});
@@ -69,9 +69,9 @@ export function ExtractionsPanel() {
     try {
       const patch: BrowserExtractionFields = {};
       for (const key of changedKeys) patch[key] = draft[key] ?? null;
-      await browserApi.patchExtraction(selected.id, patch);
+      await backend.browser.patchExtraction(selected.id, patch);
       setNotice('修订已保存（before/after 已记入修订历史）。');
-      const data = await browserApi.getExtraction(selected.id);
+      const data = await backend.browser.getExtraction(selected.id);
       setOriginal({ ...data.extraction.fields });
       setDraft({});
       list.reload();
@@ -87,7 +87,7 @@ export function ExtractionsPanel() {
     setBusy(true);
     setError(null);
     try {
-      await browserApi.reviewExtraction(selected.id, decision);
+      await backend.browser.reviewExtraction(selected.id, decision);
       setNotice(decision === 'approve' ? '提取已批准，可落档。' : '提取已驳回。');
       list.reload();
     } catch (exc) {
@@ -108,7 +108,7 @@ export function ExtractionsPanel() {
         setError('该提取没有关联的导入会话（import_session_id），无法走落档端点。');
         return;
       }
-      const result = await browserApi.confirmExtraction(importSessionId, {
+      const result = await backend.browser.confirmExtraction(importSessionId, {
         confirm_duplicate: confirmDuplicate,
       });
       setNotice(

@@ -12,8 +12,8 @@
  */
 
 import { useState } from 'react';
-import { browserApi } from '../../services/endpoints';
-import { ApiError } from '../../services/api';
+import { backend } from '../../services/backend';
+import { ApiError } from '../../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading } from '../ui';
 import { useAsync } from '../../hooks/useAsync';
 import { riskTone } from './browserStatus';
@@ -34,7 +34,7 @@ function errText(exc: unknown): string {
 
 export function SessionPanel() {
   // 面板自持运行时状态：会话创建 / 关闭后 reload，会话存活性才不会拿到旧快照。
-  const runtime = useAsync(() => browserApi.runtimeStatus(), []);
+  const runtime = useAsync(() => backend.browser.runtimeStatus(), []);
   const runtimeStatus = runtime.data?.runtime ?? null;
   // 会话清单以服务端 status 为准（页面刷新 / 运行时重启后依然可见、可关）；
   // 本地只记录“当前选中”的那一个，未选中时回落到第一个活会话。
@@ -69,7 +69,7 @@ export function SessionPanel() {
     setBusy(true);
     setError(null);
     try {
-      const data = await browserApi.createSession();
+      const data = await backend.browser.createSession();
       setSelectedSessionId(data.session.session_id);
       runtime.reload();
     } catch (exc) {
@@ -82,7 +82,7 @@ export function SessionPanel() {
   const closeSession = async (targetId: string) => {
     setBusy(true);
     try {
-      await browserApi.closeSession(targetId);
+      await backend.browser.closeSession(targetId);
       setSelectedSessionId(null);
       runtime.reload();
       setNavigation(null);
@@ -102,7 +102,7 @@ export function SessionPanel() {
     setLoading(true);
     setError(null);
     try {
-      const data = await browserApi.navigate(activeSessionId, { url: url.trim() });
+      const data = await backend.browser.navigate(activeSessionId, { url: url.trim() });
       setNavigation(data.navigation);
     } catch (exc) {
       setError(errText(exc));
@@ -115,7 +115,7 @@ export function SessionPanel() {
     if (!activeSessionId) return;
     setLoading(true);
     try {
-      const data = await browserApi.snapshot(activeSessionId, {});
+      const data = await backend.browser.snapshot(activeSessionId, {});
       const snap = data.snapshot as { content?: string };
       setSnapshotText(
         typeof snap.content === 'string' ? snap.content : JSON.stringify(data.snapshot, null, 2),
@@ -131,7 +131,7 @@ export function SessionPanel() {
     if (!activeSessionId) return;
     setLoading(true);
     try {
-      const data = await browserApi.screenshot(activeSessionId, {});
+      const data = await backend.browser.screenshot(activeSessionId, {});
       setArtifactUrl(data.artifact.url);
     } catch (exc) {
       setError(errText(exc));
@@ -148,7 +148,7 @@ export function SessionPanel() {
     setVerifyOutcome(null);
     setLoading(true);
     try {
-      const data = await browserApi.executeAction(activeSessionId, {
+      const data = await backend.browser.executeAction(activeSessionId, {
         kind,
         target,
         value: kind === 'fill' && fillValue.length > 0 ? fillValue : undefined,
@@ -175,7 +175,7 @@ export function SessionPanel() {
     setLoading(true);
     setError(null);
     try {
-      const data = await browserApi.verifyAction(lastAction.action_id, {
+      const data = await backend.browser.verifyAction(lastAction.action_id, {
         kind: 'element_visible',
         target: { by: 'css', css: verifyTarget.trim() || 'body' },
       });

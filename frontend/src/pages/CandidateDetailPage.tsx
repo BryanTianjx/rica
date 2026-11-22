@@ -1,15 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
-import {
-  aiApi,
-  candidatesApi,
-  draftGroupsApi,
-  draftsApi,
-  followUpsApi,
-  importsApi,
-  settingsApi,
-} from '../services/endpoints';
+import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime, StatusBadge } from '../components/ui';
 import { redactionLabel } from '../privacyLabels';
 import type { CandidateStatus, MessageType, Tone } from '../types';
@@ -30,15 +22,15 @@ export function CandidateDetailPage() {
   const { id } = useParams<{ id: string }>();
   const candidateId = id ?? '';
 
-  const candidate = useAsync(() => candidatesApi.get(candidateId), [candidateId]);
-  const timeline = useAsync(() => candidatesApi.timeline(candidateId), [candidateId]);
-  const context = useAsync(() => candidatesApi.context(candidateId), [candidateId]);
-  const decision = useAsync(() => followUpsApi.evaluate(candidateId), [candidateId]);
+  const candidate = useAsync(() => backend.candidates.get(candidateId), [candidateId]);
+  const timeline = useAsync(() => backend.candidates.timeline(candidateId), [candidateId]);
+  const context = useAsync(() => backend.candidates.context(candidateId), [candidateId]);
+  const decision = useAsync(() => backend.followUps.evaluate(candidateId), [candidateId]);
   // PRIV-07: what leaves the process, to whom. Read-only disclosure.
-  const egress = useAsync(() => settingsApi.getAiEgress(), []);
+  const egress = useAsync(() => backend.settings.getAiEgress(), []);
 
   const [rawText, setRawText] = useState('');
-  const [preview, setPreview] = useState<Awaited<ReturnType<typeof importsApi.preview>> | null>(
+  const [preview, setPreview] = useState<Awaited<ReturnType<typeof backend.imports.preview>> | null>(
     null,
   );
   const [busy, setBusy] = useState(false);
@@ -51,15 +43,15 @@ export function CandidateDetailPage() {
   // A2: PRD §5.9「消息长度」可配置——后端 GenerateRequest.max_length（50–2000）；
   // 留空 = 不限制（键不发送）。
   const [maxLengthInput, setMaxLengthInput] = useState('');
-  const [draft, setDraft] = useState<Awaited<ReturnType<typeof draftsApi.generate>> | null>(
+  const [draft, setDraft] = useState<Awaited<ReturnType<typeof backend.drafts.generate>> | null>(
     null,
   );
 
   // ── V2.0 A/B 对比 ──────────────────────────────────────────────
-  const models = useAsync(() => aiApi.listModels(), []);
+  const models = useAsync(() => backend.ai.listModels(), []);
   const [comparisonModels, setComparisonModels] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
-  const [group, setGroup] = useState<Awaited<ReturnType<typeof draftGroupsApi.get>> | null>(
+  const [group, setGroup] = useState<Awaited<ReturnType<typeof backend.draftGroups.get>> | null>(
     null,
   );
 
@@ -89,7 +81,7 @@ export function CandidateDetailPage() {
     setActionError(null);
     setNotice(null);
     try {
-      const session = await importsApi.preview({ candidate_id: candidateId, raw_text: rawText });
+      const session = await backend.imports.preview({ candidate_id: candidateId, raw_text: rawText });
       setPreview(session);
     } catch (caught: unknown) {
       setActionError(caught instanceof Error ? caught.message : '解析失败');
@@ -103,7 +95,7 @@ export function CandidateDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      const result = await importsApi.confirm(preview.id, { candidate_id: candidateId });
+      const result = await backend.imports.confirm(preview.id, { candidate_id: candidateId });
       setNotice(
         `已保存 ${result.saved_message_ids.length} 条消息，跳过 ${result.skipped_count} 条（其中重复 ${result.duplicate_count} 条）。`,
       );
@@ -127,7 +119,7 @@ export function CandidateDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      await importsApi.reject(preview.id);
+      await backend.imports.reject(preview.id);
       setPreview(null);
       setNotice('已放弃本次导入，未写入任何沟通记录。');
     } catch (caught: unknown) {
@@ -158,7 +150,7 @@ export function CandidateDetailPage() {
     setActionError(null);
     setNotice(null);
     try {
-      const created = await draftsApi.generate({
+      const created = await backend.drafts.generate({
         candidate_id: candidateId,
         message_type: messageType,
         tone,
@@ -188,7 +180,7 @@ export function CandidateDetailPage() {
     setActionError(null);
     setNotice(null);
     try {
-      const created = await draftsApi.generateComparison({
+      const created = await backend.drafts.generateComparison({
         candidate_id: candidateId,
         message_type: messageType,
         tone,
@@ -198,7 +190,7 @@ export function CandidateDetailPage() {
       });
       const groupId = created[0]?.draft_group_id;
       if (groupId) {
-        setGroup(await draftGroupsApi.get(groupId));
+        setGroup(await backend.draftGroups.get(groupId));
       }
       setNotice(`已用 ${comparisonModels.length} 个模型生成对比草稿。`);
     } catch (caught: unknown) {
@@ -213,7 +205,7 @@ export function CandidateDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      setGroup(await draftGroupsApi.select(group.draft_group_id, draftId));
+      setGroup(await backend.draftGroups.select(group.draft_group_id, draftId));
       setNotice('已选中该草稿，其余对比草稿已自动拒绝。');
     } catch (caught: unknown) {
       setActionError(caught instanceof Error ? caught.message : '选择失败');
@@ -226,7 +218,7 @@ export function CandidateDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      await followUpsApi.create({
+      await backend.followUps.create({
         candidate_id: candidateId,
         objective: decision.data?.suggested_objective ?? undefined,
       });
@@ -262,7 +254,7 @@ export function CandidateDetailPage() {
     setProfileSaving(true);
     setProfileError(null);
     try {
-      await candidatesApi.update(candidateId, {
+      await backend.candidates.update(candidateId, {
         name: profileForm.name || undefined,
         status: profileForm.status,
         // The clearable optional profile fields send explicit `null` when

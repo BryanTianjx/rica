@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
-import { authApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { notifySessionExpired } from './tokenStore';
 import type { User } from '../types';
 
@@ -31,7 +31,7 @@ describe('AuthContext', () => {
   });
 
   it('probes /auth/me and authenticates on 200 (local mode)', async () => {
-    vi.spyOn(authApi, 'me').mockResolvedValue(localUser);
+    vi.spyOn(backend.auth, 'me').mockResolvedValue(localUser);
     render(
       <AuthProvider>
         <Probe />
@@ -42,7 +42,7 @@ describe('AuthContext', () => {
   });
 
   it('probes /auth/me and marks unauthenticated on 401 (multiuser signed out)', async () => {
-    vi.spyOn(authApi, 'me').mockRejectedValue(new Error('Unauthorized'));
+    vi.spyOn(backend.auth, 'me').mockRejectedValue(new Error('Unauthorized'));
     render(
       <AuthProvider>
         <Probe />
@@ -53,7 +53,7 @@ describe('AuthContext', () => {
   });
 
   it('kicks to unauthenticated when the API layer reports the session expired (F2-1)', async () => {
-    vi.spyOn(authApi, 'me').mockResolvedValue(localUser);
+    vi.spyOn(backend.auth, 'me').mockResolvedValue(localUser);
     render(
       <AuthProvider>
         <Probe />
@@ -70,7 +70,7 @@ describe('AuthContext', () => {
   });
 
   it('stops reacting to expired notifications after unmount', async () => {
-    vi.spyOn(authApi, 'me').mockResolvedValue(localUser);
+    vi.spyOn(backend.auth, 'me').mockResolvedValue(localUser);
     const { unmount } = render(
       <AuthProvider>
         <Probe />

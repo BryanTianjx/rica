@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
-import { dashboardApi } from './services/endpoints';
+import { backend } from './services/backend';
 
 // 桌面宿主旧版直接打开 /index.html（G4-09b 黑屏根因）：必须重定向到工作台
 vi.mock('./auth/AuthContext', async (importOriginal) => ({
@@ -12,7 +12,7 @@ vi.mock('./auth/AuthContext', async (importOriginal) => ({
 
 describe('App — 启动路由', () => {
   it('路径 / 渲染工作台', async () => {
-    vi.spyOn(dashboardApi, 'get').mockResolvedValue({
+    vi.spyOn(backend.dashboard, 'get').mockResolvedValue({
       candidate_total: 0,
       candidate_status_counts: {},
       active_follow_up_count: 0,
@@ -39,6 +39,6 @@ describe('App — 启动路由', () => {
     );
     // 重定向后落在 / → Dashboard；不再出现无路由匹配的空白主区域
     expect(await screen.findByRole('heading', { name: '工作台' })).toBeInTheDocument();
-    expect(dashboardApi.get).toHaveBeenCalled();
+    expect(backend.dashboard.get).toHaveBeenCalled();
   });
 });

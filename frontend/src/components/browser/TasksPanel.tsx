@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { browserApi } from '../../services/endpoints';
+import { backend } from '../../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime } from '../ui';
 import { ConfirmBar } from '../ConfirmBar';
 import { useAsync } from '../../hooks/useAsync';
@@ -21,7 +21,7 @@ function errText(exc: unknown): string {
 export function TasksPanel() {
   const list = useAsync(
     async () => {
-      const audit = await browserApi.audit({ limit: 200 });
+      const audit = await backend.browser.audit({ limit: 200 });
       const ids: string[] = [];
       for (const ev of audit.events) {
         if (ev.entity_type === 'browser_task' && ev.entity_id && !ids.includes(ev.entity_id)) {
@@ -31,7 +31,7 @@ export function TasksPanel() {
       const details = await Promise.all(
         ids.map(async (id) => {
           try {
-            const data = await browserApi.getTask(id);
+            const data = await backend.browser.getTask(id);
             return data.task;
           } catch {
             return null;
@@ -66,7 +66,7 @@ export function TasksPanel() {
     setError(null);
     try {
       // auto_run=false：显式创建后由用户点「运行」，避免创建即执行。
-      const data = await browserApi.createTask({
+      const data = await backend.browser.createTask({
         session_id: sessionId.trim(),
         intent: intent.trim(),
         auto_run: false,
@@ -85,7 +85,7 @@ export function TasksPanel() {
     setBusy(true);
     setError(null);
     try {
-      await browserApi.runTask(task.task_id);
+      await backend.browser.runTask(task.task_id);
       setNotice(`任务 ${task.task_id} 已运行。`);
       list.reload();
     } catch (exc) {
@@ -98,7 +98,7 @@ export function TasksPanel() {
   const cancel = async (task: BrowserTask) => {
     setBusy(true);
     try {
-      await browserApi.cancelTask(task.task_id, 'user');
+      await backend.browser.cancelTask(task.task_id, 'user');
       setNotice(`任务 ${task.task_id} 已请求取消。`);
       setConfirmCancel(null);
       list.reload();
@@ -112,7 +112,7 @@ export function TasksPanel() {
   const loadTimeline = async (task: BrowserTask) => {
     setLoadingTimeline(task.task_id);
     try {
-      const audit = await browserApi.taskAudit(task.task_id);
+      const audit = await backend.browser.taskAudit(task.task_id);
       setTimeline({ task, events: audit.events });
     } catch (exc) {
       setError(errText(exc));

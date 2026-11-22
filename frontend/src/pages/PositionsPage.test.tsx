@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PositionsPage } from '../pages/PositionsPage';
-import { positionsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { DEFAULT_POSITION_STATUS, POSITION_STATUSES } from '../positionStatuses';
 import type { Position, Page } from '../types';
 
@@ -39,7 +39,7 @@ function emptyPage<T>(): Page<T> {
 
 /** 渲染 PositionsPage，默认 mock 岗位列表。 */
 async function renderPage(positions: Position[] = [makePosition()]) {
-  vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf(positions));
+  vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf(positions));
   render(
     <MemoryRouter>
       <PositionsPage />
@@ -73,7 +73,7 @@ describe('PositionsPage — 列表展示', () => {
   });
 
   it('没有岗位时显示空状态', async () => {
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(emptyPage());
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(emptyPage());
     render(
       <MemoryRouter>
         <PositionsPage />
@@ -115,9 +115,9 @@ describe('PositionsPage — 新增岗位表单', () => {
 
   it('表单提交后调用 create', async () => {
     const mockCreate = vi
-      .spyOn(positionsApi, 'create')
+      .spyOn(backend.positions, 'create')
       .mockResolvedValue(makePosition());
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
         <PositionsPage />
@@ -156,9 +156,9 @@ describe('PositionsPage — 编辑岗位', () => {
 
   it('编辑修改名称后保存调用 update', async () => {
     const mockUpdate = vi
-      .spyOn(positionsApi, 'update')
+      .spyOn(backend.positions, 'update')
       .mockResolvedValue(makePosition());
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
         <PositionsPage />
@@ -200,7 +200,7 @@ describe('PositionsPage — 删除确认', () => {
 
   it('取消删除不调用 remove', async () => {
     const mockRemove = vi
-      .spyOn(positionsApi, 'remove')
+      .spyOn(backend.positions, 'remove')
       .mockResolvedValue(undefined);
     await renderPage();
     fireEvent.click(await screen.findByRole('button', { name: '删除' }));
@@ -210,10 +210,10 @@ describe('PositionsPage — 删除确认', () => {
 
   it('确认删除调用 remove 并重新加载', async () => {
     const mockRemove = vi
-      .spyOn(positionsApi, 'remove')
+      .spyOn(backend.positions, 'remove')
       .mockResolvedValue(undefined);
     const mockList = vi
-      .spyOn(positionsApi, 'list')
+      .spyOn(backend.positions, 'list')
       .mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
@@ -234,9 +234,9 @@ describe('PositionsPage — 删除确认', () => {
 describe('PositionsPage — 归档', () => {
   it('点击归档调用 update 切换 archived', async () => {
     const mockUpdate = vi
-      .spyOn(positionsApi, 'update')
+      .spyOn(backend.positions, 'update')
       .mockResolvedValue(makePosition({ archived: true }));
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(
       pageOf([makePosition({ archived: false })]),
     );
     render(
@@ -283,7 +283,7 @@ describe('PositionsPage — 岗位字段完整性', () => {
 
   it('创建时把全部扩展字段提交到 API', async () => {
     const mockCreate = vi
-      .spyOn(positionsApi, 'create')
+      .spyOn(backend.positions, 'create')
       .mockResolvedValue(makePosition());
     await renderPage();
     fireEvent.click(await screen.findByRole('button', { name: '新增岗位' }));
@@ -321,7 +321,7 @@ describe('PositionsPage — 岗位字段完整性', () => {
   });
 
   it('薪资下限高于上限时阻止提交并提示', async () => {
-    const mockCreate = vi.spyOn(positionsApi, 'create');
+    const mockCreate = vi.spyOn(backend.positions, 'create');
     await renderPage();
     fireEvent.click(await screen.findByRole('button', { name: '新增岗位' }));
     fireEvent.change(screen.getByLabelText('岗位名称 *'), { target: { value: '测试岗' } });
@@ -333,7 +333,7 @@ describe('PositionsPage — 岗位字段完整性', () => {
   });
 
   it('负薪资被输入约束拦截，不会提交', async () => {
-    const mockCreate = vi.spyOn(positionsApi, 'create');
+    const mockCreate = vi.spyOn(backend.positions, 'create');
     await renderPage();
     fireEvent.click(await screen.findByRole('button', { name: '新增岗位' }));
     fireEvent.change(screen.getByLabelText('岗位名称 *'), { target: { value: '测试岗' } });
@@ -357,8 +357,8 @@ describe('PositionsPage — 编辑完整字段', () => {
   });
 
   it('编辑表单预填已有字段并可提交修改', async () => {
-    const mockUpdate = vi.spyOn(positionsApi, 'update').mockResolvedValue(detailed);
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([detailed]));
+    const mockUpdate = vi.spyOn(backend.positions, 'update').mockResolvedValue(detailed);
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([detailed]));
     render(
       <MemoryRouter>
         <PositionsPage />
@@ -391,8 +391,8 @@ describe('PositionsPage — 编辑完整字段', () => {
   });
 
   it('清空的可选文本字段以 null 提交（真正清除）', async () => {
-    const mockUpdate = vi.spyOn(positionsApi, 'update').mockResolvedValue(detailed);
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([detailed]));
+    const mockUpdate = vi.spyOn(backend.positions, 'update').mockResolvedValue(detailed);
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([detailed]));
     render(
       <MemoryRouter>
         <PositionsPage />
@@ -417,7 +417,7 @@ describe('PositionsPage — 编辑完整字段', () => {
 describe('PositionsPage — 搜索与归档过滤', () => {
   it('输入搜索词后以 search 参数重新调用 list', async () => {
     const mockList = vi
-      .spyOn(positionsApi, 'list')
+      .spyOn(backend.positions, 'list')
       .mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
@@ -434,7 +434,7 @@ describe('PositionsPage — 搜索与归档过滤', () => {
 
   it('切换显示已归档后以 include_archived 参数重新调用 list', async () => {
     const mockList = vi
-      .spyOn(positionsApi, 'list')
+      .spyOn(backend.positions, 'list')
       .mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
@@ -457,9 +457,9 @@ describe('PositionsPage — 搜索与归档过滤', () => {
 
   it('已归档岗位可以取消归档', async () => {
     const mockUpdate = vi
-      .spyOn(positionsApi, 'update')
+      .spyOn(backend.positions, 'update')
       .mockResolvedValue(makePosition({ archived: false }));
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(
       pageOf([makePosition({ archived: true })]),
     );
     render(

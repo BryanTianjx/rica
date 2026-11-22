@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { browserApi } from '../../services/endpoints';
+import { backend } from '../../services/backend';
 import { PermissionsPanel } from './PermissionsPanel';
 import type { BrowserPermission } from '../../types';
 
@@ -25,9 +25,9 @@ describe('PermissionsPanel', () => {
 
   it('lists granted domains and grants a new one through the real request shape', async () => {
     const grantSpy = vi
-      .spyOn(browserApi, 'grantPermission')
+      .spyOn(backend.browser, 'grantPermission')
       .mockResolvedValue({ permission: makePermission({ domain: 'example.com' }) });
-    vi.spyOn(browserApi, 'listPermissions')
+    vi.spyOn(backend.browser, 'listPermissions')
       .mockResolvedValueOnce({ permissions: [makePermission()] })
       .mockResolvedValueOnce({
         permissions: [makePermission(), makePermission({ permission_id: 'perm_2', domain: 'example.com' })],
@@ -46,9 +46,9 @@ describe('PermissionsPanel', () => {
 
   it('delete requires a second confirmation (irreversible op)', async () => {
     const revokeSpy = vi
-      .spyOn(browserApi, 'revokePermission')
+      .spyOn(backend.browser, 'revokePermission')
       .mockResolvedValue(undefined);
-    vi.spyOn(browserApi, 'listPermissions').mockResolvedValue({ permissions: [makePermission()] });
+    vi.spyOn(backend.browser, 'listPermissions').mockResolvedValue({ permissions: [makePermission()] });
     render(<PermissionsPanel />);
     await waitFor(() => expect(screen.getByText('删除')).toBeTruthy());
 

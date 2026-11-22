@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAsync } from '../hooks/useAsync';
-import { positionsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Position, PositionStatus } from '../types';
@@ -138,7 +138,7 @@ export function PositionsPage() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const positions = useAsync(
     () =>
-      positionsApi.list({
+      backend.positions.list({
         search: search || undefined,
         include_archived: includeArchived || undefined,
       }),
@@ -197,10 +197,10 @@ export function PositionsPage() {
     setNotice(null);
     try {
       if (editingId) {
-        await positionsApi.update(editingId, buildUpdatePayload(draft));
+        await backend.positions.update(editingId, buildUpdatePayload(draft));
         setNotice('岗位已更新。');
       } else {
-        await positionsApi.create(buildCreatePayload(draft));
+        await backend.positions.create(buildCreatePayload(draft));
         setNotice('岗位已创建。');
       }
       setDraft(null);
@@ -217,7 +217,7 @@ export function PositionsPage() {
     setSavingId(position.id);
     setRowError(null);
     try {
-      await positionsApi.update(position.id, {
+      await backend.positions.update(position.id, {
         archived: !position.archived,
       });
       positions.reload();
@@ -232,7 +232,7 @@ export function PositionsPage() {
     setSavingId(id);
     setRowError(null);
     try {
-      await positionsApi.remove(id);
+      await backend.positions.remove(id);
       setDeletingId(null);
       positions.reload();
     } catch (caught: unknown) {

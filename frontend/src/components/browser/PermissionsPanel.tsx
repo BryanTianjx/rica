@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { browserApi } from '../../services/endpoints';
+import { backend } from '../../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading } from '../ui';
 import { ConfirmBar } from '../ConfirmBar';
 import { useAsync } from '../../hooks/useAsync';
@@ -19,7 +19,7 @@ function errText(exc: unknown): string {
 }
 
 export function PermissionsPanel() {
-  const list = useAsync(async () => (await browserApi.listPermissions()).permissions, []);
+  const list = useAsync(async () => (await backend.browser.listPermissions()).permissions, []);
   const [domain, setDomain] = useState('');
   const [ceiling, setCeiling] = useState<'L1' | 'L2' | 'L3'>('L3');
   const [note, setNote] = useState('');
@@ -39,7 +39,7 @@ export function PermissionsPanel() {
     setBusy(true);
     setError(null);
     try {
-      await browserApi.grantPermission({
+      await backend.browser.grantPermission({
         domain: trimmed,
         risk_ceiling: ceiling,
         note: note.trim().length > 0 ? note.trim() : undefined,
@@ -58,7 +58,7 @@ export function PermissionsPanel() {
   const revoke = async (permission: BrowserPermission) => {
     setBusy(true);
     try {
-      await browserApi.revokePermission(permission.permission_id);
+      await backend.browser.revokePermission(permission.permission_id);
       setNotice(`已撤销 ${permission.domain} 的授权。`);
       setConfirming(null);
       list.reload();

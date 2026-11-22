@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from '../pages/DashboardPage';
-import { dashboardApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import type { Dashboard } from '../types';
 
 // ── 测试辅助 ────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ function makeDashboard(overrides: Partial<Dashboard> = {}): Dashboard {
 
 /** 渲染 Dashboard 并等待数据加载完成。 */
 async function renderPage(data: Dashboard) {
-  vi.spyOn(dashboardApi, 'get').mockResolvedValue(data);
+  vi.spyOn(backend.dashboard, 'get').mockResolvedValue(data);
   render(
     <MemoryRouter>
       <DashboardPage />
@@ -202,7 +202,7 @@ describe('DashboardPage — 近期沟通', () => {
 describe('DashboardPage — 刷新与错误', () => {
   it('点击刷新按钮触发 reload', async () => {
     const mockGet = vi
-      .spyOn(dashboardApi, 'get')
+      .spyOn(backend.dashboard, 'get')
       .mockResolvedValue(makeDashboard());
     await renderPage(makeDashboard());
     const refreshBtn = screen.getByRole('button', { name: '刷新' });
@@ -212,7 +212,7 @@ describe('DashboardPage — 刷新与错误', () => {
   });
 
   it('API 错误时显示错误信息', async () => {
-    vi.spyOn(dashboardApi, 'get').mockRejectedValue(
+    vi.spyOn(backend.dashboard, 'get').mockRejectedValue(
       new Error('Request failed with HTTP 500'),
     );
     render(
@@ -233,7 +233,7 @@ describe('DashboardPage — 本月动态日历', () => {
       messages_by_day: { [today]: 3 },
       followups_by_day: {},
     };
-    vi.spyOn(dashboardApi, 'get').mockResolvedValue(makeDashboard({ calendar }));
+    vi.spyOn(backend.dashboard, 'get').mockResolvedValue(makeDashboard({ calendar }));
     await renderPage(makeDashboard({ calendar }));
 
     expect(screen.getByRole('grid', { name: `${month} 动态日历` })).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe('DashboardPage — 本月动态日历', () => {
   });
 
   it('calendar 为空时整个日历卡不渲染', async () => {
-    vi.spyOn(dashboardApi, 'get').mockResolvedValue(makeDashboard({ calendar: null }));
+    vi.spyOn(backend.dashboard, 'get').mockResolvedValue(makeDashboard({ calendar: null }));
     await renderPage(makeDashboard({ calendar: null }));
     expect(screen.queryByText('本月动态')).toBeNull();
   });

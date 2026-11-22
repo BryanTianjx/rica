@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ConversationsPage } from '../pages/ConversationsPage';
-import { candidatesApi, conversationsApi, messagesApi, positionsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import type { Candidate, Conversation, Message, Page, Position } from '../types';
 
 // ── 测试辅助 ────────────────────────────────────────────────────────────
@@ -109,15 +109,15 @@ async function tabTo(
 // (TS2345, surfaced by `npm run build` -> tsc -b, not by vitest).
 async function renderPage(conversationOverrides: Conversation[] = []) {
   const positionsList = vi
-    .spyOn(positionsApi, 'list')
+    .spyOn(backend.positions, 'list')
     .mockResolvedValue(pageOf([makePosition()]));
-  vi.spyOn(candidatesApi, 'list').mockResolvedValue(
+  vi.spyOn(backend.candidates, 'list').mockResolvedValue(
     pageOf([
       makeCandidate(),
       makeCandidate({ id: 'cand-2', name: '李四', message_count: 1 }),
     ]),
   );
-  vi.spyOn(conversationsApi, 'list').mockResolvedValue(
+  vi.spyOn(backend.conversations, 'list').mockResolvedValue(
     pageOf([
       makeConversation(),
       makeConversation({
@@ -129,7 +129,7 @@ async function renderPage(conversationOverrides: Conversation[] = []) {
       ...conversationOverrides.map((override) => makeConversation(override)),
     ]),
   );
-  vi.spyOn(messagesApi, 'list').mockResolvedValue(pageOf([makeMessage()]));
+  vi.spyOn(backend.messages, 'list').mockResolvedValue(pageOf([makeMessage()]));
 
   render(
     <MemoryRouter>
@@ -189,14 +189,14 @@ describe('ConversationsPage — 键盘可达性', () => {
 describe('ConversationsPage — 切换会话的加载态', () => {
   it('新会话请求返回前不显示上一个会话的时间线，只显示加载态', async () => {
     const user = userEvent.setup();
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
-    vi.spyOn(candidatesApi, 'list').mockResolvedValue(
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(
       pageOf([
         makeCandidate(),
         makeCandidate({ id: 'cand-2', name: '李四', message_count: 1 }),
       ]),
     );
-    vi.spyOn(conversationsApi, 'list').mockResolvedValue(
+    vi.spyOn(backend.conversations, 'list').mockResolvedValue(
       pageOf([
         makeConversation(),
         makeConversation({
@@ -210,7 +210,7 @@ describe('ConversationsPage — 切换会话的加载态', () => {
 
     // 会话 B 的请求被挂起，用于观察「尚未返回」的中间态。
     let releaseSecond: (() => void) | undefined;
-    vi.spyOn(messagesApi, 'list').mockImplementation(
+    vi.spyOn(backend.messages, 'list').mockImplementation(
       (params: { candidate_id?: string; conversation_id?: string; limit?: number } = {}) => {
         if (params.conversation_id === 'conv-2') {
           return new Promise((resolve) => {
@@ -310,12 +310,12 @@ describe('ConversationsPage — 岗位筛选与岗位列（G4-03 硬化）', () 
   });
 
   it('岗位列表加载失败时渲染 ErrorBox，会话列表仍可用', async () => {
-    vi.spyOn(positionsApi, 'list').mockRejectedValue(new Error('岗位服务不可用'));
-    vi.spyOn(candidatesApi, 'list').mockResolvedValue(
+    vi.spyOn(backend.positions, 'list').mockRejectedValue(new Error('岗位服务不可用'));
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(
       pageOf([makeCandidate()]),
     );
-    vi.spyOn(conversationsApi, 'list').mockResolvedValue(pageOf([makeConversation()]));
-    vi.spyOn(messagesApi, 'list').mockResolvedValue(pageOf([makeMessage()]));
+    vi.spyOn(backend.conversations, 'list').mockResolvedValue(pageOf([makeConversation()]));
+    vi.spyOn(backend.messages, 'list').mockResolvedValue(pageOf([makeMessage()]));
 
     render(
       <MemoryRouter>
@@ -343,7 +343,7 @@ describe('ConversationsPage — 手动新增消息的时间与渠道', () => {
 
   it('补录历史时间与渠道后提交，载荷携带 message_time 与 channel', async () => {
     const mockCreate = vi
-      .spyOn(messagesApi, 'create')
+      .spyOn(backend.messages, 'create')
       .mockResolvedValue(makeMessage());
     await openComposer();
 
@@ -368,7 +368,7 @@ describe('ConversationsPage — 手动新增消息的时间与渠道', () => {
 
   it('不填时间与渠道时按原行为提交：channel=boss，message_time 为提交时刻', async () => {
     const mockCreate = vi
-      .spyOn(messagesApi, 'create')
+      .spyOn(backend.messages, 'create')
       .mockResolvedValue(makeMessage());
     await openComposer();
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
-import { followUpsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { EmptyState, ErrorBox, Loading, LocalTime, StatusBadge } from '../components/ui';
 import type { FollowUpTaskStatus, ResultType } from '../types';
 
@@ -105,10 +105,10 @@ const STATUS_NOTES: Record<FollowUpTaskStatus, string> = {
 export function FollowUpsPage() {
   const [status, setStatus] = useState('');
   const tasks = useAsync(
-    () => followUpsApi.list({ status: status || undefined }),
+    () => backend.followUps.list({ status: status || undefined }),
     [status],
   );
-  const policy = useAsync(() => followUpsApi.getPolicy(), []);
+  const policy = useAsync(() => backend.followUps.getPolicy(), []);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +146,7 @@ export function FollowUpsPage() {
     await act(
       taskId,
       () =>
-        followUpsApi.recordResult(taskId, {
+        backend.followUps.recordResult(taskId, {
           result_type: resultType,
           // 留空 = 不带 note 键（后端 ResultRecordRequest.note 可空）。
           note: note || undefined,
@@ -170,7 +170,7 @@ export function FollowUpsPage() {
     const { id, value } = editingObjective;
     await act(
       id,
-      () => followUpsApi.update(id, { objective: value.trim() || null }),
+      () => backend.followUps.update(id, { objective: value.trim() || null }),
       '跟进目标已更新。',
     );
     setEditingObjective(null);
@@ -346,7 +346,7 @@ export function FollowUpsPage() {
                               act(
                                 task.id,
                                 () =>
-                                  followUpsApi.update(task.id, {
+                                  backend.followUps.update(task.id, {
                                     status: advanceTarget,
                                   }),
                                 `任务状态已推进到 ${advanceTarget}。`,
@@ -364,7 +364,7 @@ export function FollowUpsPage() {
                               act(
                                 task.id,
                                 () =>
-                                  followUpsApi.update(task.id, {
+                                  backend.followUps.update(task.id, {
                                     status: rejectTarget,
                                   }),
                                 '任务已标记为拒绝，不再推进。',
@@ -380,7 +380,7 @@ export function FollowUpsPage() {
                             onClick={() =>
                               act(
                                 task.id,
-                                () => followUpsApi.cancel(task.id),
+                                () => backend.followUps.cancel(task.id),
                                 '任务已取消。',
                               )
                             }

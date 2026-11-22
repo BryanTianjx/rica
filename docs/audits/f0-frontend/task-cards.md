@@ -23,7 +23,7 @@ supersedes: null
 | 卡 | 内容 | 验收 |
 |---|---|---|
 | **F0-1 前端迁仓** | 按 ADR-0007 裁决迁移 `O:\ica\frontend` → 目标位置(含 vitest 套件、check-ui-reuse 基线 json、package-lock);`O:\ica` 打包脚本冻结在最后发布态 | 迁后 `npm run build` + `vitest run` 全绿;UI 复用门禁基线不变 |
-| **F0-2 Backend Client 抽象** | 新建 `services/backend/`(每端点一方法);页面/组件全部改为经此层调用;endpoints.ts 退役为 backend 层的 HTTP 实现 | grep 全仓无页面直连 endpoints/api;90 调用点全部经抽象层 |
+| **F0-2 Backend Client 抽象** | ✅ **已实现(2026-11-22)**:`services/backend/index.ts` 统一客户端(13 域,每端点一方法;`BackendClient` 类型 = F1 IPC 契约;ApiError 统一重导出);35 个页面/组件/测试文件机械重写。验收:全仓 grep endpoints/api 直连导入 **双零**(仅 backend/index.ts 持有);tsc 构建 + vitest 184 测试全绿 |
 | **F0-3 行为冻结验证** | 现有 vitest + 手工冒烟(对照 Python 后端):登录/本地模式、七个导航页、错误与空状态 | UI 行为与迁前一致;diff 仅限抽象层 |
 | **F0-4 已知项顺手修** | 下拉第一页截断(candidates/positions `limit:500`);错误呈现统一到 `code: message` | 两处修复 + 对应测试 |
 | **F0-5 对拍资产化** | FollowUpsPage 状态机镜像表纳入与 `ica_domain::follow_up` 的对拍(防漂移) | 对拍脚本或测试落地 |

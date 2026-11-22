@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { browserApi } from '../../services/endpoints';
+import { backend } from '../../services/backend';
 import { TasksPanel } from './TasksPanel';
 import type { BrowserAuditEvent, BrowserTask } from '../../types';
 
@@ -43,10 +43,10 @@ describe('TasksPanel', () => {
 
   it('creates a task with auto_run=false and shows it after refresh', async () => {
     const createSpy = vi
-      .spyOn(browserApi, 'createTask')
+      .spyOn(backend.browser, 'createTask')
       .mockResolvedValue({ task: makeTask() });
-    vi.spyOn(browserApi, 'audit').mockResolvedValue({ events: [makeEvent()] });
-    vi.spyOn(browserApi, 'getTask').mockResolvedValue({ task: makeTask() });
+    vi.spyOn(backend.browser, 'audit').mockResolvedValue({ events: [makeEvent()] });
+    vi.spyOn(backend.browser, 'getTask').mockResolvedValue({ task: makeTask() });
 
     render(<TasksPanel />);
     await waitFor(() => expect(screen.getByLabelText('会话 ID')).toBeTruthy());
@@ -65,10 +65,10 @@ describe('TasksPanel', () => {
   });
 
   it('cancel of a running task needs a second confirmation', async () => {
-    vi.spyOn(browserApi, 'audit').mockResolvedValue({ events: [makeEvent()] });
-    vi.spyOn(browserApi, 'getTask').mockResolvedValue({ task: makeTask({ state: 'running', executed_steps: 1 }) });
+    vi.spyOn(backend.browser, 'audit').mockResolvedValue({ events: [makeEvent()] });
+    vi.spyOn(backend.browser, 'getTask').mockResolvedValue({ task: makeTask({ state: 'running', executed_steps: 1 }) });
     const cancelSpy = vi
-      .spyOn(browserApi, 'cancelTask')
+      .spyOn(backend.browser, 'cancelTask')
       .mockResolvedValue({ task: makeTask({ state: 'cancelled' }) });
 
     render(<TasksPanel />);
@@ -81,9 +81,9 @@ describe('TasksPanel', () => {
   });
 
   it('loads the audit timeline for a task', async () => {
-    vi.spyOn(browserApi, 'audit').mockResolvedValue({ events: [makeEvent()] });
-    vi.spyOn(browserApi, 'getTask').mockResolvedValue({ task: makeTask() });
-    vi.spyOn(browserApi, 'taskAudit').mockResolvedValue({
+    vi.spyOn(backend.browser, 'audit').mockResolvedValue({ events: [makeEvent()] });
+    vi.spyOn(backend.browser, 'getTask').mockResolvedValue({ task: makeTask() });
+    vi.spyOn(backend.browser, 'taskAudit').mockResolvedValue({
       events: [
         makeEvent(),
         makeEvent({ event_id: 'ev_2', event_type: 'browser.task.completed', summary: 'all steps done' }),

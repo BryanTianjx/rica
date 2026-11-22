@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
-import { candidatesApi, conversationsApi, messagesApi, positionsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { EmptyState, ErrorBox, Loading, LocalTime } from '../components/ui';
 import type { Conversation } from '../types';
 
 export function ConversationsPage() {
-  const candidates = useAsync(() => candidatesApi.list(), []);
-  const conversations = useAsync(() => conversationsApi.list(), []);
+  const candidates = useAsync(() => backend.candidates.list(), []);
+  const conversations = useAsync(() => backend.conversations.list(), []);
   // The filter dropdown needs every position, not the default first page:
   // the backend caps a single page at 500, so 200 keeps the dropdown
   // complete for realistic tenants (QA-002 — the old call silently
   // truncated at the default limit=50).
-  const positions = useAsync(() => positionsApi.list({ limit: 200 }), []);
+  const positions = useAsync(() => backend.positions.list({ limit: 200 }), []);
   const [positionFilter, setPositionFilter] = useState('');
   const [sender, setSender] = useState('Recruiter');
   const [content, setContent] = useState('');
@@ -46,7 +46,7 @@ export function ConversationsPage() {
   const messageList = useAsync(
     () =>
       selectedConversationId
-        ? messagesApi
+        ? backend.messages
             .list({ conversation_id: selectedConversationId })
             .then((page) => ({ conversationId: selectedConversationId, page }))
         : Promise.resolve(null),
@@ -63,7 +63,7 @@ export function ConversationsPage() {
     setError(null);
     setNotice(null);
     try {
-      await messagesApi.create({
+      await backend.messages.create({
         candidate_id: conversations.data?.items.find((c) => c.id === selectedConversationId)?.candidate_id ?? '',
         conversation_id: selectedConversationId,
         sender_type: sender,

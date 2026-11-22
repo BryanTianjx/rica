@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { DraftsPage } from '../pages/DraftsPage';
-import { draftsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import type { Draft, Page } from '../types';
 
 // ── 测试辅助 ────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ async function tabTo(
 }
 
 async function renderPage() {
-  vi.spyOn(draftsApi, 'list').mockResolvedValue(
+  vi.spyOn(backend.drafts, 'list').mockResolvedValue(
     pageOf([
       makeDraft(),
       makeDraft({

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAsync } from '../hooks/useAsync';
-import { aiApi, followUpsApi, settingsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime } from '../components/ui';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { AiModelConfigPanel } from '../components/AiModelConfigPanel';
@@ -14,18 +14,18 @@ type PolicyDraft = {
 };
 
 export function SettingsPage() {
-  const settings = useAsync(() => settingsApi.get(), []);
-  const policy = useAsync(() => followUpsApi.getPolicy(), []);
-  const backups = useAsync(() => settingsApi.listBackups(), []);
-  const models = useAsync(() => aiApi.listModels(), []);
+  const settings = useAsync(() => backend.settings.get(), []);
+  const policy = useAsync(() => backend.followUps.getPolicy(), []);
+  const backups = useAsync(() => backend.settings.listBackups(), []);
+  const models = useAsync(() => backend.ai.listModels(), []);
   // PRIV-07: where AI context goes, what is masked, and the egress switch.
-  const egress = useAsync(() => settingsApi.getAiEgress(), []);
+  const egress = useAsync(() => backend.settings.getAiEgress(), []);
   // G409-GAP: 审计记录查看入口（OFF-017「断网下可查看审计记录」的 UI 面）。
   const [auditEventType, setAuditEventType] = useState('');
   const [auditEntityType, setAuditEntityType] = useState('');
   const audit = useAsync(
     () =>
-      settingsApi.listAuditEvents({
+      backend.settings.listAuditEvents({
         event_type: auditEventType || undefined,
         entity_type: auditEntityType || undefined,
         limit: 100,
@@ -62,8 +62,8 @@ export function SettingsPage() {
     try {
       // 不带 model_id 时写安装级槽位（保持既有行为与调用形状）。
       const result = aiKeyTarget
-        ? await settingsApi.setAiKey(key, aiKeyTarget)
-        : await settingsApi.setAiKey(key);
+        ? await backend.settings.setAiKey(key, aiKeyTarget)
+        : await backend.settings.setAiKey(key);
       setNotice(
         aiKeyTarget
           ? `API Key 已保存到模型「${aiKeyTarget}」的独立槽位（尾号 ${result.key_masked ?? '—'}），该模型优先使用它。`
@@ -87,10 +87,10 @@ export function SettingsPage() {
     setNotice(null);
     try {
       if (aiKeyTarget) {
-        await settingsApi.clearAiKey(aiKeyTarget);
+        await backend.settings.clearAiKey(aiKeyTarget);
         setNotice(`API Key 已清除（模型「${aiKeyTarget}」的独立槽位）。`);
       } else {
-        await settingsApi.clearAiKey();
+        await backend.settings.clearAiKey();
         setNotice('API Key 已清除，AI 功能停用。');
       }
       setAiKeyInput('');
@@ -126,7 +126,7 @@ export function SettingsPage() {
     setError(null);
     setNotice(null);
     try {
-      await followUpsApi.updatePolicy(draftPolicy);
+      await backend.followUps.updatePolicy(draftPolicy);
       setNotice('跟进策略已更新。');
       policy.reload();
     } catch (caught: unknown) {
@@ -142,7 +142,7 @@ export function SettingsPage() {
     setError(null);
     setNotice(null);
     try {
-      await settingsApi.setAiEgressConsent(granted);
+      await backend.settings.setAiEgressConsent(granted);
       setNotice(granted ? 'AI 出网已开启。' : 'AI 出网已关闭，草稿生成会被拒绝。');
       egress.reload();
     } catch (caught: unknown) {
@@ -157,7 +157,7 @@ export function SettingsPage() {
     setError(null);
     setNotice(null);
     try {
-      const record = await settingsApi.createBackup();
+      const record = await backend.settings.createBackup();
       setNotice(`已创建备份 ${record.name}（${record.size_bytes} 字节）。`);
       backups.reload();
     } catch (caught: unknown) {
@@ -474,7 +474,7 @@ export function SettingsPage() {
                               setError(null);
                               setNotice(null);
                               try {
-                                const result = await settingsApi.restore(backup.name);
+                                const result = await backend.settings.restore(backup.name);
                                 setNotice(
                                   `已从 ${result.restored_from} 恢复数据库。前一状态已保存为 ${result.previous_copy}。`,
                                 );

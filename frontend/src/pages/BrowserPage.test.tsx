@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { browserApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { BrowserPage } from './BrowserPage';
 import type { BrowserRuntimeStatus } from '../types';
 
@@ -29,11 +29,11 @@ describe('BrowserPage', () => {
   });
 
   it('renders all six panels', async () => {
-    vi.spyOn(browserApi, 'runtimeStatus').mockResolvedValue({ runtime: makeStatus() });
-    vi.spyOn(browserApi, 'listPermissions').mockResolvedValue({ permissions: [] });
-    vi.spyOn(browserApi, 'audit').mockResolvedValue({ events: [] });
-    vi.spyOn(browserApi, 'listExtractions').mockResolvedValue({ extractions: [] });
-    vi.spyOn(browserApi, 'connectorStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'runtimeStatus').mockResolvedValue({ runtime: makeStatus() });
+    vi.spyOn(backend.browser, 'listPermissions').mockResolvedValue({ permissions: [] });
+    vi.spyOn(backend.browser, 'audit').mockResolvedValue({ events: [] });
+    vi.spyOn(backend.browser, 'listExtractions').mockResolvedValue({ extractions: [] });
+    vi.spyOn(backend.browser, 'connectorStatus').mockResolvedValue({
       connector: { running: false, pid: null, frame_port: 0, control_port: 0, uptime_s: null },
       live: {},
       connectors: [],

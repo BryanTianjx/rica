@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { ApiError } from '../../services/api';
-import { browserApi } from '../../services/endpoints';
+import { ApiError } from '../../services/backend';
+import { backend } from '../../services/backend';
 import { SessionPanel } from './SessionPanel';
 import type { BrowserRuntimeStatus } from '../../types';
 
@@ -30,15 +30,15 @@ describe('SessionPanel — L4 approval interception (F6)', () => {
 
   it('shows a readable block and the approval entry when the backend refuses an L4 action', async () => {
     // mount: 无会话；createSession 后 reload：会话已在 runtime status 里
-    vi.spyOn(browserApi, 'runtimeStatus')
+    vi.spyOn(backend.browser, 'runtimeStatus')
       .mockResolvedValueOnce({ runtime: makeStatus() })
       .mockResolvedValue({
         runtime: makeStatus({ sessions: [{ session_id: 'ses_l4', state: 'ready' }] }),
       });
-    vi.spyOn(browserApi, 'createSession').mockResolvedValue({
+    vi.spyOn(backend.browser, 'createSession').mockResolvedValue({
       session: { session_id: 'ses_l4', state: 'ready', profile_id: 'p1', created_at: null },
     });
-    vi.spyOn(browserApi, 'executeAction').mockRejectedValue(
+    vi.spyOn(backend.browser, 'executeAction').mockRejectedValue(
       new ApiError(
         409,
         {
@@ -74,15 +74,15 @@ describe('SessionPanel — session ops', () => {
   });
 
   it('create -> navigate -> snapshot -> screenshot -> verify uses the session endpoints', async () => {
-    vi.spyOn(browserApi, 'runtimeStatus')
+    vi.spyOn(backend.browser, 'runtimeStatus')
       .mockResolvedValueOnce({ runtime: makeStatus() })
       .mockResolvedValue({
         runtime: makeStatus({ sessions: [{ session_id: 'ses_abc', state: 'ready' }] }),
       });
     const createdSpy = vi
-      .spyOn(browserApi, 'createSession')
+      .spyOn(backend.browser, 'createSession')
       .mockResolvedValue({ session: { session_id: 'ses_abc', state: 'ready', profile_id: 'p1', created_at: null } });
-    vi.spyOn(browserApi, 'navigate').mockResolvedValue({
+    vi.spyOn(backend.browser, 'navigate').mockResolvedValue({
       navigation: {
         session_id: 'ses_abc',
         requested_url: 'http://127.0.0.1:18799/fixture.html',
@@ -96,10 +96,10 @@ describe('SessionPanel — session ops', () => {
         new_tabs: [],
       },
     });
-    vi.spyOn(browserApi, 'snapshot').mockResolvedValue({
+    vi.spyOn(backend.browser, 'snapshot').mockResolvedValue({
       snapshot: { snapshot_id: 'act_3', content: '<button>点我</button>' },
     });
-    vi.spyOn(browserApi, 'screenshot').mockResolvedValue({
+    vi.spyOn(backend.browser, 'screenshot').mockResolvedValue({
       artifact: {
         artifact_id: 'act_4',
         sha256: 'ab12',
@@ -112,10 +112,10 @@ describe('SessionPanel — session ops', () => {
         created_at: null,
       },
     });
-    const verifySpy = vi.spyOn(browserApi, 'verifyAction').mockResolvedValue({
+    const verifySpy = vi.spyOn(backend.browser, 'verifyAction').mockResolvedValue({
       verification: { passed: true, kind: 'element_visible', attempts: 1, elapsed_ms: 40 },
     });
-    vi.spyOn(browserApi, 'executeAction').mockResolvedValueOnce({
+    vi.spyOn(backend.browser, 'executeAction').mockResolvedValueOnce({
       action: {
         action_id: 'act_5',
         state: 'succeeded',
@@ -163,7 +163,7 @@ describe('SessionPanel — session ops', () => {
   });
 
   it('shows the blocked state when the runtime is not ready', async () => {
-    vi.spyOn(browserApi, 'runtimeStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'runtimeStatus').mockResolvedValue({
       runtime: makeStatus({ state: 'stopped' }),
     });
     render(<SessionPanel />);

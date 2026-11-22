@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CandidateDetailPage } from '../pages/CandidateDetailPage';
-import { aiApi, candidatesApi, draftsApi, followUpsApi, settingsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import type { Candidate, ContextPreview, Draft, FollowUpDecision } from '../types';
 
 // ── 测试辅助 ────────────────────────────────────────────────────────────
@@ -58,11 +58,11 @@ function makeDecision(): FollowUpDecision {
 
 /** 渲染详情页路由，并 mock 挂载时的全部只读接口。 */
 function renderDetail(candidate: Candidate = makeCandidate()) {
-  vi.spyOn(candidatesApi, 'get').mockResolvedValue(candidate);
-  vi.spyOn(candidatesApi, 'timeline').mockResolvedValue([]);
-  vi.spyOn(candidatesApi, 'context').mockResolvedValue(makeContext());
-  vi.spyOn(followUpsApi, 'evaluate').mockResolvedValue(makeDecision());
-  vi.spyOn(settingsApi, 'getAiEgress').mockResolvedValue({
+  vi.spyOn(backend.candidates, 'get').mockResolvedValue(candidate);
+  vi.spyOn(backend.candidates, 'timeline').mockResolvedValue([]);
+  vi.spyOn(backend.candidates, 'context').mockResolvedValue(makeContext());
+  vi.spyOn(backend.followUps, 'evaluate').mockResolvedValue(makeDecision());
+  vi.spyOn(backend.settings, 'getAiEgress').mockResolvedValue({
     enabled: true,
     consent_granted: true,
     provider: 'openai_compatible',
@@ -72,7 +72,7 @@ function renderDetail(candidate: Candidate = makeCandidate()) {
     include_candidate_name: false,
     notice: '出网告知',
   });
-  vi.spyOn(aiApi, 'listModels').mockResolvedValue({ models: [], routing: {} });
+  vi.spyOn(backend.ai, 'listModels').mockResolvedValue({ models: [], routing: {} });
   render(
     <MemoryRouter initialEntries={['/candidates/cand-1']}>
       <Routes>
@@ -99,7 +99,7 @@ describe('CandidateDetailPage — 档案展示', () => {
 describe('CandidateDetailPage — 档案编辑与清空语义', () => {
   it('清空期望薪资与备注后保存，PATCH 显式提交 null（清空真正生效）', async () => {
     const mockUpdate = vi
-      .spyOn(candidatesApi, 'update')
+      .spyOn(backend.candidates, 'update')
       .mockResolvedValue(makeCandidate({ expected_salary: null, notes: null }));
     await renderDetail();
     await screen.findByText('25-35k');
@@ -131,7 +131,7 @@ describe('CandidateDetailPage — 档案编辑与清空语义', () => {
 
   it('修改字段后保存提交新值（非空路径不受影响）', async () => {
     const mockUpdate = vi
-      .spyOn(candidatesApi, 'update')
+      .spyOn(backend.candidates, 'update')
       .mockResolvedValue(makeCandidate({ expected_salary: '30-40k' }));
     await renderDetail();
     await screen.findByText('25-35k');
@@ -152,7 +152,7 @@ describe('CandidateDetailPage — 档案编辑与清空语义', () => {
   });
 
   it('取消编辑不触发保存', async () => {
-    const mockUpdate = vi.spyOn(candidatesApi, 'update').mockResolvedValue(makeCandidate());
+    const mockUpdate = vi.spyOn(backend.candidates, 'update').mockResolvedValue(makeCandidate());
     await renderDetail();
     await screen.findByText('25-35k');
     fireEvent.click(screen.getByRole('button', { name: '编辑' }));
@@ -202,7 +202,7 @@ function makeDraft(): Draft {
 describe('CandidateDetailPage — 消息长度参数', () => {
   it('填写合法长度后生成，载荷携带 max_length', async () => {
     const mockGenerate = vi
-      .spyOn(draftsApi, 'generate')
+      .spyOn(backend.drafts, 'generate')
       .mockResolvedValue(makeDraft());
     await renderDetail();
     await screen.findByText('25-35k');
@@ -219,7 +219,7 @@ describe('CandidateDetailPage — 消息长度参数', () => {
   });
 
   it('非法长度（30）被客户端拦截：显示错误且不发起请求', async () => {
-    const mockGenerate = vi.spyOn(draftsApi, 'generate').mockResolvedValue(makeDraft());
+    const mockGenerate = vi.spyOn(backend.drafts, 'generate').mockResolvedValue(makeDraft());
     await renderDetail();
     await screen.findByText('25-35k');
 
@@ -231,7 +231,7 @@ describe('CandidateDetailPage — 消息长度参数', () => {
   });
 
   it('留空时不发送 max_length 键（后端按无限制处理）', async () => {
-    const mockGenerate = vi.spyOn(draftsApi, 'generate').mockResolvedValue(makeDraft());
+    const mockGenerate = vi.spyOn(backend.drafts, 'generate').mockResolvedValue(makeDraft());
     await renderDetail();
     await screen.findByText('25-35k');
 

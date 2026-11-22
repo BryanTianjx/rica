@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { browserApi } from '../../services/endpoints';
+import { backend } from '../../services/backend';
 import { ExtractionsPanel } from './ExtractionsPanel';
 import type { BrowserExtraction } from '../../types';
 
@@ -45,9 +45,9 @@ describe('ExtractionsPanel', () => {
 
   it('edits a field, shows the before value, and saves the patch', async () => {
     const patchSpy = vi
-      .spyOn(browserApi, 'patchExtraction')
+      .spyOn(backend.browser, 'patchExtraction')
       .mockResolvedValue({ extraction: makeExtraction({ fields: { name: '张三丰', job_intention: '前端工程师' } }) });
-    vi.spyOn(browserApi, 'listExtractions')
+    vi.spyOn(backend.browser, 'listExtractions')
       .mockResolvedValueOnce({ extractions: [makeExtraction()] })
       .mockResolvedValue({
         extractions: [
@@ -59,7 +59,7 @@ describe('ExtractionsPanel', () => {
           }),
         ],
       });
-    vi.spyOn(browserApi, 'getExtraction').mockResolvedValue({
+    vi.spyOn(backend.browser, 'getExtraction').mockResolvedValue({
       extraction: makeExtraction({
         fields: { name: '张三丰', job_intention: '前端工程师' },
         revisions: [
@@ -82,13 +82,13 @@ describe('ExtractionsPanel', () => {
 
   it('approve then confirm writes to a real candidate with a field summary', async () => {
     const approveSpy = vi
-      .spyOn(browserApi, 'reviewExtraction')
+      .spyOn(backend.browser, 'reviewExtraction')
       .mockResolvedValue({ extraction: makeExtraction({ status: 'approved' }) });
-    vi.spyOn(browserApi, 'listExtractions')
+    vi.spyOn(backend.browser, 'listExtractions')
       .mockResolvedValueOnce({ extractions: [makeExtraction()] })
       .mockResolvedValue({ extractions: [makeExtraction({ status: 'approved' })] });
     const confirmSpy = vi
-      .spyOn(browserApi, 'confirmExtraction')
+      .spyOn(backend.browser, 'confirmExtraction')
       .mockResolvedValue({
         session_id: 'imp_1',
         extraction_id: 'ext_1',
@@ -123,7 +123,7 @@ describe('ExtractionsPanel', () => {
   });
 
   it('blocks confirming past a duplicate verdict until the checkbox is ticked', async () => {
-    vi.spyOn(browserApi, 'listExtractions').mockResolvedValue({
+    vi.spyOn(backend.browser, 'listExtractions').mockResolvedValue({
       extractions: [makeExtraction({ status: 'approved', duplicate: { kind: 'same_name_phone', candidate_id: 'cand_1', evidence: {} } })],
     });
     render(<ExtractionsPanel />);

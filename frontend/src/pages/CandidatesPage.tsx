@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
-import { candidatesApi, positionsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Candidate, CandidateStatus } from '../types';
@@ -45,10 +45,10 @@ export function CandidatesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const candidates = useAsync(
-    () => candidatesApi.list({ search, status: status || undefined }),
+    () => backend.candidates.list({ search, status: status || undefined }),
     [search, status],
   );
-  const positions = useAsync(() => positionsApi.list(), []);
+  const positions = useAsync(() => backend.positions.list(), []);
 
   async function createCandidate(event: React.FormEvent) {
     event.preventDefault();
@@ -56,7 +56,7 @@ export function CandidatesPage() {
     setFormError(null);
     setSaved(false);
     try {
-      await candidatesApi.create({
+      await backend.candidates.create({
         name,
         position_id: positionId || undefined,
       });
@@ -96,7 +96,7 @@ export function CandidatesPage() {
     setSavingId(editing.id);
     setRowError(null);
     try {
-      await candidatesApi.update(editing.id, {
+      await backend.candidates.update(editing.id, {
         name: editing.name || undefined,
         // An explicitly emptied selector means "no position": send null so the
         // PATCH really unbinds. `undefined` would drop the key and leave the
@@ -121,7 +121,7 @@ export function CandidatesPage() {
     setSavingId(candidate.id);
     setRowError(null);
     try {
-      await candidatesApi.update(candidate.id, {
+      await backend.candidates.update(candidate.id, {
         archived: !candidate.archived,
       });
       candidates.reload();
@@ -136,7 +136,7 @@ export function CandidatesPage() {
     setSavingId(candidate.id);
     setRowError(null);
     try {
-      await candidatesApi.remove(candidate.id);
+      await backend.candidates.remove(candidate.id);
       setDeletingId(null);
       candidates.reload();
     } catch (caught: unknown) {

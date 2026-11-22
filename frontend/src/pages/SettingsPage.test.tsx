@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SettingsPage } from '../pages/SettingsPage';
-import { ApiError } from '../services/api';
-import { aiApi, settingsApi, followUpsApi } from '../services/endpoints';
+import { ApiError } from '../services/backend';
+import { backend } from '../services/backend';
 import type {
   SettingsInfo,
   BackupRecord,
@@ -115,16 +115,16 @@ async function renderPage(
   egress: AiEgressDisclosure = makeEgress(),
   auditEvents: AuditEvent[] = [],
 ) {
-  vi.spyOn(settingsApi, 'get').mockResolvedValue(settings);
-  vi.spyOn(settingsApi, 'getAiEgress').mockResolvedValue(egress);
-  vi.spyOn(settingsApi, 'setAiEgressConsent').mockResolvedValue(egress);
-  vi.spyOn(followUpsApi, 'getPolicy').mockResolvedValue(policy);
-  vi.spyOn(followUpsApi, 'updatePolicy').mockResolvedValue(policy);
-  vi.spyOn(settingsApi, 'listBackups').mockResolvedValue(backups);
-  vi.spyOn(aiApi, 'listModels').mockResolvedValue({ models: [], routing: {} });
-  const auditMock = vi.spyOn(settingsApi, 'listAuditEvents').mockResolvedValue(auditEvents);
-  vi.spyOn(settingsApi, 'createBackup').mockResolvedValue(makeBackup());
-  vi.spyOn(settingsApi, 'restore').mockResolvedValue({
+  vi.spyOn(backend.settings, 'get').mockResolvedValue(settings);
+  vi.spyOn(backend.settings, 'getAiEgress').mockResolvedValue(egress);
+  vi.spyOn(backend.settings, 'setAiEgressConsent').mockResolvedValue(egress);
+  vi.spyOn(backend.followUps, 'getPolicy').mockResolvedValue(policy);
+  vi.spyOn(backend.followUps, 'updatePolicy').mockResolvedValue(policy);
+  vi.spyOn(backend.settings, 'listBackups').mockResolvedValue(backups);
+  vi.spyOn(backend.ai, 'listModels').mockResolvedValue({ models: [], routing: {} });
+  const auditMock = vi.spyOn(backend.settings, 'listAuditEvents').mockResolvedValue(auditEvents);
+  vi.spyOn(backend.settings, 'createBackup').mockResolvedValue(makeBackup());
+  vi.spyOn(backend.settings, 'restore').mockResolvedValue({
     restored_from: 'ica-20261102.db',
     database: 'ica.db',
     previous_copy: 'ica-pre-restore.db',
@@ -179,7 +179,7 @@ describe('SettingsPage — 跟进策略', () => {
 
   it('修改策略后保存按钮启用，点击后调用 updatePolicy', async () => {
     const mockUpdate = vi
-      .spyOn(followUpsApi, 'updatePolicy')
+      .spyOn(backend.followUps, 'updatePolicy')
       .mockResolvedValue(makePolicy());
     await renderPage();
     const delayInput = await screen.findByLabelText('首次跟进等待（小时）');
@@ -204,9 +204,9 @@ describe('SettingsPage — 本地备份', () => {
   });
 
   it('没有备份时显示空状态', async () => {
-    vi.spyOn(settingsApi, 'get').mockResolvedValue(makeSettings());
-    vi.spyOn(followUpsApi, 'getPolicy').mockResolvedValue(makePolicy());
-    vi.spyOn(settingsApi, 'listBackups').mockResolvedValue([]);
+    vi.spyOn(backend.settings, 'get').mockResolvedValue(makeSettings());
+    vi.spyOn(backend.followUps, 'getPolicy').mockResolvedValue(makePolicy());
+    vi.spyOn(backend.settings, 'listBackups').mockResolvedValue([]);
     render(
       <MemoryRouter>
         <SettingsPage />
@@ -216,11 +216,11 @@ describe('SettingsPage — 本地备份', () => {
   });
 
   it('点击立即备份调用 createBackup 并显示通知', async () => {
-    vi.spyOn(settingsApi, 'get').mockResolvedValue(makeSettings());
-    vi.spyOn(followUpsApi, 'getPolicy').mockResolvedValue(makePolicy());
-    vi.spyOn(settingsApi, 'listBackups').mockResolvedValue([makeBackup()]);
+    vi.spyOn(backend.settings, 'get').mockResolvedValue(makeSettings());
+    vi.spyOn(backend.followUps, 'getPolicy').mockResolvedValue(makePolicy());
+    vi.spyOn(backend.settings, 'listBackups').mockResolvedValue([makeBackup()]);
     const mockCreate = vi
-      .spyOn(settingsApi, 'createBackup')
+      .spyOn(backend.settings, 'createBackup')
       .mockResolvedValue(makeBackup({ name: 'ica-20261103.db', size_bytes: 8192 }));
     render(
       <MemoryRouter>
@@ -251,8 +251,8 @@ describe('SettingsPage — 恢复确认', () => {
     expect(confirmBar).not.toBeInTheDocument();
   });
 
-  it('确认恢复后调用 settingsApi.restore 并显示通知', async () => {
-    const mockRestore = vi.spyOn(settingsApi, 'restore').mockResolvedValue({
+  it('确认恢复后调用 backend.settings.restore 并显示通知', async () => {
+    const mockRestore = vi.spyOn(backend.settings, 'restore').mockResolvedValue({
       restored_from: 'ica-20261102.db',
       database: 'ica.db',
       previous_copy: 'ica-pre-restore.db',
@@ -303,7 +303,7 @@ describe('SettingsPage — 隐私与 AI 出网（PRIV-07）', () => {
     fireEvent.click(await screen.findByRole('button', { name: '关闭 AI 出网' }));
 
     await waitFor(() => {
-      expect(vi.mocked(settingsApi.setAiEgressConsent)).toHaveBeenCalledWith(false);
+      expect(vi.mocked(backend.settings.setAiEgressConsent)).toHaveBeenCalledWith(false);
     });
     expect(
       await screen.findByText(/AI 出网已关闭，草稿生成会被拒绝/),
@@ -377,7 +377,7 @@ describe('SettingsPage — AI Key 配置', () => {
 
   it('保存密钥调用 setAiKey 并以脱敏尾号反馈，输入框清空', async () => {
     const mockSet = vi
-      .spyOn(settingsApi, 'setAiKey')
+      .spyOn(backend.settings, 'setAiKey')
       .mockResolvedValue({ ai_enabled: true, key_masked: '…abcd' });
     const input = await openAiCard();
     fireEvent.change(input, { target: { value: 'sk-glm-live-9f8eabcd' } });
@@ -394,7 +394,7 @@ describe('SettingsPage — AI Key 配置', () => {
 
   it('清除密钥调用 clearAiKey 并停用 AI', async () => {
     const mockClear = vi
-      .spyOn(settingsApi, 'clearAiKey')
+      .spyOn(backend.settings, 'clearAiKey')
       .mockResolvedValue({ ai_enabled: false, key_masked: null });
     const input = await openAiCard();
     fireEvent.click(screen.getByRole('button', { name: '清除密钥' }));
@@ -407,7 +407,7 @@ describe('SettingsPage — AI Key 配置', () => {
   });
 
   it('空输入时保存按钮禁用（不发起请求）', async () => {
-    const mockSet = vi.spyOn(settingsApi, 'setAiKey');
+    const mockSet = vi.spyOn(backend.settings, 'setAiKey');
     await openAiCard();
     expect(screen.getByRole('button', { name: '保存密钥' })).toBeDisabled();
     expect(mockSet).not.toHaveBeenCalled();
@@ -417,7 +417,7 @@ describe('SettingsPage — AI Key 配置', () => {
 // ── AI 自配置：可编辑 Provider / 端点 / 模型 + 模型管理（AC-F1..F5） ─────
 
 /**
- * 渲染设置页，并让 `aiApi.listModels` 依次返回给定响应（最后一次重复使用）。
+ * 渲染设置页，并让 `backend.ai.listModels` 依次返回给定响应（最后一次重复使用）。
  * 这样既能断言「保存后显示后端返回的生效值」，也能断言「操作后真的重新拉取列表」。
  */
 async function renderAiPage(
@@ -425,16 +425,16 @@ async function renderAiPage(
   settings: SettingsInfo = makeSettings(),
 ) {
   let call = 0;
-  const listMock = vi.spyOn(aiApi, 'listModels').mockImplementation(async () => {
+  const listMock = vi.spyOn(backend.ai, 'listModels').mockImplementation(async () => {
     const response = responses[Math.min(call, responses.length - 1)];
     call += 1;
     return response;
   });
-  vi.spyOn(settingsApi, 'get').mockResolvedValue(settings);
-  vi.spyOn(settingsApi, 'getAiEgress').mockResolvedValue(makeEgress());
-  vi.spyOn(followUpsApi, 'getPolicy').mockResolvedValue(makePolicy());
-  vi.spyOn(settingsApi, 'listBackups').mockResolvedValue([]);
-  vi.spyOn(settingsApi, 'listAuditEvents').mockResolvedValue([]);
+  vi.spyOn(backend.settings, 'get').mockResolvedValue(settings);
+  vi.spyOn(backend.settings, 'getAiEgress').mockResolvedValue(makeEgress());
+  vi.spyOn(backend.followUps, 'getPolicy').mockResolvedValue(makePolicy());
+  vi.spyOn(backend.settings, 'listBackups').mockResolvedValue([]);
+  vi.spyOn(backend.settings, 'listAuditEvents').mockResolvedValue([]);
   render(
     <MemoryRouter>
       <SettingsPage />
@@ -477,7 +477,7 @@ describe('SettingsPage — AI 自配置（AC-F1 Provider/端点/模型可编辑�
       { models: [fallback], routing: {} },
       { models: [createdFromBackend], routing: {} },
     ]);
-    const createMock = vi.spyOn(aiApi, 'createModel').mockResolvedValue(createdFromBackend);
+    const createMock = vi.spyOn(backend.ai, 'createModel').mockResolvedValue(createdFromBackend);
 
     // 生效来源：.env 回落
     expect(await screen.findByText('.env 回落')).toBeInTheDocument();
@@ -540,7 +540,7 @@ describe('SettingsPage — AI 自配置（AC-F1 Provider/端点/模型可编辑�
     });
     await renderAiPage([{ models: [row], routing: {} }]);
     const updateMock = vi
-      .spyOn(aiApi, 'updateModel')
+      .spyOn(backend.ai, 'updateModel')
       .mockResolvedValue({ ...row, timeout: 120 });
 
     fireEvent.click(screen.getByRole('button', { name: '编辑生效配置' }));
@@ -572,7 +572,7 @@ describe('SettingsPage — AI 自配置（AC-F2 API Key 走凭据库）', () => 
       routing: {},
     };
     await renderAiPage([before, after]);
-    const setMock = vi.spyOn(settingsApi, 'setAiKey').mockResolvedValue({
+    const setMock = vi.spyOn(backend.settings, 'setAiKey').mockResolvedValue({
       ai_enabled: false,
       key_masked: '…9f3a',
       model_id: 'glm-4-flash',
@@ -613,7 +613,7 @@ describe('SettingsPage — AI 自配置（AC-F3 模型管理）', () => {
       { models: [{ ...a, is_default: false }, { ...b, is_default: true }], routing: {} },
     ]);
     const defaultMock = vi
-      .spyOn(aiApi, 'setDefaultModel')
+      .spyOn(backend.ai, 'setDefaultModel')
       .mockResolvedValue({ ...b, is_default: true });
 
     const row = await waitFor(() => modelRow('model-b'));
@@ -636,7 +636,7 @@ describe('SettingsPage — AI 自配置（AC-F3 模型管理）', () => {
     });
     await renderAiPage([{ models: [row], routing: {} }]);
     const updateMock = vi
-      .spyOn(aiApi, 'updateModel')
+      .spyOn(backend.ai, 'updateModel')
       .mockResolvedValue({ ...row, max_output_tokens: 3000 });
 
     const tableRow = await waitFor(() => modelRow('nvidia/nemotron-3.5-super-vl:free'));
@@ -667,7 +667,7 @@ describe('SettingsPage — AI 自配置（AC-F3 模型管理）', () => {
       { models: [b], routing: {} },
     ]);
     const deleteMock = vi
-      .spyOn(aiApi, 'deleteModel')
+      .spyOn(backend.ai, 'deleteModel')
       .mockResolvedValue({ model_id: 'model-a', deleted: true });
 
     const row = await waitFor(() => modelRow('model-a'));
@@ -703,7 +703,7 @@ describe('SettingsPage — AI 自配置（AC-F4 校验与可读错误）', () =>
 
   it('AC-F4 空模型 ID 被拦下，不发请求', async () => {
     await openCreateForm();
-    const createMock = vi.spyOn(aiApi, 'createModel');
+    const createMock = vi.spyOn(backend.ai, 'createModel');
     fireEvent.change(screen.getByLabelText(/端点（Base URL）/), {
       target: { value: 'https://api.example.com/v1' },
     });
@@ -714,7 +714,7 @@ describe('SettingsPage — AI 自配置（AC-F4 校验与可读错误）', () =>
 
   it('AC-F4 非 http(s) 端点被拦下，提示可读', async () => {
     await openCreateForm();
-    const createMock = vi.spyOn(aiApi, 'createModel');
+    const createMock = vi.spyOn(backend.ai, 'createModel');
     fireEvent.change(screen.getByLabelText(/模型 ID/), { target: { value: 'glm-4-flash' } });
     fireEvent.change(screen.getByLabelText(/端点（Base URL）/), {
       target: { value: 'ftp://example.com/v1' },
@@ -728,7 +728,7 @@ describe('SettingsPage — AI 自配置（AC-F4 校验与可读错误）', () =>
 
   it('AC-F4 超时 / 温度 / 最大输出 tokens 的上下界被拦下', async () => {
     await openCreateForm();
-    const createMock = vi.spyOn(aiApi, 'createModel');
+    const createMock = vi.spyOn(backend.ai, 'createModel');
     fireEvent.change(screen.getByLabelText(/模型 ID/), { target: { value: 'glm-4-flash' } });
     fireEvent.change(screen.getByLabelText(/端点（Base URL）/), {
       target: { value: 'https://api.example.com/v1' },
@@ -758,7 +758,7 @@ describe('SettingsPage — AI 自配置（AC-F4 校验与可读错误）', () =>
   it('AC-F4 后端 409 显示可读提示（而不是原始 4xx 报文）', async () => {
     await renderAiPage([{ models: [], routing: {} }]);
     const createMock = vi
-      .spyOn(aiApi, 'createModel')
+      .spyOn(backend.ai, 'createModel')
       .mockRejectedValue(
         new ApiError(
           409,

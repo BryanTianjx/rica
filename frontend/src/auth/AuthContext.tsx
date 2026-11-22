@@ -19,7 +19,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { authApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { clearTokens, getRefreshToken, onSessionExpired, setTokens } from './tokenStore';
 import type { User } from '../types';
 
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    authApi
+    backend.auth
       .me()
       .then((current) => {
         if (!active) return;
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const pair = await authApi.login({ email, password });
+    const pair = await backend.auth.login({ email, password });
     setTokens(pair.access_token, pair.refresh_token);
     setUser(pair.user);
     setStatus('authenticated');
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshToken = getRefreshToken();
     if (refreshToken) {
       try {
-        await authApi.logout(refreshToken);
+        await backend.auth.logout(refreshToken);
       } catch {
         // Best-effort: the local session is cleared regardless.
       }

@@ -1,7 +1,7 @@
 /** Data-fetching hooks. */
 
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError } from '../services/api';
+import { ApiError } from '../services/backend';
 
 interface AsyncState<T> {
   data: T | null;

@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { browserApi } from '../../services/endpoints';
+import { backend } from '../../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading } from '../ui';
 import { useAsync } from '../../hooks/useAsync';
 import { approvalTone, riskTone, statusLabel } from './browserStatus';
@@ -23,7 +23,7 @@ export function ApprovalsPanel() {
   // 逐条拉详情；已决条目同样保留展示。
   const list = useAsync(
     async () => {
-      const audit = await browserApi.audit({ limit: 200 });
+      const audit = await backend.browser.audit({ limit: 200 });
       const events: BrowserAuditEvent[] = audit.events;
       const ids: string[] = [];
       const decidedTypes = new Set(['browser.approval.decided']);
@@ -37,7 +37,7 @@ export function ApprovalsPanel() {
       const details = await Promise.all(
         ids.map(async (id) => {
           try {
-            const data = await browserApi.getApproval(id);
+            const data = await backend.browser.getApproval(id);
             return data.approval;
           } catch {
             // 审批行可能已过期清理：跳过，不把整张面板打挂
@@ -60,7 +60,7 @@ export function ApprovalsPanel() {
     setBusy(true);
     setError(null);
     try {
-      await browserApi.decideApproval(approval.approval_id, decision, note.trim() || undefined);
+      await backend.browser.decideApproval(approval.approval_id, decision, note.trim() || undefined);
       setNotice(`审批 ${approval.approval_id} 已${decision === 'approve' ? '批准' : '驳回'}。`);
       setNote('');
       list.reload();

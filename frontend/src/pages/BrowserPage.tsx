@@ -7,7 +7,7 @@
  */
 
 import { useAsync } from '../hooks/useAsync';
-import { browserApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { ErrorBox } from '../components/ui';
 import { RuntimePanel } from '../components/browser/RuntimePanel';
 import { SessionPanel } from '../components/browser/SessionPanel';
@@ -20,7 +20,7 @@ export function BrowserPage() {
   // 页面级拉一次运行时状态，下发给会话台（ready 状态 / 会话上限）。
   // 运行时面板内部自己持有一份（自检 / 启停后各自 reload）。
   // 仅用于页头的错误呈现；会话台与运行时面板各自拉取更细的状态。
-  const runtime = useAsync(() => browserApi.runtimeStatus(), []);
+  const runtime = useAsync(() => backend.browser.runtimeStatus(), []);
 
   return (
     <div>

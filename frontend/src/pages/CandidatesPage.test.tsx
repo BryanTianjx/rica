@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { CandidatesPage } from '../pages/CandidatesPage';
-import { candidatesApi, positionsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import type { Candidate, Page, Position } from '../types';
 
 // ── 测试辅助 ────────────────────────────────────────────────────────────
@@ -64,8 +64,8 @@ async function renderPage(
   candidates: Candidate[] = [makeCandidate()],
   positions: Position[] = [makePosition()],
 ) {
-  vi.spyOn(candidatesApi, 'list').mockResolvedValue(pageOf(candidates));
-  vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf(positions));
+  vi.spyOn(backend.candidates, 'list').mockResolvedValue(pageOf(candidates));
+  vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf(positions));
   render(
     <MemoryRouter>
       <CandidatesPage />
@@ -96,8 +96,8 @@ describe('CandidatesPage — 列表展示', () => {
   });
 
   it('没有候选人时显示空状态', async () => {
-    vi.spyOn(candidatesApi, 'list').mockResolvedValue(emptyPage());
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(emptyPage());
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(emptyPage());
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(emptyPage());
     render(
       <MemoryRouter>
         <CandidatesPage />
@@ -130,9 +130,9 @@ describe('CandidatesPage — 搜索', () => {
 
   it('输入搜索词后以新参数重新调用 list', async () => {
     const mockList = vi
-      .spyOn(candidatesApi, 'list')
+      .spyOn(backend.candidates, 'list')
       .mockResolvedValue(pageOf([makeCandidate()]));
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
         <CandidatesPage />
@@ -169,12 +169,12 @@ describe('CandidatesPage — 删除确认', () => {
 
   it('确认删除后调用 remove 并重新加载列表', async () => {
     const mockRemove = vi
-      .spyOn(candidatesApi, 'remove')
+      .spyOn(backend.candidates, 'remove')
       .mockResolvedValue(undefined);
     const mockList = vi
-      .spyOn(candidatesApi, 'list')
+      .spyOn(backend.candidates, 'list')
       .mockResolvedValue(pageOf([makeCandidate()]));
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
         <CandidatesPage />
@@ -196,12 +196,12 @@ describe('CandidatesPage — 删除确认', () => {
 describe('CandidatesPage — 归档操作', () => {
   it('点击归档调用 update 切换 archived', async () => {
     const mockUpdate = vi
-      .spyOn(candidatesApi, 'update')
+      .spyOn(backend.candidates, 'update')
       .mockResolvedValue(makeCandidate({ archived: true }));
-    vi.spyOn(candidatesApi, 'list').mockResolvedValue(
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(
       pageOf([makeCandidate({ archived: false })]),
     );
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
         <CandidatesPage />
@@ -226,10 +226,10 @@ describe('CandidatesPage — 新增候选人表单', () => {
 
   it('表单提交后调用 create', async () => {
     const mockCreate = vi
-      .spyOn(candidatesApi, 'create')
+      .spyOn(backend.candidates, 'create')
       .mockResolvedValue(makeCandidate());
-    vi.spyOn(candidatesApi, 'list').mockResolvedValue(pageOf([makeCandidate()]));
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(pageOf([makeCandidate()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
         <CandidatesPage />
@@ -249,10 +249,10 @@ describe('CandidatesPage — 新增候选人表单', () => {
 describe('CandidatesPage — 岗位关联与解绑', () => {
   it('编辑时选择「暂不关联」后保存会显式提交 position_id: null', async () => {
     const mockUpdate = vi
-      .spyOn(candidatesApi, 'update')
+      .spyOn(backend.candidates, 'update')
       .mockResolvedValue(makeCandidate({ position_id: null, position_name: null }));
-    vi.spyOn(candidatesApi, 'list').mockResolvedValue(pageOf([makeCandidate()]));
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(pageOf([makeCandidate()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(pageOf([makePosition()]));
     render(
       <MemoryRouter>
         <CandidatesPage />
@@ -274,10 +274,10 @@ describe('CandidatesPage — 岗位关联与解绑', () => {
 
   it('编辑时改挂到另一个岗位提交新 position_id', async () => {
     const mockUpdate = vi
-      .spyOn(candidatesApi, 'update')
+      .spyOn(backend.candidates, 'update')
       .mockResolvedValue(makeCandidate({ position_id: 'pos-2', position_name: '后端工程师' }));
-    vi.spyOn(candidatesApi, 'list').mockResolvedValue(pageOf([makeCandidate()]));
-    vi.spyOn(positionsApi, 'list').mockResolvedValue(
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(pageOf([makeCandidate()]));
+    vi.spyOn(backend.positions, 'list').mockResolvedValue(
       pageOf([makePosition(), makePosition({ id: 'pos-2', name: '后端工程师' })]),
     );
     render(

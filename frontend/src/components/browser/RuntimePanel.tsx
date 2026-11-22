@@ -13,8 +13,8 @@
  */
 
 import { useState } from 'react';
-import { browserApi } from '../../services/endpoints';
-import { ApiError } from '../../services/api';
+import { backend } from '../../services/backend';
+import { ApiError } from '../../services/backend';
 import { Badge, ErrorBox, Loading } from '../ui';
 import { useAsync } from '../../hooks/useAsync';
 import { runtimeTone, selfCheckTone, statusLabel } from './browserStatus';
@@ -31,7 +31,7 @@ function chromiumReasonFromError(exc: ApiError): string {
 }
 
 export function RuntimePanel() {
-  const runtime = useAsync(() => browserApi.runtimeStatus(), []);
+  const runtime = useAsync(() => backend.browser.runtimeStatus(), []);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checks, setChecks] = useState<BrowserSelfCheckItem[] | null>(null);
@@ -43,7 +43,7 @@ export function RuntimePanel() {
     setBusy(true);
     setActionError(null);
     try {
-      await browserApi.runtimeStart();
+      await backend.browser.runtimeStart();
       runtime.reload();
     } catch (exc) {
       setActionError(exc instanceof ApiError ? `${exc.code}: ${exc.message}` : String(exc));
@@ -56,7 +56,7 @@ export function RuntimePanel() {
     setBusy(true);
     setActionError(null);
     try {
-      await browserApi.runtimeStop(true);
+      await backend.browser.runtimeStop(true);
       runtime.reload();
     } catch (exc) {
       setActionError(exc instanceof ApiError ? `${exc.code}: ${exc.message}` : String(exc));
@@ -71,7 +71,7 @@ export function RuntimePanel() {
     setActionError(null);
     const items: BrowserSelfCheckItem[] = [];
     try {
-      const data = await browserApi.runtimeStatus();
+      const data = await backend.browser.runtimeStatus();
       const rt = data.runtime;
       const caps = rt.capabilities;
       // ① Playwright 可导入（sidecar 探针）
@@ -108,7 +108,7 @@ export function RuntimePanel() {
         });
       } else {
         try {
-          const started = await browserApi.runtimeStart();
+          const started = await backend.browser.runtimeStart();
           runtime.reload();
           items.push({
             key: 'chromium',
@@ -129,7 +129,7 @@ export function RuntimePanel() {
         }
       }
       // ③ Native Messaging host：有活动 connector 会话即实证；否则无法验证
-      const connector = await browserApi.connectorStatus();
+      const connector = await backend.browser.connectorStatus();
       const liveKeys = Object.keys(connector.live ?? {}).length;
       if (connector.connector.running && liveKeys > 0) {
         items.push({

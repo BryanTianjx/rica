@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { ApiError } from '../../services/api';
-import { browserApi } from '../../services/endpoints';
+import { ApiError } from '../../services/backend';
+import { backend } from '../../services/backend';
 import { RuntimePanel } from './RuntimePanel';
 import type { BrowserRuntimeStatus } from '../../types';
 
@@ -28,7 +28,7 @@ describe('RuntimePanel', () => {
   });
 
   it('renders the runtime badge and bridge rows from the real status shape', async () => {
-    vi.spyOn(browserApi, 'runtimeStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'runtimeStatus').mockResolvedValue({
       runtime: makeStatus({
         state: 'ready',
         bridge: { pid: 4242, port: 13068, restarts: 1 },
@@ -43,13 +43,13 @@ describe('RuntimePanel', () => {
 
   it('start and stop buttons call the runtime endpoints', async () => {
     // 首次 stopped；启动后 refresh 拿到 ready，停止按钮才可点
-    vi.spyOn(browserApi, 'runtimeStatus')
+    vi.spyOn(backend.browser, 'runtimeStatus')
       .mockResolvedValueOnce({ runtime: makeStatus() })
       .mockResolvedValue({ runtime: makeStatus({ state: 'ready', bridge: { pid: 9, port: 7, restarts: 0 } }) });
     const startSpy = vi
-      .spyOn(browserApi, 'runtimeStart')
+      .spyOn(backend.browser, 'runtimeStart')
       .mockResolvedValue({ runtime: { state: 'ready', profile_id: 'p1', already_running: false, headed: true } });
-    vi.spyOn(browserApi, 'runtimeStop').mockResolvedValue({
+    vi.spyOn(backend.browser, 'runtimeStop').mockResolvedValue({
       runtime: { state: 'stopped', closed_sessions: 0, already_stopped: false, forced: true },
     });
     render(<RuntimePanel />);
@@ -62,13 +62,13 @@ describe('RuntimePanel', () => {
     );
     fireEvent.click(screen.getByText('停止运行时'));
     await waitFor(() =>
-      expect(browserApi.runtimeStop).toHaveBeenCalledWith(true),
+      expect(backend.browser.runtimeStop).toHaveBeenCalledWith(true),
     );
   });
 
   it('self-check reports playwright missing with a readable reason', async () => {
-    vi.spyOn(browserApi, 'runtimeStatus').mockResolvedValue({ runtime: makeStatus() });
-    vi.spyOn(browserApi, 'connectorStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'runtimeStatus').mockResolvedValue({ runtime: makeStatus() });
+    vi.spyOn(backend.browser, 'connectorStatus').mockResolvedValue({
       connector: { running: false, pid: null, frame_port: 0, control_port: 0, uptime_s: null },
       live: {},
       connectors: [],
@@ -92,7 +92,7 @@ describe('RuntimePanel', () => {
   });
 
   it('self-check passes all rows when the runtime is ready with a browser', async () => {
-    vi.spyOn(browserApi, 'runtimeStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'runtimeStatus').mockResolvedValue({
       runtime: makeStatus({
         state: 'ready',
         capabilities: {
@@ -102,7 +102,7 @@ describe('RuntimePanel', () => {
         },
       }),
     });
-    vi.spyOn(browserApi, 'connectorStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'connectorStatus').mockResolvedValue({
       connector: { running: false, pid: null, frame_port: 0, control_port: 0, uptime_s: null },
       live: {},
       connectors: [],
@@ -118,12 +118,12 @@ describe('RuntimePanel', () => {
   });
 
   it('self-check turns a failed start into a readable chromium reason', async () => {
-    vi.spyOn(browserApi, 'runtimeStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'runtimeStatus').mockResolvedValue({
       runtime: makeStatus({
         capabilities: { playwright_available: true, playwright_version: '1.65.2' },
       }),
     });
-    vi.spyOn(browserApi, 'connectorStatus').mockResolvedValue({
+    vi.spyOn(backend.browser, 'connectorStatus').mockResolvedValue({
       connector: { running: false, pid: null, frame_port: 0, control_port: 0, uptime_s: null },
       live: {},
       connectors: [],
@@ -131,7 +131,7 @@ describe('RuntimePanel', () => {
       tabs: [],
       extension_id: 'dagjdegfbllmdckkoopdafogoofjkmba',
     });
-    vi.spyOn(browserApi, 'runtimeStart').mockRejectedValue(
+    vi.spyOn(backend.browser, 'runtimeStart').mockRejectedValue(
       new ApiError(
         503,
         { error: { code: 'browser_start_failed', message: "Executable doesn't exist at C:\\x\\chrome.exe", details: {} } },

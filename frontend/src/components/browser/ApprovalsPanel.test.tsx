@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { browserApi } from '../../services/endpoints';
+import { backend } from '../../services/backend';
 import { ApprovalsPanel } from './ApprovalsPanel';
 import type { BrowserApproval, BrowserAuditEvent } from '../../types';
 
@@ -38,14 +38,14 @@ describe('ApprovalsPanel', () => {
   });
 
   it('derives pending approvals from audit events and can approve / reject', async () => {
-    vi.spyOn(browserApi, 'audit').mockResolvedValue({
+    vi.spyOn(backend.browser, 'audit').mockResolvedValue({
       events: [makeEvent(), makeEvent({ event_id: 'ev_2', event_type: 'browser.runtime.started', entity_type: 'browser_profile' })],
     });
     const getSpy = vi
-      .spyOn(browserApi, 'getApproval')
+      .spyOn(backend.browser, 'getApproval')
       .mockResolvedValue({ approval: makeApproval() });
     const decideSpy = vi
-      .spyOn(browserApi, 'decideApproval')
+      .spyOn(backend.browser, 'decideApproval')
       .mockResolvedValue({ approval: makeApproval({ state: 'approved' }) });
 
     render(<ApprovalsPanel />);
@@ -60,13 +60,13 @@ describe('ApprovalsPanel', () => {
   });
 
   it('keeps decided rows read-only', async () => {
-    vi.spyOn(browserApi, 'audit').mockResolvedValue({
+    vi.spyOn(backend.browser, 'audit').mockResolvedValue({
       events: [
         makeEvent(),
         makeEvent({ event_id: 'ev_3', event_type: 'browser.approval.decided' }),
       ],
     });
-    vi.spyOn(browserApi, 'getApproval').mockResolvedValue({
+    vi.spyOn(backend.browser, 'getApproval').mockResolvedValue({
       approval: makeApproval({ state: 'approved' }),
     });
     render(<ApprovalsPanel />);

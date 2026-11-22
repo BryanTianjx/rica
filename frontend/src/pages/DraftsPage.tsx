@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
-import { draftsApi } from '../services/endpoints';
+import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime, StatusBadge } from '../components/ui';
 import type { Draft } from '../types';
 
 export function DraftsPage() {
-  const drafts = useAsync(() => draftsApi.list(), []);
+  const drafts = useAsync(() => backend.drafts.list(), []);
   const [editedForId, setEditedForId] = useState<string | null>(null);
   const [editedText, setEditedText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -46,25 +46,25 @@ export function DraftsPage() {
   async function saveEdit() {
     if (!active) return;
     await act(
-      () => draftsApi.update(active.id, { message_text: editedText }),
+      () => backend.drafts.update(active.id, { message_text: editedText }),
       '已保存修改。',
     );
   }
 
   async function approve() {
     if (!active) return;
-    await act(() => draftsApi.approve(active.id), '已批准。批准不代表消息已发送。');
+    await act(() => backend.drafts.approve(active.id), '已批准。批准不代表消息已发送。');
   }
 
   async function reject() {
     if (!active) return;
-    await act(() => draftsApi.reject(active.id), '已拒绝该草稿。');
+    await act(() => backend.drafts.reject(active.id), '已拒绝该草稿。');
   }
 
   async function copy() {
     if (!active) return;
     await act(async () => {
-      const result = await draftsApi.copy(active.id);
+      const result = await backend.drafts.copy(active.id);
       await navigator.clipboard?.writeText(result.message_text);
     }, '已复制到剪贴板。复制不代表消息已发送 —— 请在平台手动发送后到 Follow-ups 记录结果。');
   }
