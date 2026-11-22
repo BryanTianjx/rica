@@ -37,6 +37,8 @@ import sys
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import contract_layers as layers
+
 #: Keys whose values are allowed to differ between implementations because
 #: they describe *how* validation failed, not *whether* it failed.
 VOLATILE_422_KEYS = ("errors",)
@@ -539,7 +541,18 @@ def check_improvements(py_cases: dict, rs_cases: dict) -> tuple[list[str], list[
 # ── Database state ─────────────────────────────────────────────────────────
 
 
-def diff_db_state(py_state: dict, rs_state: dict, norm) -> list[str]:
+def diff_db_state(py_state: dict, rs_state: dict, norm,
+                  byte_json: bool = False,
+                  json_columns: dict[str, list[str]] | None = None) -> list[str]:
+    """Compare final DB state.
+
+    Default keeps the existing, parsed-value semantics (L4 legacy).  With
+    ``byte_json=True`` the comparison is delegated to the byte-level L4 in
+    ``contract_layers``: every column — JSON columns in particular — is
+    compared as raw bytes, with no ``json.loads`` anywhere on the path.
+    """
+    if byte_json:
+        return layers.diff_db_state_bytes(py_state, rs_state, json_columns)
     problems: list[str] = []
     for table in sorted(set(py_state) | set(rs_state)):
         left = py_state.get(table)
@@ -574,11 +587,68 @@ def diff_db_state(py_state: dict, rs_state: dict, norm) -> list[str]:
 # ── Entry point ────────────────────────────────────────────────────────────
 
 
+#: JSON columns that L4's byte-level mode keeps opaque (no ``json.loads``).
+L4_JSON_COLUMNS: dict[str, list[str]] = {"audit_events": ["metadata_json"]}
+
+
+def _l4_rows(state: dict, norm, byte_json: bool) -> dict:
+    """Final-state rows; JSON columns stay raw when L4 byte mode is on."""
+    def mask_secrets(table, rows):
+        if table == "users":
+            return [{**row, "password_hash": "<bcrypt>"} for row in rows]
+        if table == "refresh_tokens":
+            return [{**row, "token_hash": "<sha256>"} for row in rows]
+        return rows
+
+    result: dict = {}
+    for table, rows in state.items():
+        masked = mask_secrets(table, rows)
+        if not byte_json:
+            result[table] = [norm(row) for row in masked]
+            continue
+        json_cols = set(L4_JSON_COLUMNS.get(table, []))
+        result[table] = [
+            {
+                key: (value if key in json_cols else norm(value))
+                for key, value in row.items()
+            }
+            for row in masked
+        ]
+    return result
+
+
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Diff two contract captures through the L1-L5 layer framework."
+    )
     parser.add_argument("--python", required=True, help="capture from the Python baseline")
     parser.add_argument("--rust", required=True, help="capture from the Rust port")
+    parser.add_argument(
+        "--layer", default=None,
+        help="layers to run: L1 (HTTP), L2 (schema), L3 (validation), L4 (persistence), "
+             "L5 (behaviour); 'all', comma list or range (e.g. L2-L4). "
+             f"default: {','.join(layers.DEFAULT_LAYERS)} (the legacy L1+L4 comparison)",
+    )
+    parser.add_argument(
+        "--byte-json", action="store_true",
+        help="L4 compares JSON columns as raw bytes instead of parsed values "
+             "(capture with contract_capture.py --keep-json-raw)",
+    )
+    parser.add_argument(
+        "--check-uncovered", action="store_true",
+        help="assert that the trailing UNCOVERED boundary section is a non-empty, "
+             "machine-checkable string (exit 0 when it is and no diff failed)",
+    )
     args = parser.parse_args(argv)
+
+    try:
+        enabled = layers.parse_layers(args.layer)
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    print("layers:")
+    for line in layers.describe_layers(enabled):
+        print(line)
 
     with open(args.python, encoding="utf-8") as handle:
         py = json.load(handle)
@@ -589,11 +659,11 @@ def main(argv: list[str]) -> int:
     # ONE mapping for both sides: a UUID that means the same thing on both
     # sides must normalise to the same placeholder, or every row carrying it
     # reads as a difference.
-    shared = _uuid_map(py, rs)
-    py_local = _side_local_uuid_map(py, shared, rs)
-    rs_local = _side_local_uuid_map(rs, shared, py)
-    py_norm = _normaliser(py, shared, py_local)
-    rs_norm = _normaliser(rs, shared, rs_local)
+    shared_uuids = _uuid_map(py, rs)
+    py_local = _side_local_uuid_map(py, shared_uuids, rs)
+    rs_local = _side_local_uuid_map(rs, shared_uuids, py)
+    py_norm = _normaliser(py, shared_uuids, py_local)
+    rs_norm = _normaliser(rs, shared_uuids, rs_local)
 
     only_py = sorted(set(py_cases) - set(rs_cases))
     only_rs = sorted(set(rs_cases) - set(py_cases))
@@ -603,68 +673,126 @@ def main(argv: list[str]) -> int:
         failures += len(only_py) + len(only_rs)
 
     shared = sorted(set(py_cases) & set(rs_cases))
+    # Normalised bodies and envelopes are shared by L1/L2/L3 so no layer can
+    # re-litigate the existing 422/sealed-envelope normalisation rules.
+    py_bodies: dict[str, Any] = {}
+    rs_bodies: dict[str, Any] = {}
+    py_l1_bodies: dict[str, Any] = {}
+    rs_l1_bodies: dict[str, Any] = {}
+    py_envelopes: dict[str, Any] = {}
+    rs_envelopes: dict[str, Any] = {}
     for name in shared:
-        if name in STATUS_DECLARED_CASES:
-            print(f"DECL {name} (asserted in the improvements section)")
-            continue
-        left_body = normalise_case_body(
-            name, py_norm(py_cases[name].get("body")))
-        right_body = normalise_case_body(
-            name, rs_norm(rs_cases[name].get("body")))
+        left_body = normalise_case_body(name, py_norm(py_cases[name].get("body")))
+        right_body = normalise_case_body(name, rs_norm(rs_cases[name].get("body")))
         if name in TOTAL_DECLARED_CASES:
             left_body = _without_counts(left_body)
             right_body = _without_counts(right_body)
-        left = {**py_cases[name], "body": left_body}
-        right = {**rs_cases[name], "body": right_body}
-        problems = diff_case(name, left, right, lambda value: value)
-        if problems:
-            failures += 1
-            print(f"FAIL {name}")
-            for problem in problems:
-                print("  " + problem.replace("\n", "\n  "))
+        py_l1_bodies[name] = left_body
+        rs_l1_bodies[name] = right_body
+        py_envelopes[name] = normalise_envelope(left_body, py_cases[name]["status"])
+        rs_envelopes[name] = normalise_envelope(right_body, rs_cases[name]["status"])
+        # L2 sees exactly the bodies L1 compares (same envelope + sealed
+        # normalisation), so a layer can never disagree with L1 on shape.
+        py_bodies[name] = normalise_sealed_envelope(py_envelopes[name])
+        rs_bodies[name] = normalise_sealed_envelope(rs_envelopes[name])
+
+    if "L1" in enabled:
+        print("\nlayer L1 (HTTP):")
+        for name in shared:
+            if name in STATUS_DECLARED_CASES:
+                print(f"DECL {name} (asserted in the improvements section)")
+                continue
+            left = {**py_cases[name], "body": py_l1_bodies[name]}
+            right = {**rs_cases[name], "body": rs_l1_bodies[name]}
+            problems = diff_case(name, left, right, lambda value: value)
+            if problems:
+                failures += 1
+                print(f"FAIL {name}")
+                for problem in problems:
+                    print("  " + problem.replace("\n", "\n  "))
+            else:
+                suffix = " (items only: total is declared)" if name in TOTAL_DECLARED_CASES else ""
+                print(f"PASS {name}{suffix}")
+
+        print("\nimprovements:")
+        lines, improvement_problems = check_improvements(py_cases, rs_cases)
+        for line in lines:
+            print(line)
+        for problem in improvement_problems:
+            print(f"  FAIL {problem}")
+        failures += len(improvement_problems)
+
+    if "L2" in enabled:
+        print("\nlayer L2 (schema):")
+        l2_lines, l2_problems = layers.check_l2_schema(
+            py_bodies, rs_bodies, py.get("db_state"), rs.get("db_state"),
+            STATUS_DECLARED_CASES,
+        )
+        for line in l2_lines:
+            print(line)
+        for problem in l2_problems:
+            print(f"  FAIL {problem}")
+        failures += len(l2_problems)
+
+    if "L3" in enabled:
+        print("\nlayer L3 (validation):")
+        l3_lines, l3_problems = layers.check_l3_validation(
+            py_cases, rs_cases, py_envelopes, rs_envelopes, STATUS_DECLARED_CASES
+        )
+        for line in l3_lines:
+            print(line)
+        for problem in l3_problems:
+            print(f"  FAIL {problem}")
+        failures += len(l3_problems)
+
+    if "L5" in enabled:
+        print("\nlayer L5 (behaviour):")
+        l5_lines, l5_problems = layers.check_l5_behavior(
+            py_cases, rs_cases, py.get("db_state"), rs.get("db_state"),
+            STATUS_DECLARED_CASES,
+        )
+        for line in l5_lines:
+            print(line)
+        for problem in l5_problems:
+            print(f"  FAIL {problem}")
+        failures += len(l5_problems)
+
+    if "L4" in enabled:
+        print("\ndatabase state:")
+        if py.get("db_state") and rs.get("db_state"):
+            # Each side is normalised with its *own* UUID map: the same row has
+            # different random ids on the two servers. Byte mode keeps JSON
+            # columns raw so their spacing/key order is compared verbatim.
+            py_rows = _l4_rows(py["db_state"], py_norm, args.byte_json)
+            rs_rows = _l4_rows(rs["db_state"], rs_norm, args.byte_json)
+            db_problems = diff_db_state(
+                py_rows, rs_rows, lambda value: value,
+                byte_json=args.byte_json, json_columns=L4_JSON_COLUMNS,
+            )
+            for problem in db_problems:
+                print(f"FAIL {problem}")
+                failures += 1
         else:
-            suffix = " (items only: total is declared)" if name in TOTAL_DECLARED_CASES else ""
-            print(f"PASS {name}{suffix}")
-
-    print("\nimprovements:")
-    lines, improvement_problems = check_improvements(py_cases, rs_cases)
-    for line in lines:
-        print(line)
-    for problem in improvement_problems:
-        print(f"  FAIL {problem}")
-    failures += len(improvement_problems)
-
-    print("\ndatabase state:")
-    if py.get("db_state") and rs.get("db_state"):
-        # Each side is normalised with its *own* UUID map: the same row has
-        # different random ids on the two servers, and the placeholder numbering
-        # is per capture.
-        def mask_secrets(table, rows):
-            if table == "users":
-                return [{**row, "password_hash": "<bcrypt>"} for row in rows]
-            if table == "refresh_tokens":
-                return [{**row, "token_hash": "<sha256>"} for row in rows]
-            return rows
-
-        py_rows = {
-            table: [py_norm(row) for row in mask_secrets(table, rows)]
-            for table, rows in py["db_state"].items()
-        }
-        rs_rows = {
-            # the same masking, on the Rust side
-            table: [rs_norm(row) for row in mask_secrets(table, rows)]
-            for table, rows in rs["db_state"].items()
-        }
-        for problem in diff_db_state(py_rows, rs_rows, lambda value: value):
-            print(f"FAIL {problem}")
-            failures += 1
+            print("SKIP no row dump in one of the captures")
     else:
-        print("SKIP no row dump in one of the captures")
+        print("\ndatabase state: SKIP (L4 not enabled)")
 
     total = len(shared)
     matched = total if failures == 0 else max(total - failures, 0)
     print(f"\n{matched}/{total} cases matched, {failures} failure(s)")
-    return 0 if failures == 0 else 1
+
+    # Coverage boundary: always the LAST section of every comparison, and
+    # always a non-empty machine-checkable string.
+    uncovered_text = layers.render_uncovered()
+    print("\n" + uncovered_text)
+    check_ok = True
+    if args.check_uncovered:
+        check_ok = bool(uncovered_text.strip())
+        print(
+            f"UNCOVERED_CHECK {'ok' if check_ok else 'FAIL'}: "
+            f"{'non-empty' if check_ok else 'empty'} boundary string"
+        )
+    return 0 if failures == 0 and check_ok else 1
 
 
 if __name__ == "__main__":

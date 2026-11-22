@@ -1,0 +1,3178 @@
+{
+  "rows": [
+    {
+      "case_count": 1,
+      "case_names": [
+        "ai_models_list"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 1,
+      "method": "GET",
+      "path": "/api/ai/models",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "ai_routing_patch",
+        "ai_routing_patch_unknown_type"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 2,
+      "method": "GET",
+      "path": "/api/ai/routing",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "ai_routing_patch",
+        "ai_routing_patch_unknown_type"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 3,
+      "method": "PATCH",
+      "path": "/api/ai/routing",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "ai_usage_get"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 4,
+      "method": "GET",
+      "path": "/api/ai/usage",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "ai_budget_get"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 5,
+      "method": "GET",
+      "path": "/api/ai/budget",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "ai_budget_patch",
+        "ai_budget_patch_bad_threshold"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 6,
+      "method": "PATCH",
+      "path": "/api/ai/budget",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 5,
+      "case_names": [
+        "auth_register_bad_email",
+        "auth_register_duplicate_email",
+        "auth_register_owner",
+        "auth_register_short_password",
+        "auth_register_unknown_tenant"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4",
+        "L5修复回归"
+      ],
+      "id": 7,
+      "method": "POST",
+      "path": "/api/auth/register",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "auth_login",
+        "auth_login_wrong_password"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 8,
+      "method": "POST",
+      "path": "/api/auth/login",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "auth_refresh_after_logout",
+        "auth_refresh_replay_is_single_use",
+        "auth_refresh_rotates"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 9,
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "auth_logout_idempotent",
+        "auth_logout_revokes"
+      ],
+      "covered": [
+        "正常",
+        "L4",
+        "L5修复回归"
+      ],
+      "id": 10,
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "auth_me_local"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 11,
+      "method": "GET",
+      "path": "/api/auth/me",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 4,
+      "case_names": [
+        "shares_create",
+        "shares_create_self",
+        "shares_create_unknown_recipient",
+        "shares_upgrade"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 12,
+      "method": "POST",
+      "path": "/api/shares",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "shares_list"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 13,
+      "method": "GET",
+      "path": "/api/shares",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 0,
+      "case_names": [],
+      "covered": [],
+      "id": 14,
+      "method": "DELETE",
+      "path": "/api/shares/{share_id}",
+      "uncovered": [
+        {
+          "dimension": "正常",
+          "reason": "CASES 清单中没有该契约的正常路径请求"
+        },
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L4",
+          "reason": "该契约在对拍场景中没有独立用例，仅继承场景级最终状态对拍"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W6"
+    },
+    {
+      "case_count": 13,
+      "case_names": [
+        "candidates_bad_status",
+        "candidates_default",
+        "candidates_final",
+        "candidates_include_archived",
+        "candidates_limit2",
+        "candidates_limit_over_max",
+        "candidates_page2",
+        "candidates_position_filter",
+        "candidates_search_case",
+        "candidates_search_miss",
+        "candidates_search_name",
+        "candidates_status_empty",
+        "candidates_status_filter"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 15,
+      "method": "GET",
+      "path": "/api/candidates",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "candidate_create"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 16,
+      "method": "POST",
+      "path": "/api/candidates",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "candidate_detail",
+        "candidate_detail_after_delete",
+        "candidate_detail_after_position_delete",
+        "candidate_detail_created",
+        "candidate_detail_missing",
+        "candidate_detail_second"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 17,
+      "method": "GET",
+      "path": "/api/candidates/{candidate_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 4,
+      "case_names": [
+        "candidate_patch",
+        "candidate_patch_missing",
+        "candidate_patch_null_name",
+        "candidate_patch_null_position"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 18,
+      "method": "PATCH",
+      "path": "/api/candidates/{candidate_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "candidate_delete",
+        "candidate_delete_with_children"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 19,
+      "method": "DELETE",
+      "path": "/api/candidates/{candidate_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "conversations_after_cascade",
+        "conversations_after_writes",
+        "conversations_by_candidate",
+        "conversations_default",
+        "conversations_limit2",
+        "conversations_unknown_candidate"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "L4"
+      ],
+      "id": 20,
+      "method": "GET",
+      "path": "/api/conversations",
+      "uncovered": [
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "conversation_create",
+        "conversation_create_missing_candidate"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 21,
+      "method": "POST",
+      "path": "/api/conversations",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 10,
+      "case_names": [
+        "messages_after_cascade",
+        "messages_after_writes",
+        "messages_by_candidate",
+        "messages_by_conversation",
+        "messages_by_empty_candidate",
+        "messages_default",
+        "messages_limit2",
+        "messages_limit2_offset1",
+        "messages_limit_over_max",
+        "messages_offset_beyond_total"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 22,
+      "method": "GET",
+      "path": "/api/messages",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "message_create_auto_conversation",
+        "message_create_empty_content",
+        "message_create_explicit_conversation",
+        "message_create_missing_candidate",
+        "message_create_missing_conversation",
+        "message_create_wrong_conversation"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 23,
+      "method": "POST",
+      "path": "/api/messages",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 5,
+      "case_names": [
+        "timeline_after_cascade",
+        "timeline_after_writes",
+        "timeline_default",
+        "timeline_limit2",
+        "timeline_missing_candidate"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 24,
+      "method": "GET",
+      "path": "/api/candidates/{candidate_id}/timeline",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "dashboard_after_drafts",
+        "dashboard_default"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 25,
+      "method": "GET",
+      "path": "/api/dashboard",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 14,
+      "case_names": [
+        "drafts_default",
+        "drafts_filter_candidate",
+        "drafts_filter_candidate_deleted",
+        "drafts_filter_status_approved",
+        "drafts_filter_status_generated",
+        "drafts_filter_status_invalid",
+        "drafts_final",
+        "drafts_limit2",
+        "drafts_limit_over_max",
+        "drafts_limit_zero",
+        "drafts_offset_beyond_total",
+        "drafts_offset_negative",
+        "drafts_page2",
+        "drafts_trailing_slash"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 26,
+      "method": "GET",
+      "path": "/api/drafts",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "draft_detail_approved",
+        "draft_detail_missing",
+        "draft_detail_routed"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 27,
+      "method": "GET",
+      "path": "/api/drafts/{draft_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "generate_bad_message_type",
+        "generate_max_length_too_large",
+        "generate_max_length_too_small",
+        "generate_missing_candidate_id",
+        "generate_no_key",
+        "generate_unknown_candidate"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 28,
+      "method": "POST",
+      "path": "/api/drafts/generate",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "context_preview",
+        "context_preview_missing"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 29,
+      "method": "GET",
+      "path": "/api/candidates/{candidate_id}/context",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 5,
+      "case_names": [
+        "draft_patch_after_approve",
+        "draft_patch_approved",
+        "draft_patch_empty_text",
+        "draft_patch_null_objective",
+        "draft_patch_text"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 30,
+      "method": "PATCH",
+      "path": "/api/drafts/{draft_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "draft_approve",
+        "draft_approve_rejected"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 31,
+      "method": "POST",
+      "path": "/api/drafts/{draft_id}/approve",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 0,
+      "case_names": [],
+      "covered": [],
+      "id": 32,
+      "method": "POST",
+      "path": "/api/drafts/{draft_id}/reject",
+      "uncovered": [
+        {
+          "dimension": "正常",
+          "reason": "CASES 清单中没有该契约的正常路径请求"
+        },
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L4",
+          "reason": "该契约在对拍场景中没有独立用例，仅继承场景级最终状态对拍"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "draft_copy",
+        "draft_copy_rejected"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 33,
+      "method": "POST",
+      "path": "/api/drafts/{draft_id}/copy",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "draft_group_get",
+        "draft_group_get_after_select",
+        "draft_group_missing"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 34,
+      "method": "GET",
+      "path": "/api/draft-groups/{group_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "draft_group_select",
+        "draft_group_select_not_member",
+        "draft_group_select_rejected_member"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 35,
+      "method": "POST",
+      "path": "/api/draft-groups/{group_id}/select",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 4,
+      "case_names": [
+        "follow_up_evaluate_bob",
+        "follow_up_evaluate_closed_position",
+        "follow_up_evaluate_frank",
+        "follow_up_evaluate_unknown"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 36,
+      "method": "POST",
+      "path": "/api/follow-ups/evaluate",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "follow_ups_list_default",
+        "follow_ups_list_final"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 37,
+      "method": "GET",
+      "path": "/api/follow-ups",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "follow_up_create_bob",
+        "follow_up_create_bob_again",
+        "follow_up_create_frank"
+      ],
+      "covered": [
+        "正常",
+        "L4",
+        "L5修复回归"
+      ],
+      "id": 38,
+      "method": "POST",
+      "path": "/api/follow-ups",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "follow_up_get_missing"
+      ],
+      "covered": [
+        "无效",
+        "L4"
+      ],
+      "id": 39,
+      "method": "GET",
+      "path": "/api/follow-ups/{task_id}",
+      "uncovered": [
+        {
+          "dimension": "正常",
+          "reason": "CASES 清单中没有该契约的正常路径请求"
+        },
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "follow_up_patch_approved_direct",
+        "follow_up_patch_drafting",
+        "follow_up_patch_illegal",
+        "follow_up_patch_invalid_status",
+        "follow_up_patch_reject",
+        "follow_up_patch_reviewing"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 40,
+      "method": "PATCH",
+      "path": "/api/follow-ups/{task_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "follow_up_cancel",
+        "follow_up_cancel_again"
+      ],
+      "covered": [
+        "正常",
+        "L4",
+        "L5修复回归"
+      ],
+      "id": 41,
+      "method": "POST",
+      "path": "/api/follow-ups/{task_id}/cancel",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "follow_up_complete_wrong"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 42,
+      "method": "POST",
+      "path": "/api/follow-ups/{task_id}/complete",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "follow_up_record_result",
+        "follow_up_record_result_again",
+        "follow_up_record_result_bob"
+      ],
+      "covered": [
+        "正常",
+        "L4",
+        "L5修复回归"
+      ],
+      "id": 43,
+      "method": "POST",
+      "path": "/api/follow-ups/{task_id}/record-result",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "follow_up_policy_get"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 44,
+      "method": "GET",
+      "path": "/api/follow-ups/policy/current",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 4,
+      "case_names": [
+        "follow_up_policy_patch",
+        "follow_up_policy_patch_invalid",
+        "follow_up_policy_patch_null",
+        "follow_up_policy_restore"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 45,
+      "method": "PATCH",
+      "path": "/api/follow-ups/policy/current",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 7,
+      "case_names": [
+        "imports_preview",
+        "imports_preview_empty",
+        "imports_preview_no_candidate",
+        "imports_preview_other_candidate",
+        "imports_preview_to_reject",
+        "imports_preview_unknown_candidate",
+        "imports_preview_whitespace_only"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 46,
+      "method": "POST",
+      "path": "/api/imports/preview",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "imports_get",
+        "imports_get_after_reject",
+        "imports_get_missing"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 47,
+      "method": "GET",
+      "path": "/api/imports/{session_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "confirm_message_guard_browser_session",
+        "imports_confirm",
+        "imports_confirm_after_reject",
+        "imports_confirm_missing_candidate_field",
+        "imports_confirm_twice",
+        "imports_confirm_unknown_candidate"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4",
+        "L5修复回归"
+      ],
+      "id": 48,
+      "method": "POST",
+      "path": "/api/imports/{session_id}/confirm",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "imports_reject",
+        "imports_reject_missing",
+        "reject_browser_session_marks_draft"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 49,
+      "method": "POST",
+      "path": "/api/imports/{session_id}/reject",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 4,
+      "case_names": [
+        "export_bad_key",
+        "export_plaintext",
+        "export_sealed",
+        "export_short_key"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 50,
+      "method": "POST",
+      "path": "/api/export",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 23,
+      "case_names": [
+        "import_lww_append_only_send_record",
+        "import_lww_bare_date_wins",
+        "import_lww_equal_differs",
+        "import_lww_newer_wins",
+        "import_lww_no_timestamp_differs",
+        "import_lww_no_timestamp_identical",
+        "import_lww_numeric_bool_no_conflict",
+        "import_lww_older_differs",
+        "import_positions_bad_archived",
+        "import_positions_bad_location",
+        "import_positions_bad_status",
+        "import_positions_dump_archived_ok",
+        "import_positions_name_too_long",
+        "import_positions_negative_salary",
+        "import_row_empty_id_mints_uuid",
+        "import_row_not_an_object",
+        "import_row_null_id_mints_uuid",
+        "import_snapshot",
+        "import_snapshot_empty",
+        "import_snapshot_no_data",
+        "import_snapshot_null_data",
+        "import_snapshot_unknown_table",
+        "import_table_not_a_list"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 51,
+      "method": "POST",
+      "path": "/api/import",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "imports_ocr_missing_file",
+        "imports_ocr_no_path",
+        "imports_ocr_not_an_image",
+        "imports_ocr_outside_directory",
+        "imports_ocr_real_image",
+        "imports_ocr_wide_image"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 52,
+      "method": "POST",
+      "path": "/api/imports/ocr",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 24,
+      "case_names": [
+        "positions_default",
+        "positions_duplicate_limit",
+        "positions_final",
+        "positions_include_archived",
+        "positions_include_archived_bool1",
+        "positions_include_archived_padded",
+        "positions_limit2",
+        "positions_limit_max",
+        "positions_limit_over_max",
+        "positions_limit_zero",
+        "positions_offset_beyond_i64",
+        "positions_offset_beyond_total",
+        "positions_offset_beyond_u64",
+        "positions_offset_negative",
+        "positions_offset_underscore",
+        "positions_page2",
+        "positions_search_case_insensitive",
+        "positions_search_hit",
+        "positions_search_hit_with_archived",
+        "positions_search_miss",
+        "positions_search_padded",
+        "positions_search_too_long",
+        "positions_trailing_slash",
+        "positions_trailing_slash_query"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4",
+        "L5修复回归"
+      ],
+      "id": 53,
+      "method": "GET",
+      "path": "/api/positions",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "position_create"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 54,
+      "method": "POST",
+      "path": "/api/positions",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "position_detail",
+        "position_detail_after_delete",
+        "position_detail_archived",
+        "position_detail_created",
+        "position_detail_missing",
+        "position_detail_trailing_slash"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 55,
+      "method": "GET",
+      "path": "/api/positions/{position_id}",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 7,
+      "case_names": [
+        "position_patch",
+        "position_patch_archived",
+        "position_patch_clear_nullable",
+        "position_patch_missing",
+        "position_patch_null_archived",
+        "position_patch_null_name",
+        "position_patch_status_null"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 56,
+      "method": "PATCH",
+      "path": "/api/positions/{position_id}",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "position_delete",
+        "position_delete_missing",
+        "position_delete_set_null"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 57,
+      "method": "DELETE",
+      "path": "/api/positions/{position_id}",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 6,
+      "case_names": [
+        "send_record_bad_status",
+        "send_record_create",
+        "send_record_create_explicit_time",
+        "send_record_draft_not_sendable",
+        "send_record_missing_task",
+        "send_record_task_conflict"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 58,
+      "method": "POST",
+      "path": "/api/send-records",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 7,
+      "case_names": [
+        "send_records_after_cascade",
+        "send_records_after_writes",
+        "send_records_bad_status",
+        "send_records_by_candidate",
+        "send_records_by_status",
+        "send_records_default",
+        "send_records_limit2"
+      ],
+      "covered": [
+        "正常",
+        "边界",
+        "无效",
+        "L4"
+      ],
+      "id": 59,
+      "method": "GET",
+      "path": "/api/send-records",
+      "uncovered": [
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "?"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "settings_after_key",
+        "settings_read"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 60,
+      "method": "GET",
+      "path": "/api/settings",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "ai_key_put"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 61,
+      "method": "PUT",
+      "path": "/api/settings/ai-key",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "ai_key_put"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 62,
+      "method": "DELETE",
+      "path": "/api/settings/ai-key",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "ai_egress_read"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 63,
+      "method": "GET",
+      "path": "/api/settings/ai-egress",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 3,
+      "case_names": [
+        "ai_egress_consent_grant",
+        "ai_egress_consent_missing",
+        "ai_egress_consent_revoke"
+      ],
+      "covered": [
+        "正常",
+        "无效",
+        "L4"
+      ],
+      "id": 64,
+      "method": "POST",
+      "path": "/api/settings/ai-egress/consent",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "audit_events_w6"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 65,
+      "method": "GET",
+      "path": "/api/audit-events",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 2,
+      "case_names": [
+        "backups_list",
+        "backups_list_final"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 66,
+      "method": "GET",
+      "path": "/api/backups",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 1,
+      "case_names": [
+        "backups_create"
+      ],
+      "covered": [
+        "正常",
+        "L4"
+      ],
+      "id": 67,
+      "method": "POST",
+      "path": "/api/backups",
+      "uncovered": [
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    },
+    {
+      "case_count": 0,
+      "case_names": [],
+      "covered": [],
+      "id": 68,
+      "method": "POST",
+      "path": "/api/backups/{name}/restore",
+      "uncovered": [
+        {
+          "dimension": "正常",
+          "reason": "CASES 清单中没有该契约的正常路径请求"
+        },
+        {
+          "dimension": "边界",
+          "reason": "CASES 清单中没有该契约的 limit/offset/search/状态等边界探针"
+        },
+        {
+          "dimension": "无效",
+          "reason": "CASES 清单中没有该契约的 404/422/405 无效输入探针"
+        },
+        {
+          "dimension": "权限",
+          "reason": "单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动"
+        },
+        {
+          "dimension": "DB异常",
+          "reason": "capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例"
+        },
+        {
+          "dimension": "并发",
+          "reason": "capture 为串行 HTTP 客户端，无并发/竞态驱动"
+        },
+        {
+          "dimension": "L4",
+          "reason": "该契约在对拍场景中没有独立用例，仅继承场景级最终状态对拍"
+        },
+        {
+          "dimension": "L5修复回归",
+          "reason": "该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+        }
+      ],
+      "wave": "W5"
+    }
+  ],
+  "summary": {
+    "capture_cases": 286,
+    "contracts": 68,
+    "covered_counts": {
+      "DB异常": 0,
+      "L4": 65,
+      "L5修复回归": 7,
+      "并发": 0,
+      "无效": 33,
+      "权限": 0,
+      "正常": 64,
+      "边界": 11
+    },
+    "dimensions": [
+      "正常",
+      "边界",
+      "无效",
+      "权限",
+      "DB异常",
+      "并发",
+      "L4",
+      "L5修复回归"
+    ],
+    "uncovered_count": 364
+  },
+  "uncovered": [
+    "#1 GET /api/ai/models — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#1 GET /api/ai/models — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#1 GET /api/ai/models — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#1 GET /api/ai/models — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#1 GET /api/ai/models — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#1 GET /api/ai/models — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#2 GET /api/ai/routing — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#2 GET /api/ai/routing — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#2 GET /api/ai/routing — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#2 GET /api/ai/routing — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#2 GET /api/ai/routing — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#2 GET /api/ai/routing — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#3 PATCH /api/ai/routing — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#3 PATCH /api/ai/routing — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#3 PATCH /api/ai/routing — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#3 PATCH /api/ai/routing — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#3 PATCH /api/ai/routing — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#3 PATCH /api/ai/routing — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#4 GET /api/ai/usage — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#4 GET /api/ai/usage — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#4 GET /api/ai/usage — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#4 GET /api/ai/usage — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#4 GET /api/ai/usage — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#4 GET /api/ai/usage — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#5 GET /api/ai/budget — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#5 GET /api/ai/budget — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#5 GET /api/ai/budget — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#5 GET /api/ai/budget — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#5 GET /api/ai/budget — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#5 GET /api/ai/budget — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#6 PATCH /api/ai/budget — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#6 PATCH /api/ai/budget — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#6 PATCH /api/ai/budget — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#6 PATCH /api/ai/budget — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#6 PATCH /api/ai/budget — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#7 POST /api/auth/register — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#7 POST /api/auth/register — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#7 POST /api/auth/register — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#7 POST /api/auth/register — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#8 POST /api/auth/login — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#8 POST /api/auth/login — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#8 POST /api/auth/login — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#8 POST /api/auth/login — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#8 POST /api/auth/login — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#9 POST /api/auth/refresh — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#9 POST /api/auth/refresh — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#9 POST /api/auth/refresh — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#9 POST /api/auth/refresh — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#9 POST /api/auth/refresh — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#9 POST /api/auth/refresh — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#10 POST /api/auth/logout — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#10 POST /api/auth/logout — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#10 POST /api/auth/logout — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#10 POST /api/auth/logout — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#10 POST /api/auth/logout — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#11 GET /api/auth/me — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#11 GET /api/auth/me — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#11 GET /api/auth/me — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#11 GET /api/auth/me — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#11 GET /api/auth/me — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#11 GET /api/auth/me — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#12 POST /api/shares — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#12 POST /api/shares — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#12 POST /api/shares — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#12 POST /api/shares — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#12 POST /api/shares — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#12 POST /api/shares — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#13 GET /api/shares — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#13 GET /api/shares — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#13 GET /api/shares — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#13 GET /api/shares — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#13 GET /api/shares — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#13 GET /api/shares — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#14 DELETE /api/shares/{share_id} — 正常未覆盖: CASES 清单中没有该契约的正常路径请求",
+    "#14 DELETE /api/shares/{share_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#14 DELETE /api/shares/{share_id} — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#14 DELETE /api/shares/{share_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#14 DELETE /api/shares/{share_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#14 DELETE /api/shares/{share_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#14 DELETE /api/shares/{share_id} — L4未覆盖: 该契约在对拍场景中没有独立用例，仅继承场景级最终状态对拍",
+    "#14 DELETE /api/shares/{share_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#15 GET /api/candidates — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#15 GET /api/candidates — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#15 GET /api/candidates — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#15 GET /api/candidates — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#16 POST /api/candidates — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#16 POST /api/candidates — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#16 POST /api/candidates — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#16 POST /api/candidates — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#16 POST /api/candidates — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#16 POST /api/candidates — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#17 GET /api/candidates/{candidate_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#17 GET /api/candidates/{candidate_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#17 GET /api/candidates/{candidate_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#17 GET /api/candidates/{candidate_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#17 GET /api/candidates/{candidate_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#18 PATCH /api/candidates/{candidate_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#18 PATCH /api/candidates/{candidate_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#18 PATCH /api/candidates/{candidate_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#18 PATCH /api/candidates/{candidate_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#18 PATCH /api/candidates/{candidate_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#19 DELETE /api/candidates/{candidate_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#19 DELETE /api/candidates/{candidate_id} — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#19 DELETE /api/candidates/{candidate_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#19 DELETE /api/candidates/{candidate_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#19 DELETE /api/candidates/{candidate_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#19 DELETE /api/candidates/{candidate_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#20 GET /api/conversations — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#20 GET /api/conversations — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#20 GET /api/conversations — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#20 GET /api/conversations — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#20 GET /api/conversations — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#21 POST /api/conversations — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#21 POST /api/conversations — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#21 POST /api/conversations — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#21 POST /api/conversations — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#21 POST /api/conversations — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#22 GET /api/messages — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#22 GET /api/messages — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#22 GET /api/messages — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#22 GET /api/messages — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#23 POST /api/messages — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#23 POST /api/messages — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#23 POST /api/messages — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#23 POST /api/messages — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#23 POST /api/messages — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#24 GET /api/candidates/{candidate_id}/timeline — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#24 GET /api/candidates/{candidate_id}/timeline — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#24 GET /api/candidates/{candidate_id}/timeline — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#24 GET /api/candidates/{candidate_id}/timeline — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#25 GET /api/dashboard — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#25 GET /api/dashboard — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#25 GET /api/dashboard — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#25 GET /api/dashboard — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#25 GET /api/dashboard — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#25 GET /api/dashboard — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#26 GET /api/drafts — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#26 GET /api/drafts — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#26 GET /api/drafts — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#26 GET /api/drafts — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#27 GET /api/drafts/{draft_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#27 GET /api/drafts/{draft_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#27 GET /api/drafts/{draft_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#27 GET /api/drafts/{draft_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#27 GET /api/drafts/{draft_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#28 POST /api/drafts/generate — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#28 POST /api/drafts/generate — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#28 POST /api/drafts/generate — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#28 POST /api/drafts/generate — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#29 GET /api/candidates/{candidate_id}/context — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#29 GET /api/candidates/{candidate_id}/context — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#29 GET /api/candidates/{candidate_id}/context — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#29 GET /api/candidates/{candidate_id}/context — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#29 GET /api/candidates/{candidate_id}/context — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#30 PATCH /api/drafts/{draft_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#30 PATCH /api/drafts/{draft_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#30 PATCH /api/drafts/{draft_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#30 PATCH /api/drafts/{draft_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#30 PATCH /api/drafts/{draft_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#31 POST /api/drafts/{draft_id}/approve — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#31 POST /api/drafts/{draft_id}/approve — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#31 POST /api/drafts/{draft_id}/approve — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#31 POST /api/drafts/{draft_id}/approve — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#31 POST /api/drafts/{draft_id}/approve — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#31 POST /api/drafts/{draft_id}/approve — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#32 POST /api/drafts/{draft_id}/reject — 正常未覆盖: CASES 清单中没有该契约的正常路径请求",
+    "#32 POST /api/drafts/{draft_id}/reject — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#32 POST /api/drafts/{draft_id}/reject — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#32 POST /api/drafts/{draft_id}/reject — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#32 POST /api/drafts/{draft_id}/reject — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#32 POST /api/drafts/{draft_id}/reject — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#32 POST /api/drafts/{draft_id}/reject — L4未覆盖: 该契约在对拍场景中没有独立用例，仅继承场景级最终状态对拍",
+    "#32 POST /api/drafts/{draft_id}/reject — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#33 POST /api/drafts/{draft_id}/copy — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#33 POST /api/drafts/{draft_id}/copy — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#33 POST /api/drafts/{draft_id}/copy — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#33 POST /api/drafts/{draft_id}/copy — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#33 POST /api/drafts/{draft_id}/copy — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#33 POST /api/drafts/{draft_id}/copy — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#34 GET /api/draft-groups/{group_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#34 GET /api/draft-groups/{group_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#34 GET /api/draft-groups/{group_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#34 GET /api/draft-groups/{group_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#34 GET /api/draft-groups/{group_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#35 POST /api/draft-groups/{group_id}/select — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#35 POST /api/draft-groups/{group_id}/select — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#35 POST /api/draft-groups/{group_id}/select — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#35 POST /api/draft-groups/{group_id}/select — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#35 POST /api/draft-groups/{group_id}/select — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#35 POST /api/draft-groups/{group_id}/select — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#36 POST /api/follow-ups/evaluate — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#36 POST /api/follow-ups/evaluate — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#36 POST /api/follow-ups/evaluate — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#36 POST /api/follow-ups/evaluate — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#36 POST /api/follow-ups/evaluate — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#36 POST /api/follow-ups/evaluate — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#37 GET /api/follow-ups — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#37 GET /api/follow-ups — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#37 GET /api/follow-ups — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#37 GET /api/follow-ups — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#37 GET /api/follow-ups — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#37 GET /api/follow-ups — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#38 POST /api/follow-ups — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#38 POST /api/follow-ups — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#38 POST /api/follow-ups — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#38 POST /api/follow-ups — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#38 POST /api/follow-ups — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#39 GET /api/follow-ups/{task_id} — 正常未覆盖: CASES 清单中没有该契约的正常路径请求",
+    "#39 GET /api/follow-ups/{task_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#39 GET /api/follow-ups/{task_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#39 GET /api/follow-ups/{task_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#39 GET /api/follow-ups/{task_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#39 GET /api/follow-ups/{task_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#40 PATCH /api/follow-ups/{task_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#40 PATCH /api/follow-ups/{task_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#40 PATCH /api/follow-ups/{task_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#40 PATCH /api/follow-ups/{task_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#40 PATCH /api/follow-ups/{task_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#41 POST /api/follow-ups/{task_id}/cancel — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#41 POST /api/follow-ups/{task_id}/cancel — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#41 POST /api/follow-ups/{task_id}/cancel — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#41 POST /api/follow-ups/{task_id}/cancel — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#41 POST /api/follow-ups/{task_id}/cancel — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#42 POST /api/follow-ups/{task_id}/complete — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#42 POST /api/follow-ups/{task_id}/complete — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#42 POST /api/follow-ups/{task_id}/complete — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#42 POST /api/follow-ups/{task_id}/complete — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#42 POST /api/follow-ups/{task_id}/complete — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#42 POST /api/follow-ups/{task_id}/complete — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#43 POST /api/follow-ups/{task_id}/record-result — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#43 POST /api/follow-ups/{task_id}/record-result — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#43 POST /api/follow-ups/{task_id}/record-result — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#43 POST /api/follow-ups/{task_id}/record-result — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#43 POST /api/follow-ups/{task_id}/record-result — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#44 GET /api/follow-ups/policy/current — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#44 GET /api/follow-ups/policy/current — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#44 GET /api/follow-ups/policy/current — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#44 GET /api/follow-ups/policy/current — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#44 GET /api/follow-ups/policy/current — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#44 GET /api/follow-ups/policy/current — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#45 PATCH /api/follow-ups/policy/current — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#45 PATCH /api/follow-ups/policy/current — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#45 PATCH /api/follow-ups/policy/current — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#45 PATCH /api/follow-ups/policy/current — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#45 PATCH /api/follow-ups/policy/current — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#46 POST /api/imports/preview — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#46 POST /api/imports/preview — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#46 POST /api/imports/preview — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#46 POST /api/imports/preview — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#46 POST /api/imports/preview — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#47 GET /api/imports/{session_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#47 GET /api/imports/{session_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#47 GET /api/imports/{session_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#47 GET /api/imports/{session_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#47 GET /api/imports/{session_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#48 POST /api/imports/{session_id}/confirm — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#48 POST /api/imports/{session_id}/confirm — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#48 POST /api/imports/{session_id}/confirm — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#48 POST /api/imports/{session_id}/confirm — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#49 POST /api/imports/{session_id}/reject — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#49 POST /api/imports/{session_id}/reject — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#49 POST /api/imports/{session_id}/reject — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#49 POST /api/imports/{session_id}/reject — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#49 POST /api/imports/{session_id}/reject — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#50 POST /api/export — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#50 POST /api/export — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#50 POST /api/export — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#50 POST /api/export — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#50 POST /api/export — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#51 POST /api/import — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#51 POST /api/import — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#51 POST /api/import — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#51 POST /api/import — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#52 POST /api/imports/ocr — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#52 POST /api/imports/ocr — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#52 POST /api/imports/ocr — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#52 POST /api/imports/ocr — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#52 POST /api/imports/ocr — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#53 GET /api/positions — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#53 GET /api/positions — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#53 GET /api/positions — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#54 POST /api/positions — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#54 POST /api/positions — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#54 POST /api/positions — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#54 POST /api/positions — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#54 POST /api/positions — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#54 POST /api/positions — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#55 GET /api/positions/{position_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#55 GET /api/positions/{position_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#55 GET /api/positions/{position_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#55 GET /api/positions/{position_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#56 PATCH /api/positions/{position_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#56 PATCH /api/positions/{position_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#56 PATCH /api/positions/{position_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#56 PATCH /api/positions/{position_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#57 DELETE /api/positions/{position_id} — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#57 DELETE /api/positions/{position_id} — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#57 DELETE /api/positions/{position_id} — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#57 DELETE /api/positions/{position_id} — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#57 DELETE /api/positions/{position_id} — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#58 POST /api/send-records — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#58 POST /api/send-records — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#58 POST /api/send-records — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#58 POST /api/send-records — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#58 POST /api/send-records — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#59 GET /api/send-records — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#59 GET /api/send-records — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#59 GET /api/send-records — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#59 GET /api/send-records — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#60 GET /api/settings — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#60 GET /api/settings — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#60 GET /api/settings — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#60 GET /api/settings — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#60 GET /api/settings — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#60 GET /api/settings — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#61 PUT /api/settings/ai-key — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#61 PUT /api/settings/ai-key — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#61 PUT /api/settings/ai-key — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#61 PUT /api/settings/ai-key — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#61 PUT /api/settings/ai-key — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#61 PUT /api/settings/ai-key — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#62 DELETE /api/settings/ai-key — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#62 DELETE /api/settings/ai-key — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#62 DELETE /api/settings/ai-key — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#62 DELETE /api/settings/ai-key — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#62 DELETE /api/settings/ai-key — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#62 DELETE /api/settings/ai-key — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#63 GET /api/settings/ai-egress — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#63 GET /api/settings/ai-egress — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#63 GET /api/settings/ai-egress — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#63 GET /api/settings/ai-egress — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#63 GET /api/settings/ai-egress — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#63 GET /api/settings/ai-egress — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#64 POST /api/settings/ai-egress/consent — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#64 POST /api/settings/ai-egress/consent — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#64 POST /api/settings/ai-egress/consent — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#64 POST /api/settings/ai-egress/consent — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#64 POST /api/settings/ai-egress/consent — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#65 GET /api/audit-events — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#65 GET /api/audit-events — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#65 GET /api/audit-events — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#65 GET /api/audit-events — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#65 GET /api/audit-events — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#65 GET /api/audit-events — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#66 GET /api/backups — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#66 GET /api/backups — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#66 GET /api/backups — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#66 GET /api/backups — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#66 GET /api/backups — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#66 GET /api/backups — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#67 POST /api/backups — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#67 POST /api/backups — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#67 POST /api/backups — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#67 POST /api/backups — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#67 POST /api/backups — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#67 POST /api/backups — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针",
+    "#68 POST /api/backups/{name}/restore — 正常未覆盖: CASES 清单中没有该契约的正常路径请求",
+    "#68 POST /api/backups/{name}/restore — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针",
+    "#68 POST /api/backups/{name}/restore — 无效未覆盖: CASES 清单中没有该契约的 404/422/405 无效输入探针",
+    "#68 POST /api/backups/{name}/restore — 权限未覆盖: 单用户 local 模式无权限模型（W6 Policy Engine 未建），capture 无身份/角色驱动",
+    "#68 POST /api/backups/{name}/restore — DB异常未覆盖: capture 不注入 SQLite 锁/约束失败，DB 故障路径无用例",
+    "#68 POST /api/backups/{name}/restore — 并发未覆盖: capture 为串行 HTTP 客户端，无并发/竞态驱动",
+    "#68 POST /api/backups/{name}/restore — L4未覆盖: 该契约在对拍场景中没有独立用例，仅继承场景级最终状态对拍",
+    "#68 POST /api/backups/{name}/restore — L5修复回归未覆盖: 该契约无重复请求/恢复类用例，L5 行为断言只覆盖场景级幂等探针"
+  ]
+}
