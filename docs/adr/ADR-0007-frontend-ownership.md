@@ -4,9 +4,9 @@ document_id: "ADR-0007"
 document_type: "ArchitectureDecisionRecord"
 project: "ICA-RUST"
 version: "1.0.0"
-status: "Proposed"
+status: "Accepted"
 created: "2026-11-21"
-updated: "2026-11-21"
+updated: "2026-11-22"
 owner: "ICA-RUST 项目负责人"
 related_documents:
   - "AUDIT-ICA-F0-001"
@@ -18,7 +18,8 @@ supersedes: null
 # ADR-0007: 前端代码归属
 
 ## Status
-Proposed(待项目负责人签署 —《UI 重构方案》§8 明言"这个决策不定,F0 无法开工")
+**Accepted**(2026-11-22,项目负责人签署 —「签署 ADR-0007 开工 F0 迁仓线」)。签署前的
+Proposed 文本如下:待项目负责人签署 —《UI 重构方案》§8 明言"这个决策不定,F0 无法开工")
 
 ## Date
 2026-11-21
@@ -46,9 +47,9 @@ F0-AUDIT(2026-11-21)确认:前端与 Rust 后端的线格式兼容性为 57/90 �
 | B. 独立前端仓 | 新建 `ica-frontend` 仓 | 前后端彻底解耦 | 多一套 CI/门禁/PR 流程;桌面产品跨三仓;规模不匹配(单维护者) |
 | C. 留在基线仓并就地开发 | 违反 ADR-0006 只读语义 | 零迁移成本 | 契约权威仓被开发污染;两仓约束冲突永久化 — **不可取** |
 
-## Decision(待签署)
+## Decision
 
-采用方案 A:前端整体迁入 `O:\ICA-RUST\frontend\`。
+采用方案 A:前端整体迁入 `O:\ICA-RUST\frontend\`。(已签署,随本 ADR 生效)
 
 ## Rationale
 
