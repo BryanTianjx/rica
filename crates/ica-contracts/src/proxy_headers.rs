@@ -663,26 +663,22 @@ connection: close\r\n\r\n",
     }
 
     // F1-4-style drift guard: this Linux box cannot compile the Tauri host,
-    // so assert at the source level that it still calls the shared policy.
+    // so assert at the source level that the shell still routes through the
+    // shared policy. ARCH-P3 moved the call into `ica-desktop::proxy` (the
+    // compilable layer) and left the host a thin `forward` call, so the
+    // guard follows the delegation instead of asserting the old host body.
     #[test]
     fn host_wires_the_shared_policy() {
         let host = include_str!("../../../desktop/tauri-host/src/main.rs");
-        assert!(host.contains("proxy_headers::select_request_headers"));
-        assert!(host.contains("proxy_headers::render_request"));
-        assert!(host.contains("proxy_headers::parse_response"));
-        let sig = host
-            .split("fn forward_to(")
-            .nth(1)
-            .expect("host still defines forward_to");
-        let sig = &sig[..sig.find('{').expect("forward_to signature closes")];
+        let proxy = include_str!("../../../crates/ica-desktop/src/proxy.rs");
         assert!(
-            sig.contains("headers:"),
-            "forward_to must accept the header set"
+            host.contains("ica_desktop::proxy::forward("),
+            "host must delegate the forward to ica-desktop"
         );
-        assert!(
-            host.contains("request.headers().clone()"),
-            "handle_ica must capture the webview headers"
-        );
+        assert!(host.contains("request.headers().clone()"));
+        assert!(proxy.contains("proxy_headers::select_request_headers"));
+        assert!(proxy.contains("proxy_headers::render_request"));
+        assert!(proxy.contains("proxy_headers::parse_response"));
         assert!(
             !host.contains("Authorization: Bearer"),
             "no hand-built Authorization header may remain in the host"
