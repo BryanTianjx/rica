@@ -11,11 +11,23 @@
 // Positions only (F1-2 vertical slice): every other domain still rides HTTP
 // through the spawned server until its F2 card switches it.
 
+use ica_contracts::dto::PageResponse;
+use ica_contracts::dto::PositionRead;
+use ica_contracts::events::{PositionChangeKind, PositionChanged, POSITION_CHANGED};
 use ica_desktop::commands;
 use ica_desktop::error::IpcError;
 use ica_desktop::state::DesktopState;
-use ica_contracts::dto::PageResponse;
-use ica_contracts::dto::PositionRead;
+use tauri::{AppHandle, Emitter};
+
+/// Announce a committed positions write to every window (F1-3).
+///
+/// The event is a notification only: a listener failing to receive it must
+/// never turn an already-committed write into an error, so the emit result is
+/// deliberately discarded. The payload is the transport-neutral contract type
+/// from `ica-contracts`, the same shape the frontend listens for.
+fn announce(app: &AppHandle, kind: PositionChangeKind, id: impl Into<String>) {
+    let _ = app.emit(POSITION_CHANGED, PositionChanged::new(kind, id));
+}
 
 /// The host's in-process backend state: one `DesktopState` over the SAME
 /// SQLite database the spawned ica-server serves — so an IPC write and an
@@ -27,7 +39,10 @@ pub struct IcaState {
 }
 
 impl IcaState {
-    pub async fn connect(database_url: &str, config: ica_desktop::DesktopConfig) -> Result<Self, String> {
+    pub async fn connect(
+        database_url: &str,
+        config: ica_desktop::DesktopConfig,
+    ) -> Result<Self, String> {
         Ok(Self {
             inner: DesktopState::connect(database_url, config).await?,
         })
@@ -65,24 +80,33 @@ pub async fn positions_get(
 #[tauri::command]
 pub async fn positions_create(
     state: tauri::State<'_, IcaState>,
+    app: AppHandle,
     payload: serde_json::Value,
 ) -> Result<PositionRead, IpcError> {
-    commands::positions_create(state.state(), &payload).await
+    let created = commands::positions_create(state.state(), &payload).await?;
+    announce(&app, PositionChangeKind::Created, created.id.clone());
+    Ok(created)
 }
 
 #[tauri::command]
 pub async fn positions_patch(
     state: tauri::State<'_, IcaState>,
+    app: AppHandle,
     id: String,
     payload: serde_json::Value,
 ) -> Result<PositionRead, IpcError> {
-    commands::positions_patch(state.state(), &id, &payload).await
+    let updated = commands::positions_patch(state.state(), &id, &payload).await?;
+    announce(&app, PositionChangeKind::Updated, id.clone());
+    Ok(updated)
 }
 
 #[tauri::command]
 pub async fn positions_delete(
     state: tauri::State<'_, IcaState>,
+    app: AppHandle,
     id: String,
 ) -> Result<(), IpcError> {
-    commands::positions_delete(state.state(), &id).await
+    commands::positions_delete(state.state(), &id).await?;
+    announce(&app, PositionChangeKind::Deleted, id.clone());
+    Ok(())
 }

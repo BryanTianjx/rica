@@ -15,6 +15,7 @@
 pub mod browser;
 pub mod commands;
 pub mod error;
+pub mod ipc_allowlist;
 pub mod state;
 
 pub use error::{IpcError, IpcErrorBody};

@@ -15,6 +15,7 @@
 pub mod body;
 pub mod dto;
 pub mod error;
+pub mod events;
 pub mod query;
 
 pub use body::{
