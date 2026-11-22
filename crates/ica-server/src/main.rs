@@ -261,6 +261,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .parse()
         .map_err(|error| format!("invalid listen address {host}:{port}: {error}"))?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
+    // The desktop host's listening handshake (the same `{"listening": true,
+    // "port": N}` line the bundled Python sidecar emits on stdout): with
+    // PORT=0 the bound port is ephemeral, and the host learns it here instead
+    // of parsing a tracing line. stdout only — the HTTP surface is untouched.
+    let bound_port = listener.local_addr()?.port();
+    println!("{{\"listening\": true, \"port\": {bound_port}}}");
     tracing::info!("ICA server listening on http://{addr} (database: {logged_path})");
 
     axum::serve(listener, ica_api::router(state))
