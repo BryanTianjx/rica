@@ -1,28 +1,46 @@
-// The Backend Client (F0-2): the ONE module pages and components import for
-// every backend interaction.
+// ARCH-P5 AC1/AC4 — the single `backend` facade every page consumes.
 //
-// Transport selection: inside a Tauri window the positions branch rides the
-// in-process IPC commands (F1-2 vertical slice); everywhere else — and for
-// every domain without an IPC adapter yet — it rides HTTP through the
-// spawned server. Branch selection is per-domain so F2 switches modules one
-// at a time without touching pages.
+// Transport selection happens at startup via `resolveBackendConfig()` plus the
+// migration manifest; this module is the only place that wires a transport to
+// a domain. Page components never decide, never import `fetch` / `invoke`.
 //
-// The UI behavior contract is frozen: both transports emit the same DTOs
-// (ica-contracts is the shared shape source) and the same
-// {"error": {code, message, details}} envelope, so pages cannot tell the
-// transports apart except by being faster.
-import { ApiError } from '../api';
+// The facade also re-exports `ApiError`, `describeApiError` and session refresh
+// so UI code no longer reaches past the client into the HTTP implementation
+// (`services/api.ts`). That file stays the HTTP transport's internals.
+
+import { ApiError, describeApiError, refreshSession } from '../api';
+import type { RefreshOutcome } from '../api';
+import type { BackendClient } from './client';
+import { resolveBackendConfig, type BackendStartupConfig, type Transport } from './config';
+import { transportForDomain, type BackendDomain } from './migration';
 import { httpBackend } from './http';
 import { ipcPositions } from './ipc';
-import type { BackendClient } from './client';
 
-export { ApiError };
+export { ApiError, describeApiError, refreshSession, resolveBackendConfig };
+export { MIGRATED_DOMAINS, UNMIGRATED_DOMAINS } from './migration';
+export type { RefreshOutcome };
 export type { BackendClient } from './client';
+export type { BackendStartupConfig, Transport } from './config';
+export type { BackendDomain } from './migration';
 
-/// Inside a Tauri 2 webview the IPC internals are injected before any app
-/// script runs; outside (plain browser, vitest jsdom) the key is absent.
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+/**
+ * Compose a client from the startup config. Every domain starts on its
+ * original HTTP path; only domains present in MIGRATED_DOMAINS can switch to
+ * their IPC adapter. Calling this with `transport: 'http'` is the rollback
+ * path — behaviour returns to the pre-migration call graph with no page edit.
+ */
+export function createBackend(config: BackendStartupConfig = resolveBackendConfig()): BackendClient {
+  const migrated = transportForDomain('positions', config.transport) === 'ipc';
+  // `httpBackend` is `as const`; compose a new object instead of mutating it.
+  // Unmigrated domains are copied verbatim from the original HTTP client.
+  return migrated ? { ...httpBackend, positions: ipcPositions } : { ...httpBackend };
+}
 
-export const backend: BackendClient = isTauri
-  ? { ...httpBackend, positions: ipcPositions }
-  : httpBackend;
+/** Diagnostics only: which transport a domain actually rides. */
+export function activeTransport(domain: BackendDomain, config: BackendStartupConfig): Transport {
+  return transportForDomain(domain, config.transport);
+}
+
+/** Resolved once at startup, before the first React render. */
+export const backendConfig = resolveBackendConfig();
+export const backend: BackendClient = createBackend(backendConfig);

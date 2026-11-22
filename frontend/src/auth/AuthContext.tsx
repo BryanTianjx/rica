@@ -21,8 +21,12 @@ import {
   useReducer,
   type ReactNode,
 } from 'react';
-import { backend } from '../services/backend';
-import { ApiError, refreshSession, type RefreshOutcome } from '../services/api';
+import {
+  ApiError,
+  backend,
+  refreshSession,
+  type RefreshOutcome,
+} from '../services/backend';
 import { clearTokens, getRefreshToken, onSessionExpired, setTokens } from './tokenStore';
 import {
   initialAuthState,
