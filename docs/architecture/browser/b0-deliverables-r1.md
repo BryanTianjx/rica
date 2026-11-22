@@ -40,8 +40,12 @@ ica-domain：无 axum/sqlx/tokio/hyper 依赖（Cargo.toml 编译期强制）
 
 ## B0-02 Desktop Integration Report（Tauri IPC 接入点）
 
-- 现有 IPC 命令：**47 个**（`grep -c '^pub async fn' crates/ica-desktop/src/commands.rs`），
-  覆盖全部 45 条契约端点 + health + confirm-candidate。
+- 现有 IPC 命令：**70 个**（本次实测；原文所记命令数为早期快照口径，已按实测更正）。
+  取数命令：`grep -c '^pub async fn' crates/ica-desktop/src/commands.rs` → 输出 `70`；
+  取数时点：**2026-11-22（CST），main @ `0a66c96`**。
+  命令层覆盖全部 45 条契约端点 + health + confirm-candidate 等；原「45 + health +
+  confirm-candidate」的加总只对应当时快照。本次只实测总数，未逐项枚举 70 条的构成，
+  故不对差额作推断性归因。
 - 命令层模式：`parse_body → ica_contracts 校验 → ica_application use case → DTO`，
   与 ica-api 共享同一契约层（Tauri-audit R0.1 §4.3 方案 C：无双重实现）。
 - 浏览器接入点预留：Browser Runtime POC（B1）将以独立 Worker 进程 +
@@ -68,9 +72,24 @@ ica-domain：无 axum/sqlx/tokio/hyper 依赖（Cargo.toml 编译期强制）
 - **ICA 的边界（与 ADR-BROWSER-010 一致）**：
   1. 不绕过登录保护、验证码、访问限制或任何安全机制；
   2. 自动化仅操作用户已人工登录的 ICA 专用 Profile 会话；
-  3. 采集频率与范围受 ICA 侧节流（B3 实施时落到 Controller 层）；
+  3. 遇到验证码、登录保护、**频率限制**或其他安全机制时，**交由用户处理 / 告知用户**，
+     不设计绕过机制（《ICA Browser Subsystem Architecture R1.0》§1.2 原文）；
+     **不把平台频率限制写成 ICA 侧节流或可由 ICA 绕过的保护**；
   4. 发送必须逐条人工审批（ADR-BROWSER-005），无批量路径；
   5. 平台规则的「可执行范围」作为 Adapter 上线准入条件（每平台一份）。
+- **逐名排除（架构 R1.0 §1.2「R1.0 实施范围」原文，四项「不纳入」，照录不改写）**：
+
+  | 能力 | R1.0 范围 |
+  | --- | --- |
+  | 自主批量发送 | 不纳入 |
+  | 自动注册、自动登录 | 不纳入 |
+  | 验证码或平台访问保护绕过 | 不纳入 |
+  | 任意网站的通用自主操作 | 不纳入 |
+
+  「任意 JavaScript 执行工具」在 §1.2 单列为**不对 Agent 开放**，不属于上述四项「不纳入」。
+  四项均不进入 B3/B4 实施范围。其中**任意网站的通用自主操作**明确排除：ICA 只做 B0-03
+  裁决的首个平台（BOSS 直聘）上、用户已人工登录的专用 Profile 会话内的受控操作，
+  不做跨网站的通用自主浏览/操作。
 - 本报告为**原则层**结论；每个 Adapter 的具体准入清单在 B3 逐平台产出。
 
 ## B0-05 Browser Threat Model
@@ -81,11 +100,22 @@ ica-domain：无 axum/sqlx/tokio/hyper 依赖（Cargo.toml 编译期强制）
 | --- | --- |
 | 采集内容泄漏出本机 | 本地优先（local-first）；OCR/浏览器全程无外呼（W4 审计实测：模型本地、无网络下载 `ModelDownloadMode::Never`） |
 | 登录态被复用/导出 | Profile 隔离（ADR-BROWSER-002/007）；ICA 不读取用户日常浏览器；登录态仅存于专用 Profile |
+| 越权读取 | 服务端授权校验拒绝越权读取（BR-007「Agent 越权读取 → 服务端拒绝」）；Profile 隔离 + Agent 只见业务级 MCP 工具，不经 CDP/DOM 直读业务数据（ADR-BROWSER-007/008） |
 | Agent 越权发送 | D-7：Hermes 不获得发送工具；ADR-BROWSER-005/008：逐条审批 + MCP 只见业务级工具 |
 | 发送不可控 | 每消息一审批；`action_digest` 绑定消息内容；一次性 `consumed_at`；`expires_at` 失效；Unknown 状态进人工核验不自动重试 |
+| 审批后篡改（消息 / 目标） | 审批绑定消息 Hash + 候选人/账号/会话；消息内容被改 → 原审批失效（BR-009「审批后修改消息 → 原审批失效」）；候选人页面/账号切换 → 原审批失效（BR-010「审批后更换候选人 → 原审批失效」）；一次性 `consumed_at` + `expires_at` 使改后内容不可复用同一审批（ADR-BROWSER-005） |
 | 页面内容注入（提示注入/恶意页面） | 浏览器 Runtime 不访问业务库；采集文本经既有 privacy filter（mask_hits）进入抽取；Agent 只见业务级工具输出 |
 | 执行证据缺失 | 每步 BrowserTask/BrowserAction 状态记录（复用既有四表）；审计事件全链路（ADR-BROWSER-009） |
 | 进程崩溃波及核心 | Browser Runtime 独立进程（方案 §2.2），崩溃不连带 ICA Server（B1 AC） |
+
+> **BR 编号来源与对应关系（照实引用，不编）**：BR-001..BR-015 实际出自
+> 《ICA Browser Subsystem Architecture R1.0》§10.3「核心验收矩阵」
+> （`docs/ICA Browser Subsystem Architecture R1.0.md:1693-1707`），**不在
+> `docs/adr/browser/` 目录内**；该目录是 ADR-BROWSER-001..010。本表新增两类威胁
+> 只对应 **BR-007（越权读取）**、**BR-009（审批后修改消息）**、**BR-010（审批后更换候选人）**；
+> 其余 BR 编号不在本表逐条映射范围内，故不罗列、不臆造对应关系。缓解措施的 ADR 依据见
+> `docs/adr/browser/ADR-BROWSER-005`（逐条确认发送）、`ADR-BROWSER-007`（数据归属）、
+> `ADR-BROWSER-008`（MCP 边界）、`ADR-BROWSER-009`（安全审计）。
 
 ## B0-07 Browser Contract R1.0（Schema，骨架）
 
