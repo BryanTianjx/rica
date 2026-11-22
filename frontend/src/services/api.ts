@@ -39,6 +39,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The one error-rendering path (F0-4): `code: message` for an ApiError, the
+ * plain text (or `fallback`) otherwise. Pages use this instead of reading
+ * `.message` directly so the error code is never silently dropped.
+ */
+export function describeApiError(caught: unknown, fallback: string): string {
+  if (caught instanceof ApiError) return `${caught.code}: ${caught.message}`;
+  return caught instanceof Error && caught.message ? caught.message : fallback;
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;

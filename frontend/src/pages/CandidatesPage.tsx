@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
+import { describeApiError } from '../services/api';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Candidate, CandidateStatus } from '../types';
@@ -48,7 +49,7 @@ export function CandidatesPage() {
     () => backend.candidates.list({ search, status: status || undefined }),
     [search, status],
   );
-  const positions = useAsync(() => backend.positions.list(), []);
+  const positions = useAsync(() => backend.positions.list({ limit: 500 }), []);
 
   async function createCandidate(event: React.FormEvent) {
     event.preventDefault();
@@ -66,7 +67,7 @@ export function CandidatesPage() {
       setSaved(true);
       candidates.reload();
     } catch (caught: unknown) {
-      setFormError(caught instanceof Error ? caught.message : '创建失败');
+      setFormError(describeApiError(caught, '创建失败'));
     } finally {
       setSaving(false);
     }
@@ -111,7 +112,7 @@ export function CandidatesPage() {
       setEditing(null);
       candidates.reload();
     } catch (caught: unknown) {
-      setRowError(caught instanceof Error ? caught.message : '保存失败');
+      setRowError(describeApiError(caught, '保存失败'));
     } finally {
       setSavingId(null);
     }
@@ -126,7 +127,7 @@ export function CandidatesPage() {
       });
       candidates.reload();
     } catch (caught: unknown) {
-      setRowError(caught instanceof Error ? caught.message : '操作失败');
+      setRowError(describeApiError(caught, '操作失败'));
     } finally {
       setSavingId(null);
     }
@@ -140,7 +141,7 @@ export function CandidatesPage() {
       setDeletingId(null);
       candidates.reload();
     } catch (caught: unknown) {
-      setRowError(caught instanceof Error ? caught.message : '删除失败');
+      setRowError(describeApiError(caught, '删除失败'));
       setDeletingId(null);
     } finally {
       setSavingId(null);

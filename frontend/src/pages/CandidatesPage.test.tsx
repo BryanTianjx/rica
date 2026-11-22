@@ -87,6 +87,20 @@ describe('CandidatesPage — 列表展示', () => {
     expect(screen.getByText('前端工程师')).toBeInTheDocument();
   });
 
+  it('岗位下拉请求显式带 limit=500，不受后端默认 50 截断', async () => {
+    const listPositions = vi
+      .spyOn(backend.positions, 'list')
+      .mockResolvedValue(pageOf([makePosition()]));
+    vi.spyOn(backend.candidates, 'list').mockResolvedValue(pageOf([]));
+    render(
+      <MemoryRouter>
+        <CandidatesPage />
+      </MemoryRouter>,
+    );
+    await screen.findByRole('heading', { name: '候选人' });
+    expect(listPositions).toHaveBeenCalledWith({ limit: 500 });
+  });
+
   it('候选人无关联岗位时显示 em dash', async () => {
     await renderPage([makeCandidate({ position_name: null, position_id: null })]);
     expect(await screen.findByText('张三')).toBeInTheDocument();

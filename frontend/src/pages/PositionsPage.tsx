@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
+import { positionChanged, subscribePositionChanged } from '../services/backend/events';
+import { describeApiError } from '../services/api';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Position, PositionStatus } from '../types';
@@ -145,6 +147,15 @@ export function PositionsPage() {
     [search, includeArchived],
   );
 
+  // F1-3 event channel: refresh on backend position changes instead of a
+  // manual reload after each write. The backend emits after commit (Tauri
+  // Events); the local bus stands in for it in browser/vitest.
+  const { reload: reloadPositions } = positions;
+  useEffect(
+    () => subscribePositionChanged(() => reloadPositions()),
+    [reloadPositions],
+  );
+
   const [draft, setDraft] = useState<FormValues | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -205,9 +216,13 @@ export function PositionsPage() {
       }
       setDraft(null);
       setEditingId(null);
-      positions.reload();
+      // F1-3: announce the write; the subscription refreshes the list.
+      positionChanged({
+        kind: editingId ? 'updated' : 'created',
+        id: editingId ?? '',
+      });
     } catch (caught: unknown) {
-      setError(caught instanceof Error ? caught.message : '保存失败');
+      setError(describeApiError(caught, '保存失败'));
     } finally {
       setSaving(false);
     }
@@ -220,9 +235,9 @@ export function PositionsPage() {
       await backend.positions.update(position.id, {
         archived: !position.archived,
       });
-      positions.reload();
+      positionChanged({ kind: 'updated', id: position.id });
     } catch (caught: unknown) {
-      setRowError(caught instanceof Error ? caught.message : '操作失败');
+      setRowError(describeApiError(caught, '操作失败'));
     } finally {
       setSavingId(null);
     }
@@ -234,9 +249,9 @@ export function PositionsPage() {
     try {
       await backend.positions.remove(id);
       setDeletingId(null);
-      positions.reload();
+      positionChanged({ kind: 'deleted', id });
     } catch (caught: unknown) {
-      setRowError(caught instanceof Error ? caught.message : '删除失败');
+      setRowError(describeApiError(caught, '删除失败'));
       setDeletingId(null);
     } finally {
       setSavingId(null);
