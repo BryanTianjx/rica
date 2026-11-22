@@ -72,6 +72,28 @@ In Progress → Fixed → Ready for Retest → Verified → Closed。
 - **本轮规避:** 全量验证以 `--skip` 显式排除 3 个 POC 用例并记录(Skipped,不计入 Passed)。
 - **证据:** 进程列表(19:52:02 三个 worker,0 CPU)+ 测试日志 60 秒超时告警 ×3。
 
+### DEF-007 libsqlite3-sys 供应链漏洞(RUSTSEC-2026-0459)
+- **发现方式:** cargo-audit v0.23.0(2026-11-22,1555 条 advisory / 390 依赖扫描)。
+- **漏洞:** 经 C SQLite 的 CVE-2026-119375,CVSS 6.8(medium);修复版本 libsqlite3-sys ≥ 0.39.0。
+- **引入链:** sqlx-sqlite 0.8.6(锁定 libsqlite3-sys 0.30.1)+ rusqlite 0.32.1(backup 功能,
+  W5 备份;两者 `links = "sqlite3"` 强制同版本)。
+- **暴露面评估:** 本地 SQLite,无远程 SQL 面;理论触发向量 = 恶意 .db 文件经
+  `POST /api/backups/{name}/restore` 导入(文件名受管,内容不受管)。本地优先单机形态,
+  判 Minor/P2 而非阻断级。
+- **整改路径(待实施):** 调研使 libsqlite3-sys ≥ 0.39 的 sqlx/rusqlite 协同升级
+  (两者必须同步升到兼容版本),升级后跑全量回归(含备份/迁移/事务测试)。升级前
+  以 DEF-008 的接受+监测口径管理。
+- **证据:** docs/testing/sec09-audit-r1.log。
+
+### DEF-008 失维护依赖告警 ×3(接受 + 监测)
+- **发现方式:** 同 DEF-007 扫描。
+- **清单:** chrono 0.4.45(RUSTSEC-2026-0543,2026-09-14 起失维护)、paste 1.0.15
+  (RUSTSEC-2024-0436,宏传递依赖)、ttf-parser 0.25.1(RUSTSEC-2026-0192,OCR 图像链传递依赖)。
+  三者官方均**无修复版本**。
+- **处置:** 接受 + 监测(挂在本仓 cargo audit 门禁上,advisory 更新出修复即跟进)。
+  chrono 迁移(time/jiff)属大范围 API 翻新,归入技术债台账而非本轮。
+- **证据:** docs/testing/sec09-audit-r1.log。
+
 ### DEF-005 baseline.sql 头注释过时
 - **复现条件:** `grep '^CREATE TABLE' crates/ica-infra/schema/ica-baseline.sql | wc -l` = 32;
   `grep -c 'CREATE INDEX'` = 121;文件头写 "20 tables, 66 indexes"。

@@ -104,7 +104,7 @@
 | SEC-06 | Input Validation | **PASS** | 见 API-07;OCR 路径守卫先于 I/O(两条拒绝路径有测试) |
 | SEC-07 | File Access | **PASS** | OCR staging 白名单:越界路径拒绝(ica-api + ica-desktop 双侧测试);undecodable 可读错误 |
 | SEC-08 | Audit | **PASS** | audit_events 与业务写同事务(33 处);"审计事件永不描述已回滚的变更"有注释与测试;确认操作字节级顺序回归 |
-| SEC-09 | Dependency | **VERIFY** | cargo audit 本机未安装,未执行。待补跑(需 `cargo install cargo-audit`,本审计不擅自安装) |
+| SEC-09 | Dependency | **PARTIAL** | 2026-11-22 已执行(cargo-audit v0.23.0,1555 advisory/390 依赖):1 中危漏洞(DEF-007,libsqlite3-sys,整改路径已登记)+ 3 失维护告警(DEF-008,接受+监测)。扫描已例行化,修复待实施 |
 | SEC-10 | Recovery | **PARTIAL** | 优雅停机(Ctrl-C/SIGTERM)+ 启动自检(缺表拒绝启动)+ WAL;缺崩溃恢复/迁移失败/备份中断等异常场景测试 |
 
 ---
@@ -120,7 +120,7 @@
 | 5 | **F0-AUDIT 开工指令**:前端接口耦合审计 + 前端归属裁决 → 解锁 Phase 4 | S-2;GUI-01~07、11、12 | 决策 |
 | 6 | **backup/restore 产品化**(含恢复前快照、中断保护、integrity check) | DB-07/08/09、SEC-10 | 工程缺口,Phase 5 主体 |
 | 7 | **W5/W6 实施**(23 端点:ai/settings/backups/auth/shares) | API-01、SEC-02/03 | 已立项,按波次门禁执行 |
-| 8 | **SEC-09 依赖漏洞扫描**(cargo audit 或同等) | SEC-09 | 例行门禁 |
+| 8 | ~~SEC-09 依赖漏洞扫描~~ | SEC-09 | ✅ 2026-11-22 已执行(1 中危+3 告警登记为 DEF-007/008);建议将 `cargo audit` 纳入 scripts/check.py 门禁链 |
 | 9 | baseline.sql 头注释修正(20 tables/66 indexes → 实测 32/121) | DB-01 附注 | 文档微修 |
 
 ## 与发布门禁(§8.3)的当前距离

@@ -95,6 +95,19 @@ W5/W6 域(23 端点)、GUI 集成、打包交付、真实 AI Provider、E2E 十�
 要点:硬杀(强于优雅停机的持久性证据)后 SQLite 文件一致(在线备份 API + WAL
 checkpoint 的组合),重启后服务自检通过、业务数据/备份文件/审计轨迹三者齐备。
 
+## 14. 依赖安全扫描记录(SEC-09,2026-11-22)
+
+`cargo-audit v0.23.0`(RustSec advisory 库 1555 条,Cargo.lock 390 依赖)首次例行执行:
+
+| 发现 | 等级 | 处置 |
+|---|---|---|
+| RUSTSEC-2026-0459 — libsqlite3-sys 0.30.1 经 C SQLite CVE-2026-119375 | medium 6.8 | DEF-007(Minor/P2):本地暴露面有限;整改 = sqlx/rusqlite 协同升级至 libsqlite3-sys ≥ 0.39 + 全量回归 |
+| RUSTSEC-2026-0543 / 2024-0436 / 2026-0192 — chrono/paste/ttf-parser 失维护 | warning | DEF-008(Trivial/P3):均无修复版本,接受 + 监测 |
+
+原始输出:`docs/testing/sec09-audit-r1.log`。遗留:建议将 `cargo audit` 纳入
+`scripts/check.py` 门禁链(advisory 库拉取依赖 GitHub 连通性,门禁化前先验证离线
+`--db` 模式的可行性)。
+
 ## 12. 测试结论
 
 - 本次测试**已完成计划范围**(实现域 UNIT/INT/Contract-IPC 层),测试计划 §5 门禁
