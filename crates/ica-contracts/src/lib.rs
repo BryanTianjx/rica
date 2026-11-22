@@ -16,6 +16,7 @@ pub mod body;
 pub mod dto;
 pub mod error;
 pub mod events;
+pub mod proxy_headers;
 pub mod query;
 
 pub use body::{
