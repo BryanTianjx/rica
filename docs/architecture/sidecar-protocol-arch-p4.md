@@ -1,7 +1,7 @@
 # ARCH-P4 — Sidecar 协议化（交付记录）
 
-**实现基线：** `785f3e5`（worktree `wt/ica-rust-arch-p4` @ `/mnt/o/ICA-RUST/.worktrees/ica-rust-arch-p4`）。
-**性质：** 实现 + 可编译层的真实测试；未改基线仓、未 git add/commit/push、未打 tag、未接前端、未新增 crate。
+**实现基线：** `785f3e5`（worktree `wt/ica-rust-arch-p4`）→ **已合并 main @ `8f34736`** 并 push origin/main；实现提交 `80e5218`，worktree 已按约定删除。
+**性质：** 实现 + 可编译层的真实测试；已提交 `80e5218` / 合并 `8f34736` / 已 push；未改基线仓、未打 tag、未接前端。（本次新增的是模块文件，不是新 crate。）
 **依据：** 任务卡 `ARCH-P4.md`（WI `wi_b9f02d28f1644c54`）、架构设计 §7.3/§7.4/§7.5、ADR-005、评审裁决 3、
 P0 盘点 `sidecar-lifecycle-inventory.md`、P2 `runtime-unification-arch-p2.md`、P3 `tauri-runtime-convergence-arch-p3.md`。
 **取数时点：** 2026-11-23（CST）。
@@ -48,7 +48,7 @@ Windows 侧编译、真实 Chromium sidecar、实机优雅关闭、独立安全�
 ## 4. 真实验证输出
 
 ```text
-$ cd /mnt/o/ICA-RUST/.worktrees/ica-rust-arch-p4
+$ cd /mnt/o/ICA-RUST
 $ git diff --check
 （无输出，exit 0）
 
