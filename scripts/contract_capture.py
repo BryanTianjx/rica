@@ -1007,8 +1007,13 @@ _TS_IN_TEXT = re.compile(
 )
 
 
-def dump_db(path: str) -> dict[str, object]:
-    """Every row of the business tables, with JSON columns parsed."""
+def dump_db(path: str, keep_raw: bool = False) -> dict[str, object]:
+    """Every row of the business tables.
+
+    By default JSON columns are parsed (the legacy diff compares them as
+    values).  With ``keep_raw=True`` their exact SQLite text is preserved, so
+    ``contract_diff.py --layer L4 --byte-json`` can compare them byte-for-byte.
+    """
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
@@ -1017,6 +1022,8 @@ def dump_db(path: str) -> dict[str, object]:
             rows = [dict(row) for row in connection.execute(f"SELECT * FROM {table}")]
             for row in rows:
                 for column in JSON_COLUMNS.get(table, []):
+                    if keep_raw:
+                        continue
                     raw = row.get(column)
                     if isinstance(raw, str):
                         try:
@@ -1105,6 +1112,9 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--out", required=True)
     parser.add_argument("--skip-db", action="store_true",
                         help="capture responses only (no final row dump)")
+    parser.add_argument("--keep-json-raw", action="store_true",
+                        help="keep JSON columns as their exact SQLite text for "
+                             "byte-level L4 comparison (contract_diff --byte-json)")
     args = parser.parse_args(argv)
 
     started_at = datetime.now(UTC).isoformat()
@@ -1153,7 +1163,7 @@ def main(argv: list[str]) -> int:
             context[key] = str(value)
         print(f"{case['name']:42s} {result['status']} {path}")
 
-    db_state = {} if args.skip_db else dump_db(args.db)
+    db_state = {} if args.skip_db else dump_db(args.db, args.keep_json_raw)
     payload = {
         "base_url": args.base_url,
         "started_at": started_at,
