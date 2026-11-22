@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAsync } from '../hooks/useAsync';
-import { backend } from '../services/backend';
+import { backend, describeApiError } from '../services/backend';
 import { positionChanged, subscribePositionChanged } from '../services/backend/events';
-import { describeApiError } from '../services/api';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Position, PositionStatus } from '../types';
