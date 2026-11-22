@@ -11,6 +11,18 @@
 | ONNX Runtime | `ort` crate 所绑定版本（`ort.pyke.io` 预编译分发） | MIT（ORT 项目） | `ort.pyke.io` 下载缓存，按目标三元组分发 |
 | 模型文件 | PP-OCRv6 small 套件 | 与基线同一套文件（SHA256 逐个核对一致，见 `docs/contract-baseline/w4-python-facts.md` §13） | 随桌面宿主分发 / 基线 venv 同源 |
 
+### crate 依赖精确版本与许可（桌面端分发结论）
+
+| 依赖（crate） | 精确版本 | 许可证（crate `Cargo.toml` `license` 字段原文） | 桌面端分发结论 |
+| --- | --- | --- | --- |
+| `rapidocr-core` | 0.3.0 | Apache-2.0 | **可随桌面端分发**（Apache-2.0 允许再分发，随分发物保留版权与许可声明） |
+| `ort` | 2.0.0-rc.15 | MIT OR Apache-2.0 | **可随桌面端分发**（MIT / Apache-2.0 二选一，随分发物附对应许可文本） |
+| `image` | 0.25.10 | MIT OR Apache-2.0 | **可随桌面端分发**（MIT / Apache-2.0 二选一，随分发物附对应许可文本） |
+
+上表版本取自 `Cargo.lock`，许可证取自 `index.crates.io-…` 注册表缓存中各 crate 的
+`Cargo.toml` `license` 字段原文（2026-11-20 实测）。三者均为宽松许可，
+**可随桌面端分发**，分发时随附对应许可与版权声明即可；与上文「随桌面宿主分发」的口径一致。
+
 模型套件（四个文件，31 MB）：
 
 ```

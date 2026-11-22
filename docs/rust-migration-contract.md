@@ -178,13 +178,13 @@ codebases by symbol.
 | 43 | POST | `/follow-ups/{task_id}/record-result` | `record_result` | `ica-application/follow_ups.rs` | W2 ✅ |
 | 44 | GET | `/follow-ups/policy/current` | `get_policy` | `ica-application/follow_ups.rs` | W2 ✅ |
 | 45 | PATCH | `/follow-ups/policy/current` | `update_policy` | `ica-application/follow_ups.rs` | W2 ✅ |
-| 46 | POST | `/imports/preview` | `preview_import` | `ica-application/imports.rs` | W4 |
-| 47 | GET | `/imports/{session_id}` | `get_import` | `ica-application/imports.rs` | W4 |
-| 48 | POST | `/imports/{session_id}/confirm` | `confirm_import` | `ica-application/imports.rs` | W4 |
-| 49 | POST | `/imports/{session_id}/reject` | `reject_import` | `ica-application/imports.rs` | W4 |
-| 50 | POST | `/export` | `export_data` | `ica-application/sync.rs` | W4 |
-| 51 | POST | `/import` | `import_data_endpoint` | `ica-application/sync.rs` | W4 |
-| 52 | POST | `/imports/ocr` | `ocr_screenshot` | `ica-infra/ocr.rs` + `ica-application/imports.rs` | W4 |
+| 46 | POST | `/imports/preview` | `preview_import` | `ica-application/imports.rs` | W4 ✅ |
+| 47 | GET | `/imports/{session_id}` | `get_import` | `ica-application/imports.rs` | W4 ✅ |
+| 48 | POST | `/imports/{session_id}/confirm` | `confirm_import` | `ica-application/imports.rs` | W4 ✅ |
+| 49 | POST | `/imports/{session_id}/reject` | `reject_import` | `ica-application/imports.rs` | W4 ✅ |
+| 50 | POST | `/export` | `export_data` | `ica-application/sync.rs` | W4 ✅ |
+| 51 | POST | `/import` | `import_data_endpoint` | `ica-application/sync.rs` | W4 ✅ |
+| 52 | POST | `/imports/ocr` | `ocr_screenshot` | `ica-infra/ocr.rs` + `ica-application/imports.rs` | W4 ✅ |
 | 53 | GET | `/positions` | `list_positions` | `ica-api/routes.rs` + `ica-application/positions.rs` + `ica-infra/repository.rs` | **R0 ✅** |
 | 54 | POST | `/positions` | `create_position` | `ica-application/positions.rs` + `ica-infra/repository.rs` | **W1 ✅** |
 | 55 | GET | `/positions/{position_id}` | `get_position` | `ica-api/routes.rs` + `ica-application/positions.rs` + `ica-infra/repository.rs` | **R0 ✅** |
@@ -268,7 +268,7 @@ Every wave uses the same gate; only the endpoint set differs.
 | W1 | positions writes (POST/PATCH/DELETE), candidates, conversations, messages, timeline, send-records | Write schemas validated before the first write (no data-corruption path); `PATCH` rejects explicit `null` on NOT NULL columns with 422, not 500 |
 | W2 | follow-ups (full state machine), policy, dashboard | The 12-state `FollowUpTaskStatus` machine matches Python transition-by-transition; `means_contacted` / `is_closed` semantics pinned by tests |
 | W3 | drafts, draft-groups, context preview, AI generation entry point | AI calls go through a port; the service still boots with no API key (`ai_enabled=false`, 503 on the AI path) |
-| W4 | imports preview/confirm/reject, export, import, OCR | Import validates the whole batch before writing (atomic rejection), and never writes on preview |
+| W4 | imports preview/confirm/reject, export, import, OCR | Import validates the whole batch before writing (atomic rejection). Preview writes only `import_sessions` (+1), `import_records` (+1) and one `import.previewed` audit — it never writes business tables (`candidates`/`messages` unchanged); see `w4-python-facts.md` §1 for the measured row deltas |
 | W5 | settings, ai-key, ai-egress consent, audit-events, backups, AI config/usage/budget | Secret values are never echoed or logged; backup/restore drill documented before implementation |
 | W6 | auth (register/login/refresh/logout/me), shares | Refresh-token rotation is single-use and concurrency-safe; local mode stays default |
 | W7 | cutover: dual-run, then Rust-only | Parity telemetry for a full week of real traffic; documented rollback to Python |

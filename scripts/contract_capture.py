@@ -714,7 +714,7 @@ CASES: list[dict] = [
      "json": {"data": {"positions": [{"name": "Rule Probe", "archived": "yes"}]}}},
     # A 201-character name has its own message.
     {"name": "import_positions_name_too_long", "method": "POST", "path": "/api/import",
-     "json": {"data": {"positions": [{"name": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"}]}}},
+     "json": {"data": {"positions": [{"name": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"}]}}},
     # A negative salary has its own message.
     {"name": "import_positions_negative_salary", "method": "POST", "path": "/api/import",
      "json": {"data": {"positions": [{"name": "Rule Probe", "salary_min": -5}]}}},

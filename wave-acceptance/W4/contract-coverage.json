@@ -8,7 +8,11 @@
   "comparison_cases": {"total": 222, "matched": 220, "known_failures": 2},
   "covered_boundaries": [
     "the 222-case set covers R0/W1/W2/W3/W4 routes including write-path side effects and the final state of 11 tables",
-    "declared improvements IMP-1..IMP-4 are asserted with both sides' concrete values"
+    "declared improvements IMP-1..IMP-4 are asserted with both sides' concrete values",
+    "positions validation path (invalid row status -> 422 import_validation_error envelope, nothing written): covered by regression case 'import_positions_bad_status' (R2/R3 addition), PASS in the 286/286 re-audit pair-check",
+    "partial-column / non-list table payload (e.g. data.candidates = \"oops\"): covered by regression case 'import_table_not_a_list' (R2/R3 addition), PASS in the 286/286 re-audit pair-check",
+    "no-id row ('id': null mints a UUID, formerly a 500): covered by regression case 'import_row_null_id_mints_uuid' (R2/R3 addition), PASS in the 286/286 re-audit pair-check",
+    "import_validation_error envelope on a non-object row element (numeric loc index): covered by regression case 'import_row_not_an_object' (R2/R3 addition), PASS in the 286/286 re-audit pair-check"
   ],
   "uncovered_boundaries": [
     "browser_extract source sessions: zero cases in the comparison set (the frozen baseline's confirm/reject guards for them are W7's scope)",
