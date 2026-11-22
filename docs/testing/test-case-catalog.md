@@ -44,9 +44,9 @@ ID 冻结,不再随文件移动变化。Priority 统一 P2(待评审定级)。
 | TC-ICA-API-INT-016 | `a_filter_longer_than_the_pydantic_max_is_a_422` | `crates/ica-api/tests/audit_events_http.rs:183` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-API-INT-017 | `a_broken_metadata_blob_degrades_to_an_empty_object` | `crates/ica-api/tests/audit_events_http.rs:199` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-API-INT-018 | `the_first_registration_bootstraps_a_tenant_and_admin_role` | `crates/ica-api/tests/auth_shares_http.rs:15` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
-| TC-ICA-API-INT-019 | `login_issues_a_pair_and_rotation_is_single_use` | `crates/ica-api/tests/auth_shares_http.rs:98` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
-| TC-ICA-API-INT-020 | `me_answers_the_synthetic_local_user` | `crates/ica-api/tests/auth_shares_http.rs:193` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
-| TC-ICA-API-INT-021 | `shares_upsert_on_recipient_and_resource` | `crates/ica-api/tests/auth_shares_http.rs:211` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-API-INT-019 | `login_issues_a_pair_and_rotation_is_single_use` | `crates/ica-api/tests/auth_shares_http.rs:109` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-API-INT-020 | `me_answers_the_synthetic_local_user` | `crates/ica-api/tests/auth_shares_http.rs:204` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-API-INT-021 | `shares_upsert_on_recipient_and_resource` | `crates/ica-api/tests/auth_shares_http.rs:222` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-API-INT-022 | `d1_a_backup_of_a_fresh_database_is_listed_with_full_metadata` | `crates/ica-api/tests/backup_drill_http.rs:16` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-API-INT-023 | `d2_restore_moves_data_back_and_forth_between_two_backups` | `crates/ica-api/tests/backup_drill_http.rs:48` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-API-INT-024 | `d7_reads_during_the_restore_never_observe_a_broken_state` | `crates/ica-api/tests/backup_drill_http.rs:110` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
