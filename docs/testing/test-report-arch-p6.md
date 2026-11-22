@@ -30,7 +30,7 @@ supersedes: null
 | 主机 | `Linux TIAN 6.18.58.1-microsoft-standard-WSL2 x86_64`，Ubuntu 26.04.1 LTS |
 | Cargo target | `CARGO_TARGET_DIR=/home/bryan/.cache/ica-rust-target`（另用全新 `/home/bryan/.cache/ica-rust-target-fresh-p6` 做 ENOENT 排除，见 §5） |
 | 执行记录 | `/home/bryan/.hermes/cache/scratch/arch_p6_gate_run2.json`（门禁）；`/home/bryan/.hermes/cache/scratch/arch_p6_backup_drill.json`（演练） |
-| 未 git add / commit / push | 是。所有产物留在该 worktree 工作区。 |
+| git add / commit / push 状态 | 已提交 `06a9de1`、已合并 main `05b4f14`、已 push；worktree 已删。本报告绑定的受验 HEAD `40575e1` 为历史事实。 |
 
 > 本报告只描述**这次 HEAD 的这次执行**。历史 `docs/testing/test-report-r1.0.md`
 > 中的 248/248、286/286、365、384/385 等数字是不同 HEAD / 不同用例集的历史记录，

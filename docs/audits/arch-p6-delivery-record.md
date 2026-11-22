@@ -94,7 +94,7 @@ AC4 的 SQLite 备份演练只证明机制，不证明 W6 的安装包路径。
 - DOC-04：`docs/testing/defect-register.md` 汇总表补登 DEF-007/008（此前只在明细出现），
   声明 `Fixed ≠ Verified`；`ICA-RUST.txt` 追加状态同步说明（不改写历史审计文本）。
 
-## 2. 改动文件清单（均在本 worktree 工作区，未入库）
+## 2. 改动文件清单（实现提交 `06a9de1`，合并 main `05b4f14`，已 push；worktree 已删）
 
 新增：
 - `scripts/gate.py`（统一门禁编排器）
