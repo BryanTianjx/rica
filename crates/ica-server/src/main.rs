@@ -332,10 +332,33 @@ async fn self_check(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-/// Resolve on Ctrl-C or SIGTERM so an in-flight request is not cut in half.
+/// Resolve on Ctrl-C, SIGTERM, or stdin EOF so an in-flight request is not
+/// cut in half. The Sidecar Manager holds the child's stdin open and drops it
+/// for graceful shutdown (REL-01); Windows has no SIGTERM listener, so EOF is
+/// the cross-platform graceful-stop trigger the host can actually use.
 async fn shutdown_signal() {
+    use tokio::io::AsyncReadExt;
+
     let ctrl_c = async {
         let _ = tokio::signal::ctrl_c().await;
+    };
+
+    let mut stdin = tokio::io::stdin();
+    let stdin_eof = async move {
+        let mut byte = [0u8; 1];
+        loop {
+            match stdin.read(&mut byte).await {
+                Ok(0) => {
+                    tracing::info!("stdin closed, shutting down gracefully");
+                    break;
+                }
+                Ok(_) => continue, // a stray byte is not a stop request
+                Err(error) => {
+                    tracing::warn!("cannot read stdin for shutdown: {error}");
+                    break;
+                }
+            }
+        }
     };
 
     #[cfg(unix)]
@@ -357,5 +380,6 @@ async fn shutdown_signal() {
     tokio::select! {
         _ = ctrl_c => tracing::info!("received Ctrl-C, shutting down"),
         _ = terminate => tracing::info!("received SIGTERM, shutting down"),
+        _ = stdin_eof => tracing::info!("shutting down on stdin EOF"),
     }
 }

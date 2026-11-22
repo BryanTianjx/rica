@@ -1,23 +1,23 @@
 // ICA Personal desktop host — Tauri 2 (ADR-0001 accepted, 2026-11-12).
 //
-// Host contract (packaging implementation plan §P7), productized from the
-// G2 Windows spike, extended for the P1 dual-backend routing (F1-1, signed
-// ADR-0007 + the F0-AUDIT disposition):
-//
-//   resolve the active version unit -> spawn the Rust ica-server (PORT=0)
-//   AND the bundled python sidecar (PORT=0) -> parse both listening events
-//   -> poll /health on both -> serve the unit's ui/ and forward /api over
-//   the `ica` scheme (same origin, so the built frontend needs no API-base
-//   change) -> window. Closing the app drops the sidecar's stdin (which is
-//   run_sidecar.py's graceful exit) and stops the Rust server.
+// Runtime contract (ARCH-P3, review decision 1): the Tauri shell is thin
+// wiring only. It assembles P2's `AppRuntime` in-process via `DesktopState`
+// (Embedded Mode) and delegates every child-process concern — spawn,
+// `listening` handshake, health probe, graceful stop with timeout/kill
+// fallback, bounded restart — to `ica_desktop::processes::SidecarManager`.
+// There is no `Command::new` / `kill` and no business rule in this file.
+// The local Rust HTTP listener is **not** started at boot by default; the
+// `ica://` bridge starts it on the first Rust-routed `/api` request. Set
+// `ICA_HTTP_SERVER_MODE=always` for the §6.4 scenarios (third-party tools,
+// local web client, automation, debugging, future remote service) or `never`
+// for pure-IPC mode. All lifecycle knobs come from `RuntimePolicy`.
 //
 // P1 routing (the F0-AUDIT's signed disposition): `/api/browser/v1/*` and
-// the AI-EXT model-CRUD routes still belong to the Python sidecar (the
-// browser subsystem is B-series scope and the model CRUD is AI-EXT per
-// ADR-0003); every other /api route is served by the Rust ica-server —
-// which implements the full 68-route migration contract. When the sidecar
-// is absent (a Rust-only unit), the Python-routed paths answer 502 with a
-// readable reason instead of failing the launch.
+// the AI-EXT model-CRUD routes belong to the Python sidecar (the browser
+// subsystem is B-series scope and the model CRUD is AI-EXT per ADR-0003);
+// every other /api route is served by the Rust ica-server — which implements
+// the full 68-route migration contract. When the sidecar is absent (a Rust-
+// only unit), the Python-routed paths answer 502 with a readable reason.
 //
 // Version-unit resolution order:
 //   1. ICA_UNIT_DIR env (tests / explicit override)
@@ -32,15 +32,14 @@
 // lives in the OS credential store (0600 file fallback) and is never logged.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use ica_contracts::proxy_headers;
-use std::io::{BufRead, BufReader, Read, Write};
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+use ica_desktop::diagnostics::DiagnosticEvent;
+use ica_desktop::processes::{ManagedKind, ProcessSpec, SidecarManager};
+use ica_desktop::routing::{route_backend, Backend};
+use ica_desktop::runtime_policy::RuntimePolicy;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU16, AtomicUsize, Ordering};
-use std::sync::mpsc;
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
+use std::sync::OnceLock;
 use tauri::WebviewUrl;
 use tauri::WebviewWindowBuilder;
 
@@ -62,52 +61,38 @@ const SIDECAR_PY: &str = "sidecar/runtime/python/bin/python3";
 const RUST_SERVER_EXE: &str = "ica-server.exe";
 #[cfg(not(windows))]
 const RUST_SERVER_EXE: &str = "ica-server";
+
+// Routing state only (no child handles). Ownership of child processes moved
+// into `SidecarManager`; these atomics just publish the current ports to the
+// `ica://` bridge.
 static PY_PORT: AtomicU16 = AtomicU16::new(0);
 static RUST_PORT: AtomicU16 = AtomicU16::new(0);
 static T0: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+static MANAGER: OnceLock<SidecarManager> = OnceLock::new();
+static POLICY: OnceLock<RuntimePolicy> = OnceLock::new();
+static HOST_LOG: OnceLock<PathBuf> = OnceLock::new();
+static APP_STATE: OnceLock<IcaState> = OnceLock::new();
+static HTTP_STARTED: AtomicBool = AtomicBool::new(false);
 
-struct Sidecar {
-    child: std::process::Child,
+/// Everything the lazy on-demand HTTP launch needs, captured once at boot.
+struct BootContext {
+    unit: PathBuf,
+    data_root: PathBuf,
+    jwt_secret: String,
+}
+static BOOT: OnceLock<BootContext> = OnceLock::new();
+
+fn log_path() -> PathBuf {
+    HOST_LOG
+        .get()
+        .cloned()
+        .unwrap_or_else(|| PathBuf::from("host.log"))
 }
 
-struct RustServer {
-    child: std::process::Child,
-}
-
-static SIDECAR: Mutex<Option<Sidecar>> = Mutex::new(None);
-static RUST_SERVER: Mutex<Option<RustServer>> = Mutex::new(None);
-
-/// Which backend a `/api` request belongs to (P1 disposition).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Backend {
-    /// The Rust ica-server: the full 68-route migration contract.
-    Rust,
-    /// The Python sidecar: `/api/browser/v1/*` (B-series) and the AI-EXT
-    /// model-CRUD routes, both deliberately outside the Rust contract.
-    Python,
-}
-
-/// The P1 routing rule, as a pure function over `(method, path)` — path is
-/// the `/api`-prefixed request path WITHOUT the query string.
-///
-/// * `api/browser/v1/…` — the browser subsystem: B-series scope, Python.
-/// * AI-EXT model CRUD (ADR-0003 D-2 补充裁决): `POST /api/ai/models`,
-///   `PUT|DELETE /api/ai/models/{id}`, `PUT /api/ai/models/{id}/default` —
-///   Python. `GET /api/ai/models` and every other `/api/ai/*` route ARE
-///   implemented by the port (W5) and stay Rust.
-/// * everything else — Rust (the 68-route contract).
-fn route_backend(method: &str, path: &str) -> Backend {
-    if path.starts_with("api/browser/v1") {
-        return Backend::Python;
-    }
-    let method = method.to_ascii_uppercase();
-    if path == "api/ai/models" && method == "POST" {
-        return Backend::Python;
-    }
-    if path.starts_with("api/ai/models/") && matches!(method.as_str(), "PUT" | "DELETE") {
-        return Backend::Python;
-    }
-    Backend::Rust
+fn manager() -> &'static SidecarManager {
+    MANAGER
+        .get()
+        .expect("SidecarManager initialized before use")
 }
 
 fn log_line(file: &Path, msg: &str) {
@@ -218,294 +203,136 @@ fn generate_jwt_secret() -> String {
     key.to_hex()
 }
 
-/// The Rust server's listening event, parsed exactly like the sidecar's
-/// (same `{"listening": true, "port": N}` handshake contract).
-fn parse_listening(line: &str) -> Result<u16, String> {
-    let v: serde_json::Value =
-        serde_json::from_str(line.trim()).map_err(|e| format!("listening json: {e}"))?;
-    v["port"]
-        .as_u64()
-        .ok_or_else(|| "no port in listening event".to_string())
-        .map(|p| p as u16)
-}
-
-fn spawn_rust_server(
-    unit: &Path,
-    data_root: &Path,
-) -> Result<u16, String> {
-    // Resolution order: explicit env override -> the version unit -> the exe
-    // directory (flat dev layout).
+/// Build the launch description for the Rust HTTP server. The host decides
+/// *what* to start; `SidecarManager::start` owns spawn, handshake, health,
+/// stdout/stderr logging and shutdown (ARCH-P3 AC1).
+fn rust_server_spec(boot: &BootContext, policy: &RuntimePolicy) -> Result<ProcessSpec, String> {
     let exe = match std::env::var("ICA_RUST_SERVER_EXE") {
-        Ok(p) if !p.is_empty() => PathBuf::from(p),
+        Ok(path) if !path.is_empty() => PathBuf::from(path),
         _ => {
             let candidates = [
-                unit.join(RUST_SERVER_EXE),
-                unit.join("server").join(RUST_SERVER_EXE),
+                boot.unit.join(RUST_SERVER_EXE),
+                boot.unit.join("server").join(RUST_SERVER_EXE),
                 exe_dir().join(RUST_SERVER_EXE),
             ];
             candidates
                 .into_iter()
-                .find(|c| c.is_file())
+                .find(|candidate| candidate.is_file())
                 .ok_or_else(|| {
                     format!(
                         "the Rust server binary was not found (tried ICA_RUST_SERVER_EXE, \
                          {}/{RUST_SERVER_EXE}, {}/server/{RUST_SERVER_EXE}, {}/{RUST_SERVER_EXE})",
-                        unit.display(),
-                        unit.display(),
+                        boot.unit.display(),
+                        boot.unit.display(),
                         exe_dir().display()
                     )
                 })?
         }
     };
+    let database_url = format!("sqlite:///{}/ica.db", boot.data_root.display());
+    Ok(ProcessSpec {
+        kind: ManagedKind::RustHttpServer,
+        program: exe,
+        args: Vec::new(),
+        current_dir: boot.data_root.clone(),
+        env: vec![
+            ("PORT".to_string(), "0".to_string()),
+            ("HOST".to_string(), "127.0.0.1".to_string()),
+            ("DATABASE_URL".to_string(), database_url),
+            (
+                "ICA_DATA_DIR".to_string(),
+                boot.data_root.display().to_string(),
+            ),
+            ("JWT_SECRET".to_string(), boot.jwt_secret.clone()),
+        ],
+        handshake_timeout_ms: policy.handshake_timeout_ms,
+        health_timeout_ms: policy.health_timeout_ms,
+        log_dir: boot.data_root.join("logs"),
+    })
+}
 
-    let mut cmd = std::process::Command::new(&exe);
-    cmd.current_dir(data_root)
-        .env("PORT", "0")
-        .env("HOST", "127.0.0.1")
-        .env(
-            "DATABASE_URL",
-            format!("sqlite:///{}/ica.db", data_root.display()),
-        )
-        .env("ICA_DATA_DIR", data_root)
-        .env("JWT_SECRET", generate_jwt_secret())
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-    #[cfg(windows)]
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    let mut child = cmd.spawn().map_err(|e| format!("spawn ica-server: {e}"))?;
-
-    // The listening handshake arrives on stdout; everything else is appended
-    // to <data>/logs/ica-server.log.
-    let stdout = child.stdout.take().unwrap();
-    let stderr = child.stderr.take().unwrap();
-    let (tx, rx) = mpsc::channel();
-    let server_log = data_root.join("logs").join("ica-server.log");
-    std::fs::create_dir_all(server_log.parent().unwrap()).ok();
-    let server_log_err = server_log.clone();
-    std::thread::spawn(move || {
-        let mut err_reader = BufReader::new(stderr);
-        let mut sink = Vec::new();
-        let _ = err_reader.read_to_end(&mut sink);
-        if !sink.is_empty() {
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&server_log_err)
-            {
-                let _ = writeln!(f, "=== ica-server stderr ===");
-                let _ = f.write_all(&sink);
-            }
-        }
-    });
-    std::thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        let mut log = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&server_log)
-            .ok();
-        for line in reader.lines() {
-            match line {
-                Ok(l) => {
-                    if l.contains("\"listening\"") {
-                        let _ = tx.send(Ok(l.clone()));
-                    }
-                    if let Some(f) = log.as_mut() {
-                        let _ = writeln!(f, "{}", l);
-                    }
-                }
-                Err(e) => {
-                    let _ = tx.send(Err(e.to_string()));
-                    break;
-                }
-            }
-        }
-    });
-
-    let timeout = std::time::Instant::now() + Duration::from_secs(60);
-    let listening = loop {
-        if std::time::Instant::now() > timeout {
-            let _ = child.kill();
-            return Err("no listening event within 60s".into());
-        }
-        match rx.recv_timeout(Duration::from_millis(200)) {
-            Ok(Ok(line)) => break line,
-            Ok(Err(e)) => return Err(format!("ica-server stdout read: {e}")),
-            Err(mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                return Err("ica-server exited before listening".into())
-            }
-        }
-    };
-    let port = parse_listening(&listening)?;
-    *RUST_SERVER.lock().unwrap() = Some(RustServer { child });
+/// Start (or restart) the optional local HTTP server through the manager.
+fn start_rust_http_server(boot: &BootContext) -> Result<u16, String> {
+    let policy = POLICY.get().expect("policy initialized before use");
+    let spec = rust_server_spec(boot, policy)?;
+    let port = manager().start(spec).map_err(|error| error.to_string())?;
+    HTTP_STARTED.store(true, Ordering::SeqCst);
+    RUST_PORT.store(port, Ordering::SeqCst);
+    log_line(
+        &log_path(),
+        &format!("host: ica-server listening on 127.0.0.1:{port} (managed by SidecarManager)"),
+    );
     Ok(port)
 }
 
-fn spawn_sidecar(
-    unit: &Path,
-    data_root: &Path,
-    log_file: &Path,
-) -> Result<Option<u16>, String> {
-    let python = unit.join(SIDECAR_PY);
-    let entry = unit.join("sidecar/app/run_sidecar.py");
-    if !python.is_file() {
-        // P1 degradation: a Rust-only unit is legitimate — the browser
-        // subsystem and AI-EXT model CRUD answer 502 through the routing
-        // rule, and everything else keeps working from ica-server.
-        log_line(
-            log_file,
-            "host: no bundled python sidecar — browser/v1 and AI-EXT routes \
-             will answer 502 (P1 dual-backend degradation)",
-        );
-        return Ok(None);
+/// The first Rust-routed `/api` request starts the listener in the accepted
+/// default Embedded mode; `never` keeps the desktop pure-IPC.
+fn ensure_rust_backend() -> u16 {
+    let port = RUST_PORT.load(Ordering::SeqCst);
+    if port != 0 {
+        return port;
     }
-    let mut cmd = std::process::Command::new(&python);
-    cmd.args(["-S", "-s"])
-        .arg(&entry)
-        .current_dir(unit)
-        .env("ICA_DATA_DIR", data_root)
-        .env("PORT", "0")
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        // BROWSER-05: the bundled Chromium (playwright download, staged outside
-        // the version unit, installed as bundle-resources/browsers) is the ONLY
-        // browser this build resolves - pointing at the payload explicitly keeps
-        // a developer cache (%LOCALAPPDATA%\ms-playwright) out of the picture.
-        .env("PLAYWRIGHT_BROWSERS_PATH", unit.join("browsers"))
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-    #[cfg(windows)]
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    let mut child = cmd.spawn().map_err(|e| format!("spawn sidecar: {e}"))?;
-
-    // Sidecar stdout holds the listening event; everything (stdout+stderr) is
-    // appended to <data>/logs/sidecar.log so a failed launch is diagnosable.
-    let stdout = child.stdout.take().unwrap();
-    let stderr = child.stderr.take().unwrap();
-    let (tx, rx) = mpsc::channel();
-    let sidecar_log = data_root.join("logs").join("sidecar.log");
-    std::fs::create_dir_all(sidecar_log.parent().unwrap()).ok();
-    let sidecar_log_err = sidecar_log.clone();
-    std::thread::spawn(move || {
-        let mut err_reader = BufReader::new(stderr);
-        let mut sink = Vec::new();
-        let _ = err_reader.read_to_end(&mut sink);
-        if !sink.is_empty() {
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&sidecar_log_err)
-            {
-                let _ = writeln!(f, "=== sidecar stderr ===");
-                let _ = f.write_all(&sink);
-            }
-        }
-    });
-    std::thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        let mut log = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&sidecar_log)
-            .ok();
-        for line in reader.lines() {
-            match line {
-                Ok(l) => {
-                    if l.contains("\"listening\"") {
-                        let _ = tx.send(Ok(l.clone()));
-                    }
-                    if let Some(f) = log.as_mut() {
-                        let _ = writeln!(f, "{}", l);
-                    }
-                }
-                Err(e) => {
-                    let _ = tx.send(Err(e.to_string()));
-                    break;
-                }
-            }
-        }
-    });
-
-    let timeout = std::time::Instant::now() + Duration::from_secs(60);
-    let listening = loop {
-        if std::time::Instant::now() > timeout {
-            let _ = child.kill();
-            return Err("no listening event within 60s".into());
-        }
-        match rx.recv_timeout(Duration::from_millis(200)) {
-            Ok(Ok(line)) => break line,
-            Ok(Err(e)) => return Err(format!("sidecar stdout read: {e}")),
-            Err(mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                return Err("sidecar exited before listening".into())
-            }
-        }
+    let policy = match POLICY.get() {
+        Some(policy) if policy.starts_http_on_demand() => policy,
+        _ => return 0,
     };
-    let port = parse_listening(&listening)?;
-    *SIDECAR.lock().unwrap() = Some(Sidecar { child });
-    Ok(Some(port))
-}
-
-/// Minimal blocking HTTP/1.1 forward (Connection: close).
-///
-/// SEC-02: the webview's full header set is passed in and reduced by the
-/// explicit `ica_contracts::proxy_headers` allowlist — nothing is hand-built
-/// from browser input. `Host`, `Connection` and `Content-Length` are generated
-/// by that shared policy; hop-by-hop / unsafe headers never leave the host.
-/// Both directions use the policy's separate allowlists, so the proxy and a
-/// direct HTTP call to the same backend observe the same business behaviour.
-fn forward_to(
-    port: u16,
-    method: &str,
-    path: &str,
-    headers: &tauri::http::HeaderMap,
-    body: &[u8],
-) -> Result<proxy_headers::ForwardResponse, String> {
-    // The `http` crate already parses/validates names and values; a value
-    // that is not valid UTF-8 cannot be a token or key and is simply skipped.
-    // Values are never logged (SEC-02 §4.5.7).
-    let pairs: Vec<(String, String)> = headers
-        .iter()
-        .filter_map(|(name, value)| {
-            value
-                .to_str()
-                .ok()
-                .map(|v| (name.as_str().to_string(), v.to_string()))
-        })
-        .collect();
-    let selected = proxy_headers::select_request_headers(pairs).map_err(|e| e.to_string())?;
-    let req = proxy_headers::render_request(method, path, port, &selected, body.len())
-        .map_err(|e| e.to_string())?;
-
-    let mut stream =
-        std::net::TcpStream::connect(("127.0.0.1", port)).map_err(|e| e.to_string())?;
-    stream
-        .set_read_timeout(Some(Duration::from_secs(30)))
-        .map_err(|e| e.to_string())?;
-    stream.write_all(&req).map_err(|e| e.to_string())?;
-    stream.write_all(body).map_err(|e| e.to_string())?;
-    let mut response = Vec::new();
-    stream
-        .read_to_end(&mut response)
-        .map_err(|e| e.to_string())?;
-    proxy_headers::parse_response(&response).map_err(|e| e.to_string())
-}
-
-fn poll_health(timeout_ms: u64, port: u16) -> bool {
-    let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms);
-    while std::time::Instant::now() < deadline {
-        if let Ok(forwarded) =
-            forward_to(port, "GET", "health", &tauri::http::HeaderMap::new(), b"")
-        {
-            if forwarded.status == 200 {
-                return true;
-            }
-        }
-        std::thread::sleep(Duration::from_millis(200));
+    // One attempt only: a failed spawn must not spin on every request.
+    if HTTP_STARTED.swap(true, Ordering::SeqCst) {
+        return 0;
     }
-    false
+    let boot = match BOOT.get() {
+        Some(boot) => boot,
+        None => return 0,
+    };
+    log_line(
+        &log_path(),
+        &format!(
+            "host: Embedded Mode — starting ica-server on demand (policy={})",
+            policy.http_mode.as_str()
+        ),
+    );
+    match start_rust_http_server(boot) {
+        Ok(port) => port,
+        Err(error) => {
+            log_line(
+                &log_path(),
+                &format!("host: on-demand ica-server failed: {error}"),
+            );
+            0
+        }
+    }
+}
+
+/// Build the Python sidecar launch description. `None` means no bundled
+/// interpreter, which is a legitimate Rust-only unit (P1 degradation).
+fn sidecar_spec(unit: &Path, data_root: &Path, policy: &RuntimePolicy) -> Option<ProcessSpec> {
+    let python = unit.join(SIDECAR_PY);
+    if !python.is_file() {
+        return None;
+    }
+    let entry = unit.join("sidecar/app/run_sidecar.py");
+    Some(ProcessSpec {
+        kind: ManagedKind::PythonSidecar,
+        program: python,
+        args: vec![
+            "-S".to_string(),
+            "-s".to_string(),
+            entry.display().to_string(),
+        ],
+        current_dir: unit.to_path_buf(),
+        env: vec![
+            ("ICA_DATA_DIR".to_string(), data_root.display().to_string()),
+            ("PORT".to_string(), "0".to_string()),
+            ("PYTHONDONTWRITEBYTECODE".to_string(), "1".to_string()),
+            (
+                "PLAYWRIGHT_BROWSERS_PATH".to_string(),
+                unit.join("browsers").display().to_string(),
+            ),
+        ],
+        handshake_timeout_ms: policy.handshake_timeout_ms,
+        health_timeout_ms: policy.health_timeout_ms,
+        log_dir: data_root.join("logs"),
+    })
 }
 
 const MIME: &[(&str, &str)] = &[
@@ -574,15 +401,32 @@ fn handle_ica(
         // body. Values are reduced to the explicit allowlist inside forward_to.
         let headers = request.headers().clone();
         let body: Vec<u8> = request.into_body();
-        // P1 dual-backend routing: the browser subsystem and AI-EXT model
-        // CRUD live on the Python sidecar, the 68-route contract lives on
-        // the Rust server.
+        // Thin wiring: decide the backend, ask for the port, delegate the
+        // HTTP forward (including both SEC-02 header allowlists) to the
+        // compilable lower layer. `ensure_rust_backend` is the §6.4 on-demand
+        // trigger; it is a no-op unless the policy is Embedded.
         let backend = route_backend(&method, &api_path);
         let (port, backend_name) = match backend {
-            Backend::Rust => (RUST_PORT.load(Ordering::SeqCst), "ica-server"),
+            Backend::Rust => (ensure_rust_backend(), "ica-server"),
             Backend::Python => (PY_PORT.load(Ordering::SeqCst), "sidecar"),
         };
-        return match forward_to(port, &method, &api_target, &headers, &body) {
+        let pairs: Vec<(String, String)> = headers
+            .iter()
+            .filter_map(|(name, value)| {
+                value
+                    .to_str()
+                    .ok()
+                    .map(|value| (name.as_str().to_string(), value.to_string()))
+            })
+            .collect();
+        return match ica_desktop::proxy::forward(
+            port,
+            &method,
+            &api_target,
+            &pairs,
+            &body,
+            ica_desktop::proxy::FORWARD_TIMEOUT_MS,
+        ) {
             Ok(forwarded) => {
                 // SEC-02 §4.6: response headers use their OWN allowlist.
                 // Backend errors (401/403/400/500) keep their status, body and
@@ -665,17 +509,44 @@ fn handle_ica(
         .unwrap()
 }
 
+/// Graceful application exit (REL-01): drain the in-process `AppRuntime`,
+/// then let the Sidecar Manager stop children with timeout + kill fallback.
+/// The host owns no child handle, so it cannot forget to reap one.
 fn stop_backends() {
-    // Python: EOF on stdin = run_sidecar's graceful exit. Rust: an explicit
-    // stop (the server drains in-flight requests on SIGTERM, but a child
-    // kill is the reliable cross-platform close for the host).
-    let mut sidecar = SIDECAR.lock().unwrap();
-    if let Some(sc) = sidecar.as_mut() {
-        drop(sc.child.stdin.take()); // EOF = sidecar graceful exit
+    let started = std::time::Instant::now();
+    if let Some(state) = APP_STATE.get() {
+        state.state().runtime().lifecycle().begin_drain();
     }
-    let mut server = RUST_SERVER.lock().unwrap();
-    if let Some(rs) = server.as_mut() {
-        let _ = rs.child.kill();
+    let report = manager().shutdown_all();
+    for line in report.render_log_lines() {
+        log_line(&log_path(), &line);
+    }
+    if !report.all_clean() {
+        log_line(
+            &log_path(),
+            &format!(
+                "host: graceful shutdown timed out; force-killed {:?} (no orphan left)",
+                report.force_killed()
+            ),
+        );
+    }
+    if let Some(policy) = POLICY.get() {
+        if policy.diagnostics_enabled {
+            let event = DiagnosticEvent {
+                request_id: "shutdown".to_string(),
+                principal_id: None,
+                source: "Internal",
+                module: "host",
+                operation: "stop_backends",
+                duration_ms: started.elapsed().as_millis() as u64,
+                result: "ok",
+                error_code: None,
+            };
+            log_line(&log_path(), &event.render());
+        }
+    }
+    if let Some(state) = APP_STATE.get() {
+        state.state().runtime().lifecycle().mark_stopped();
     }
 }
 
@@ -683,7 +554,13 @@ fn main() {
     let data_root = resolve_data_root();
     let _ = std::fs::create_dir_all(data_root.join("logs"));
     let host_log = data_root.join("logs").join("host.log");
+    let _ = HOST_LOG.set(host_log.clone());
     T0.get_or_init(std::time::Instant::now);
+
+    // One policy, one manager, shared by every wiring site below.
+    let policy = RuntimePolicy::from_env();
+    let _ = POLICY.set(policy.clone());
+    let _ = MANAGER.set(SidecarManager::new(policy.clone()));
 
     let (unit, how) = match resolve_unit() {
         Ok(r) => r,
@@ -698,52 +575,92 @@ fn main() {
         &format!("host: starting; unit={} ({how})", unit.display()),
     );
 
-    // The Rust server is the primary backend: failure is fatal. Dev affordance
-    // (mirror of ICA_SIDECAR_PORT): adopt an externally started server — e.g.
-    // both backends running inside WSL so the shared SQLite file gets native
-    // same-OS locking (a WAL database does not survive the /mnt 9p boundary
-    // between a Windows backend and a WSL sidecar — measured split-brain).
-    let spawn_or_fatal = |log: &PathBuf| match spawn_rust_server(&unit, &data_root) {
-        Ok(port) => port,
-        Err(e) => {
-            log_line(log, &format!("host: FATAL rust server: {e}"));
-            eprintln!("FATAL: rust server: {e}");
-            std::process::exit(1);
+    log_line(
+        &host_log,
+        &format!(
+            "host: runtime policy http_mode={} handshake_ms={} health_ms={} graceful_ms={}",
+            policy.http_mode.as_str(),
+            policy.handshake_timeout_ms,
+            policy.health_timeout_ms,
+            policy.graceful_shutdown_timeout_ms
+        ),
+    );
+    // The JWT key is generated once and shared by the (optional) server and
+    // the in-process AppRuntime, so an IPC token verifies against the same
+    // secret an HTTP token would use.
+    let jwt_secret = generate_jwt_secret();
+    let _ = BOOT.set(BootContext {
+        unit: unit.clone(),
+        data_root: data_root.clone(),
+        jwt_secret,
+    });
+
+    // Rust HTTP server: an explicitly adopted external port always wins;
+    // otherwise only the legacy `always` policy spawns one at boot. The
+    // accepted Embedded default starts nothing here (§6.4).
+    let boot_or_zero = || -> u16 {
+        if !policy.starts_http_at_boot() {
+            return 0;
+        }
+        let boot = BOOT.get().expect("boot context initialized");
+        match start_rust_http_server(boot) {
+            Ok(port) => port,
+            Err(error) => {
+                log_line(&host_log, &format!("host: FATAL rust server: {error}"));
+                eprintln!("FATAL: rust server: {error}");
+                std::process::exit(1);
+            }
         }
     };
     let rust_port = match std::env::var("ICA_RUST_SERVER_PORT") {
-        Ok(port) if !port.is_empty() => match port.parse::<u16>() {
-            Ok(p) if p != 0 => {
-                log_line(
+        Ok(port) if !port.is_empty() => {
+            match port.parse::<u16>() {
+                Ok(p) if p != 0 => {
+                    log_line(
                     &host_log,
                     &format!("host: adopted external ica-server on 127.0.0.1:{p} (ICA_RUST_SERVER_PORT)"),
                 );
-                p
+                    p
+                }
+                _ => {
+                    log_line(
+                        &host_log,
+                        "host: ICA_RUST_SERVER_PORT invalid; applying policy",
+                    );
+                    boot_or_zero()
+                }
             }
-            _ => {
-                log_line(&host_log, "host: ICA_RUST_SERVER_PORT invalid; spawning");
-                spawn_or_fatal(&host_log)
-            }
-        },
-        _ => spawn_or_fatal(&host_log),
+        }
+        _ => boot_or_zero(),
     };
     RUST_PORT.store(rust_port, Ordering::SeqCst);
-    log_line(
-        &host_log,
-        &format!("host: ica-server listening on 127.0.0.1:{rust_port}"),
-    );
-    if !poll_health(20_000, rust_port) {
-        log_line(&host_log, "host: FATAL ica-server /health never turned 200");
-        eprintln!("FATAL: ica-server /health never turned 200");
-        std::process::exit(1);
+    if rust_port != 0 {
+        log_line(
+            &host_log,
+            &format!("host: ica-server listening on 127.0.0.1:{rust_port}"),
+        );
+        if !ica_desktop::proxy::probe_health(rust_port, policy.health_timeout_ms, 200) {
+            log_line(&host_log, "host: FATAL ica-server /health never turned 200");
+            eprintln!("FATAL: ica-server /health never turned 200");
+            std::process::exit(1);
+        }
+    } else {
+        log_line(
+            &host_log,
+            &format!(
+                "host: Embedded Mode — local HTTP server NOT started at boot \
+                 (on demand on first /api; ICA_HTTP_SERVER_MODE={})",
+                policy.http_mode.as_str()
+            ),
+        );
     }
 
     // The Python sidecar is the secondary backend (browser/v1 + AI-EXT):
     // absence degrades to 502 on those routes instead of failing the launch.
     let py_port = match std::env::var("ICA_SIDECAR_PORT") {
-        // Dev/WSL affordance (F1-1 drill): adopt an externally started sidecar
-        // — e.g. the baseline running under WSL, reachable via WSL2's
-        // localhost forwarding — instead of spawning the bundled one.
+        // Dev/WSL affordance (F1-1 drill): adopt an externally started
+        // sidecar instead of spawning the bundled one. The host owns no
+        // child in that case and will not kill a process it did not start.
         Ok(port) if !port.is_empty() => match port.parse::<u16>() {
             Ok(p) if p != 0 => {
                 log_line(
@@ -758,17 +675,28 @@ fn main() {
             }
         },
         Ok(_) => 0,
-        _ => match spawn_sidecar(&unit, &data_root, &host_log) {
-            Ok(Some(p)) => p,
-            Ok(None) => 0,
-            Err(e) => {
-                log_line(
-                    &host_log,
-                    &format!("host: python sidecar failed to spawn ({e}); continuing Rust-only"),
-                );
-                0
+        _ => {
+            let boot = BOOT.get().expect("boot context initialized");
+            match sidecar_spec(&boot.unit, &boot.data_root, &policy) {
+                None => {
+                    log_line(
+                        &host_log,
+                        "host: no bundled python sidecar — browser/v1 and AI-EXT routes will 502",
+                    );
+                    0
+                }
+                Some(spec) => match manager().start(spec) {
+                    Ok(port) => port,
+                    Err(error) => {
+                        log_line(
+                            &host_log,
+                            &format!("host: python sidecar failed to spawn ({error}); continuing Rust-only"),
+                        );
+                        0
+                    }
+                },
             }
-        },
+        }
     };
     PY_PORT.store(py_port, Ordering::SeqCst);
     if py_port != 0 {
@@ -776,12 +704,16 @@ fn main() {
             &host_log,
             &format!("host: sidecar listening on 127.0.0.1:{py_port}"),
         );
-        if !poll_health(20_000, py_port) {
+        if !ica_desktop::proxy::probe_health(py_port, policy.health_timeout_ms, 200) {
             log_line(
                 &host_log,
                 "host: sidecar /health never turned 200; continuing (browser routes will 502)",
             );
             PY_PORT.store(0, Ordering::SeqCst);
+            manager().set_state(
+                ManagedKind::PythonSidecar,
+                ica_desktop::processes::LifecycleState::Degraded,
+            );
         }
     }
 
@@ -810,7 +742,11 @@ fn main() {
             ai_temperature: 0.4,
             ai_daily_budget_cents: 0,
             ai_budget_warning_threshold: 90,
-            jwt_secret: String::new(),
+            jwt_secret: BOOT
+                .get()
+                .expect("boot context initialized")
+                .jwt_secret
+                .clone(),
             jwt_access_token_expire_minutes: 15,
             jwt_refresh_token_expire_days: 7,
             bcrypt_cost: 4,
@@ -822,6 +758,22 @@ fn main() {
         eprintln!("FATAL: ipc state: {e}");
     })
     .unwrap_or_else(|_| std::process::exit(1));
+
+    // The single in-process AppRuntime is now ready (P2 runtime() assembly,
+    // AC3 init/destroy flow). Keep a clone for the shutdown path before the
+    // builder takes ownership of the managed state.
+    let _ = APP_STATE.set(ica_state.clone());
+    log_line(
+        &host_log,
+        &format!(
+            "host: AppRuntime ready (phase={})",
+            ica_state.state().runtime().lifecycle().phase().as_str()
+        ),
+    );
+    // §11 health snapshot for the components the manager can actually probe.
+    for line in manager().runtime_health().render_log_lines() {
+        log_line(&host_log, &line);
+    }
 
     let ui_dir = unit.join("ui");
     let host_log_setup = host_log.clone();
@@ -1149,13 +1101,19 @@ mod protocol_boundary_tests {
 
     #[test]
     fn the_listening_handshake_contract_matches_the_sidecar() {
-        // The Rust server's stdout handshake is the SAME line the sidecar
-        // emits (run_sidecar.py) — the host parses both with one parser.
+        // Both the Rust server and run_sidecar.py emit a `port` on a line
+        // containing `listening`; the parser now lives in the Sidecar Manager
+        // and is shared by both (P0 inventory §5 item 4).
+        use ica_desktop::processes::parse_listening;
         assert_eq!(
-            parse_listening(r#"{"listening": true, "port": 51234}"#).unwrap(),
-            51234
+            parse_listening(r#"{"listening": true, "port": 51234}"#),
+            Some(51234)
         );
-        assert!(parse_listening("{}").is_err());
-        assert!(parse_listening("not json").is_err());
+        assert_eq!(
+            parse_listening(r#"{"event":"listening","host":"127.0.0.1","port":8000}"#),
+            Some(8000)
+        );
+        assert_eq!(parse_listening("{}"), None);
+        assert_eq!(parse_listening("not json"), None);
     }
 }

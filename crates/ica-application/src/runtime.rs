@@ -54,6 +54,94 @@ pub struct RuntimeConfig {
     pub bcrypt_cost: u32,
 }
 
+/// The explicit init/destroy lifecycle of the one `AppRuntime` (ARCH-P3 AC3).
+/// Shared by every clone and all transports; `ica-application` stays free of
+/// tokio/sqlx/axum/hyper (std locks only). The desktop assembles the runtime
+/// through `AppRuntime::new` and reaches it through `runtime()`; shutdown
+/// calls `begin_drain()` before the Sidecar Manager stops child processes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimePhase {
+    Uninitialized,
+    Ready,
+    Draining,
+    Stopped,
+}
+
+impl RuntimePhase {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Uninitialized => "uninitialized",
+            Self::Ready => "ready",
+            Self::Draining => "draining",
+            Self::Stopped => "stopped",
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct RuntimeLifecycle {
+    phase: Arc<RwLock<RuntimePhase>>,
+    transitions: Arc<RwLock<Vec<&'static str>>>,
+}
+
+impl RuntimeLifecycle {
+    pub fn new() -> Self {
+        Self {
+            phase: Arc::new(RwLock::new(RuntimePhase::Uninitialized)),
+            transitions: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+
+    pub fn phase(&self) -> RuntimePhase {
+        *self.phase.read().expect("runtime lifecycle lock")
+    }
+
+    pub fn transitions(&self) -> Vec<&'static str> {
+        self.transitions
+            .read()
+            .expect("runtime lifecycle lock")
+            .clone()
+    }
+
+    fn transition(&self, from: RuntimePhase, to: RuntimePhase, label: &'static str) -> bool {
+        let mut phase = self.phase.write().expect("runtime lifecycle lock");
+        if *phase != from {
+            return false;
+        }
+        *phase = to;
+        self.transitions
+            .write()
+            .expect("runtime lifecycle lock")
+            .push(label);
+        true
+    }
+
+    /// Called at the end of `AppRuntime::new`, once every port is assembled.
+    pub fn mark_ready(&self) -> bool {
+        self.transition(
+            RuntimePhase::Uninitialized,
+            RuntimePhase::Ready,
+            "initialized",
+        )
+    }
+
+    /// Stop taking new work; the Sidecar Manager drains children after this.
+    pub fn begin_drain(&self) -> bool {
+        self.transition(RuntimePhase::Ready, RuntimePhase::Draining, "drain")
+    }
+
+    /// Final destroy step, after all children are reaped.
+    pub fn mark_stopped(&self) -> bool {
+        self.transition(RuntimePhase::Draining, RuntimePhase::Stopped, "stopped")
+    }
+}
+
+impl Default for RuntimeLifecycle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// One runtime's Application Services. Clone shares the same port objects and
 /// the same process-local locks; it never clones a database or an adapter.
 #[derive(Clone)]
@@ -83,6 +171,7 @@ pub struct AppRuntime {
     export_sealer: Arc<dyn ExportSealer>,
     ocr: Arc<dyn OcrEngine>,
     config: RuntimeConfig,
+    lifecycle: RuntimeLifecycle,
 }
 
 impl AppRuntime {
@@ -117,7 +206,8 @@ impl AppRuntime {
         ocr: Arc<dyn OcrEngine>,
         config: RuntimeConfig,
     ) -> Self {
-        Self {
+        let lifecycle = RuntimeLifecycle::new();
+        let runtime = Self {
             positions,
             candidates,
             conversations,
@@ -143,7 +233,10 @@ impl AppRuntime {
             export_sealer,
             ocr,
             config,
-        }
+            lifecycle: lifecycle.clone(),
+        };
+        lifecycle.mark_ready();
+        runtime
     }
 
     pub fn positions(&self) -> &dyn PositionRepository {
@@ -258,6 +351,11 @@ impl AppRuntime {
     pub fn config(&self) -> &RuntimeConfig {
         &self.config
     }
+
+    /// The shared init/destroy state; clones observe the same phase.
+    pub fn lifecycle(&self) -> &RuntimeLifecycle {
+        &self.lifecycle
+    }
 }
 
 #[cfg(test)]
@@ -270,6 +368,25 @@ mod tests {
         // command invocations without copying any adapter state.
         fn assert_send_sync_clone<T: Send + Sync + Clone>() {}
         assert_send_sync_clone::<AppRuntime>();
+    }
+
+    #[test]
+    fn lifecycle_moves_ready_drain_stopped_and_is_shared_by_clones() {
+        let lifecycle = RuntimeLifecycle::new();
+        assert_eq!(lifecycle.phase(), RuntimePhase::Uninitialized);
+        // A second transition out of Uninitialized is rejected: no double init.
+        assert!(!lifecycle.begin_drain());
+        assert!(lifecycle.mark_ready());
+        let clone = lifecycle.clone();
+        assert!(!lifecycle.mark_ready());
+        assert!(clone.begin_drain());
+        assert_eq!(lifecycle.phase(), RuntimePhase::Draining);
+        assert!(lifecycle.mark_stopped());
+        assert_eq!(clone.phase(), RuntimePhase::Stopped);
+        assert_eq!(
+            lifecycle.transitions(),
+            vec!["initialized", "drain", "stopped"]
+        );
     }
 
     #[test]

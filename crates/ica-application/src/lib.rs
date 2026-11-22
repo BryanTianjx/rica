@@ -95,7 +95,7 @@ pub use positions::{
     create_position, delete_position, get_position, list_positions, update_position, ListPositions,
 };
 pub use request_context::{authorize, Permission, RequestContext};
-pub use runtime::{AppRuntime, RuntimeConfig};
+pub use runtime::{AppRuntime, RuntimeConfig, RuntimeLifecycle, RuntimePhase};
 pub use send_records::{list_send_records, record_send, ListSendRecords};
 pub use settings::{
     read_egress_disclosure, write_egress_consent, EgressDisclosure, SettingsConfigView,

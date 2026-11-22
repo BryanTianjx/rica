@@ -14,8 +14,13 @@
 
 pub mod browser;
 pub mod commands;
+pub mod diagnostics;
 pub mod error;
 pub mod ipc_allowlist;
+pub mod processes;
+pub mod proxy;
+pub mod routing;
+pub mod runtime_policy;
 pub mod state;
 
 pub use error::{IpcError, IpcErrorBody};
