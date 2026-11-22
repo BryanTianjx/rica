@@ -142,6 +142,20 @@ def copy_baseline(destination: Path) -> None:
     )
 
 
+def reset_shared_secrets() -> None:
+    """Wipe the shared credential-slot directory before a side boots.
+
+    Both services resolve credential slots against the SAME data root (the
+    OCR staging contract pins `ICA_DATA_DIR` to one directory), so a key the
+    Python side stores mid-run would be loaded by the Rust side's startup
+    overlay when it boots second — and `generate_no_key` (case order 160)
+    would then make a REAL provider call on one side only. Credential slots
+    are per-side state that must start equal; the file fallback (the Linux
+    dev store) made that stale-state window observable.
+    """
+    shutil.rmtree(WORK / "python-data" / "secrets", ignore_errors=True)
+
+
 def start_python_baseline() -> subprocess.Popen:
     """Start the Python baseline on its own copy of the seeded database."""
     if port_in_use(PY_PORT):
@@ -156,6 +170,7 @@ def start_python_baseline() -> subprocess.Popen:
     tree.mkdir(parents=True)
     copy_baseline(tree)
 
+    reset_shared_secrets()
     env = clean_env()
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["DATABASE_URL"] = f"sqlite:///{WORK / 'python.db'}"
@@ -225,6 +240,7 @@ def start_rust_port() -> subprocess.Popen:
     if build.returncode != 0:
         raise SystemExit(1)
 
+    reset_shared_secrets()
     env = clean_env()
     env["DATABASE_URL"] = f"sqlite:///{WORK / 'rust.db'}"
     env["PORT"] = RUST_PORT
@@ -358,6 +374,12 @@ def main() -> int:
             != 0
         ):
             return 1
+        # The Python capture ran `ai_key_put`, which STORED a credential slot
+        # in the shared data root; the Rust capture boots against the same
+        # root and its startup overlay would load that key, turning its own
+        # `generate_no_key` (case 160, before its own `ai_key_put`) into a
+        # real provider call. Each side's capture must start credential-less.
+        reset_shared_secrets()
         if (
             run_script(
                 "contract_capture.py",

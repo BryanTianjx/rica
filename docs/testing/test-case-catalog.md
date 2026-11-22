@@ -13,7 +13,7 @@ related_documents: ["ENG-ICA-SPECS-R1.0", "AUDIT-ICA-ENG-001"]
 
 # 测试用例目录(草稿)— 脚本生成
 
-由 `scripts/generate_test_catalog.py` 生成,共扫描到 **393** 个 Rust 测试函数。
+由 `scripts/generate_test_catalog.py` 生成,共扫描到 **400** 个 Rust 测试函数。
 编号规则:SPE-QA-006 §3.2(`TC-ICA-<模块>-<类型>-<三位序号>`);
 扫描顺序为文件路径+行号排序,重跑可复现。**本目录为 DRAFT 状态:**
 Case ID 尚未登记确认(EX-006),正式启用需项目负责人批准;批准后
@@ -226,6 +226,13 @@ ID 冻结,不再随文件移动变化。Priority 统一 P2(待评审定级)。
 | TC-ICA-API-INT-198 | `deleting_a_candidate_cascades_to_conversations_and_messages` | `crates/ica-api/tests/write_side_effects.rs:305` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-API-INT-199 | `deleting_a_position_nulls_the_candidates_link_and_keeps_the_row` | `crates/ica-api/tests/write_side_effects.rs:332` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-API-INT-200 | `a_failed_write_leaves_no_row_and_no_audit_event` | `crates/ica-api/tests/write_side_effects.rs:353` | ica-api | INT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-APP-UNIT-001 | `user_prompt_matches_the_baseline_parts` | `crates/ica-application/src/prompts.rs:115` | ica-application | UNIT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-APP-UNIT-002 | `no_instruction_gets_the_judgement_line` | `crates/ica-application/src/prompts.rs:135` | ica-application | UNIT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-APP-UNIT-003 | `a_clean_short_message_passes` | `crates/ica-application/src/validators.rs:235` | ica-application | UNIT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-APP-UNIT-004 | `a_promise_is_a_warning` | `crates/ica-application/src/validators.rs:242` | ica-application | UNIT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-APP-UNIT-005 | `a_leaked_phone_is_a_warning` | `crates/ica-application/src/validators.rs:252` | ica-application | UNIT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-APP-UNIT-006 | `long_text_without_references_is_a_warning` | `crates/ica-application/src/validators.rs:260` | ica-application | UNIT | P2(待定) | AUTOMATED | DRAFT |
+| TC-ICA-APP-UNIT-007 | `blocking_conditions_win` | `crates/ica-application/src/validators.rs:269` | ica-application | UNIT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-APP-INT-001 | `list_returns_the_requested_window_and_the_full_total` | `crates/ica-application/tests/positions.rs:102` | ica-application | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-APP-INT-002 | `list_with_offset_past_total_returns_no_items_but_keeps_total` | `crates/ica-application/tests/positions.rs:121` | ica-application | INT | P2(待定) | AUTOMATED | DRAFT |
 | TC-ICA-APP-INT-003 | `list_on_empty_table_is_an_empty_page` | `crates/ica-application/tests/positions.rs:132` | ica-application | INT | P2(待定) | AUTOMATED | DRAFT |

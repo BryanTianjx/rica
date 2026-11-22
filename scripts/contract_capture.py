@@ -920,9 +920,14 @@ def _one_request(opener, request, is_head: bool,
 
 
 def fetch(base_url: str, method: str, path: str, payload: dict | None,
-          timeout: float = 20.0, attempts: int = 4,
+          timeout: float = 120.0, attempts: int = 4,
           extra_headers: dict[str, str] | None = None) -> dict[str, object]:
     """Issue one request and return status + decoded body (or raw text).
+
+    The 120 s default is harness patience, not contract text: the first OCR
+    request of a run loads the PP-OCRv6 models off the (9p) baseline venv, and
+    a cold load plus the wide-image inference was measured at ~33 s — over the
+    old 20 s, which killed the capture mid-run twice.
 
     A `HEAD` response carries no body by definition, so it is never read: the
     405 envelope advertises a `Content-Length` that the server then withholds,
