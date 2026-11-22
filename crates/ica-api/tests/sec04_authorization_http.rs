@@ -37,8 +37,7 @@ async fn self_share_is_rejected_by_the_application_layer() {
     let response = post(app, "/api/shares", &body).await;
     assert_eq!(response.status, 422, "body: {}", response.body);
     assert_eq!(
-        response.body["error"]["message"],
-        "Cannot share with yourself",
+        response.body["error"]["message"], "Cannot share with yourself",
         "body: {}",
         response.body
     );
@@ -76,10 +75,7 @@ async fn an_invalid_token_is_rejected_with_401() {
     .await;
     assert_eq!(refresh.status, 401, "body: {}", refresh.body);
     assert_eq!(refresh.body["error"]["code"], "unauthorized");
-    assert_eq!(
-        refresh.body["error"]["message"],
-        "Invalid refresh token"
-    );
+    assert_eq!(refresh.body["error"]["message"], "Invalid refresh token");
 
     let logout = post(
         app,
@@ -107,7 +103,13 @@ async fn local_mode_does_not_gate_business_routes_on_a_bearer_token() {
     let (app, _dir) = w1_app().await;
 
     let ordinary = get(app.clone(), "/api/positions").await;
-    let forged = get_with_header(app, "/api/positions", "authorization", "Bearer forged-token").await;
+    let forged = get_with_header(
+        app,
+        "/api/positions",
+        "authorization",
+        "Bearer forged-token",
+    )
+    .await;
     assert_eq!(ordinary.status, 200);
     assert_eq!(forged.status, 200);
     assert_eq!(

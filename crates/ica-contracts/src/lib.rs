@@ -21,8 +21,8 @@ pub mod proxy_headers;
 pub mod query;
 
 pub use auth_session::{
-    auth_transition, AuthEvent, AuthPhase, AuthSessionState, SessionEndReason, AUTH_PHASE_NAMES,
-    ALL_AUTH_PHASES,
+    auth_transition, AuthEvent, AuthPhase, AuthSessionState, SessionEndReason, ALL_AUTH_PHASES,
+    AUTH_PHASE_NAMES,
 };
 pub use body::{
     candidate_confirm, draft_approve, draft_group_select, draft_patch, follow_up_create,
