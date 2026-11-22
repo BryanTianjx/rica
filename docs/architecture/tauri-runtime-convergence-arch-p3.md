@@ -1,7 +1,7 @@
 # ARCH-P3 — Tauri Runtime 职责收敛（交付记录）
 
-**基线 HEAD：** `e70dc8ac1d63c9051d644f46262f19861dfb4f24`
-**分支 / worktree：** `wt/ica-rust-arch-p3` @ `/mnt/o/ICA-RUST/.worktrees/ica-rust-arch-p3`
+**实现基线：** `e70dc8a`（worktree `wt/ica-rust-arch-p3`）→ **已合并 main @ `5ebcc6d`** 并 push origin/main；worktree 已按约定删除。
+**实现提交：** `711e071`；合并提交 `5ebcc6d`（--no-ff）；本 provenance 于合并后刷新。
 **取数时点：** 2026-11-23（CST）
 **依据：** 任务卡 `ARCH-P3.md`、`docs/audits/RICA 总体架构演进设计与 ADR 决策 R1.0 2026-11-22.md` §6.4/§7.4/§11/§14/§19 评审裁决 1、`docs/architecture/runtime-unification-arch-p2.md`（P2 `AppRuntime` 入口）、`docs/architecture/sidecar-lifecycle-inventory.md`（P0 四段定位）、`docs/audits/RICA 全量工程实现审计报告 R1.0 2026-11-22.md` §5.5 REL-01。
 
@@ -11,7 +11,7 @@
 
 ## 1. 改前 / 改后
 
-| 维度 | 改前（`e70dc8a`） | 改后（本 worktree 工作树） |
+| 维度 | 改前（`e70dc8a`） | 改后（main @ `5ebcc6d`） |
 | --- | --- | --- |
 | 子进程四段（启动/握手/通信/关闭） | 全在 `desktop/tauri-host/src/main.rs`：两个 `struct { child: Child }` + 两个 `static Mutex<Option<…>>`、`spawn_rust_server()`、`spawn_sidecar()`、`forward_to()`、`poll_health()`、`parse_listening()`、`stop_backends()`（P0 盘点逐行定位） | 四段集中到 `ica-desktop`：`processes.rs`（Sidecar Manager：spawn/握手/健康/stdout+stderr 分文件/关闭/重启）、`proxy.rs`（转发与 `/health` 探测）、`routing.rs`（纯路由判定）；Host 只剩 `ProcessSpec` 构造 + `manager().start(spec)` + `shutdown_all()` 的薄接线 |
 | Rust HTTP Server | 启动即常驻 `ica-server` 子进程；`/health` 超时 FATAL | **默认不启动**（评审裁决 1，Embedded Mode）。`RuntimePolicy.http_mode` 默认 `embedded`，首次 Rust 路由 `/api` 才按需启动；`always` 保留 §6.4 场景常驻，`never` 为纯 IPC |
@@ -21,7 +21,7 @@
 | 重启恢复 | 无；异常退出不检测、不重启 | `LifecycleState` 状态机 + `SidecarManager::restart()` 有界重启（`max_restarts`，默认 2）；握手同时接受测试 shape 与基线 shape `{"event":"listening",…,"port":N}` |
 | Host 业务职责 | 已有 thin 包装（P2 之后），但仍有大量进程管理代码 | 源码断言证明 Host 无 `Command::new` / `.kill()` / `BufReader` / `recv_timeout` / `child.stdin` / `spawn_*` / `poll_health` / `forward_to`，也无 `ContractError::` / `ica_application::` / `is_admin` / 业务 `.find(` |
 
-## 2. 文件清单（全部在 worktree，未 git add/commit/push）
+## 2. 文件清单（已提交 `711e071`，合并至 main `5ebcc6d`）
 
 新增（6）：
 
@@ -53,7 +53,7 @@
 ## 4. 测试与真实验证输出
 
 ```text
-$ cd /mnt/o/ICA-RUST/.worktrees/ica-rust-arch-p3
+$ cd /mnt/o/ICA-RUST
 $ git diff --check
 （无输出，exit 0）
 
@@ -86,7 +86,7 @@ $ CARGO_TARGET_DIR=/home/bryan/.cache/ica-rust-target cargo clippy --workspace -
 
 ## 6. 回滚
 
-1. 丢弃本 worktree 的未提交改动即可（本交付**未** git add/commit/push，主干 `e70dc8a` 未受影响）：`git -C <worktree> checkout -- <修改文件>` 并删除 6 个新增文件。
+1. 回滚本交付：在 main 上 `git revert -m 1 5ebcc6d`（--no-ff merge）；实现基线 `e70dc8a` 不受影响。
 2. 若要保留部分能力但恢复旧行为：设 `ICA_HTTP_SERVER_MODE=always` 恢复启动即常驻；把 `RuntimePolicy.graceful_shutdown_timeout_ms` 调小可更快进入 force-kill 分支；`=never` 可完全禁用本地 HTTP。
 3. 回滚 `ica-server` 的 stdin-EOF 分支时，必须同时把 Manager 的关闭策略改回 drop-stdin 之后立即 kill，否则 Python sidecar 的 EOF 优雅退出仍有效而 Rust server 只能靠超时兜底。
 4. 本记录与架构文档同目录，回滚代码时一并删除/标注，避免下一轮把未验证结论当基线。
@@ -100,4 +100,4 @@ $ CARGO_TARGET_DIR=/home/bryan/.cache/ica-rust-target cargo clippy --workspace -
 
 ## 8. 明确未做
 
-未改基线仓；未接前端；未新增 crate；未 git add / commit / push；未打 tag；未运行 `scripts/check.sh`（原因见 §4）。
+未改基线仓；未接前端；未新增 crate；未打 tag；未运行 `scripts/check.sh`（原因见 §4）。提交 `711e071` / 合并 `5ebcc6d` / 已 push origin/main。
