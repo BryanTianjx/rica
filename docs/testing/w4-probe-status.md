@@ -40,3 +40,19 @@ $ python3 scripts/contract_verify.sh  (OUT_DIR=/tmp/ica-rust-w4r3-out)
 8 条中：1 条（R4 AC4）已由台账补齐可收口；4 条（R1 AC2/AC6/AC7、R2 AC6、R3 AC6）
 有行为级证据但变异/全档方法论未逐条执行；3 条（R1 AC3/AC5 + 宽图全档）受模型缺失限制。
 按 woticketflow，方法论未执行与行为已验证须分开陈述——本文即该区分的落盘。
+
+## 用户裁决（2026-11-22）：接受环境限制
+
+用户已明确接受以下环境受限欠账，要求其余卡按计划推进到关单：
+
+| 卡 | 受限项 | 处置 |
+|---|---|---|
+| W4-R1 | 5 条 OCR 探针（≥1000px 宽图逐字符 / 757px 全档扫描 / 缺模型同进程恢复 / 锁中毒注入 / 逐条变异）NOT_RUN | 保留 REVIEW，resume_state 已记欠账；需真实 PP-OCRv6 模型的环境（Windows 实机）补跑 |
+| W4-R3 | AC6 逐条变异未执行 | 保留 REVIEW，行为级单测已绿 |
+| G3 | 7 条 Hermes Runtime POC 未实施 | 保留 BLOCKED（此前用户裁决转期） |
+| ICA-BROWSER-UI-RELEASE | Windows 端到端实机验收 | 保留 BLOCKED |
+| plan:ICA-Browser | AC30 Windows/macOS 双平台部署记录 | 保留 REVIEW |
+
+**这些卡不伪造关单**：在 WSL 环境无真实 OCR 模型 / 无 Windows/macOS 实机的条件下无法产生合规证据。
+裁决含义是「接受它们留在非终态作为已知欠账」，不是「把它们标成完成」。
+其他任务卡按既定计划推进到关单。
