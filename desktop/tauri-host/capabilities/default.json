@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The host window's default capability: core APIs for the F1-2 IPC slice",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

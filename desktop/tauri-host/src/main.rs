@@ -42,6 +42,12 @@ use std::time::Duration;
 use tauri::WebviewUrl;
 use tauri::WebviewWindowBuilder;
 
+mod ica_backend;
+pub use ica_backend::IcaState;
+
+/// The managed IPC state: a `DesktopState` over the same database URL the
+/// spawned server serves (F2 persistence parity), plus the invoke handlers
+/// for the F1-2 positions slice.
 const DATA_ROOT_SUFFIX: &str = r"ICA\data";
 // Interpreter path inside a version unit. The PBS layout differs per archive:
 // windows = `python/python.exe`, linux = `python/bin/python3`, and macOS
@@ -745,6 +751,44 @@ fn main() {
         }
     }
 
+    // F1-2: connect the host's own DesktopState over the SAME database URL
+    // the server got, so an IPC write and an HTTP read observe each other.
+    let ica_database_url = format!("sqlite:///{}/ica.db", data_root.display());
+    let ica_state = tauri::async_runtime::block_on(IcaState::connect(
+        &ica_database_url,
+        ica_desktop::DesktopConfig {
+            app_name: "ICA Personal".to_string(),
+            ai_enabled: false,
+            ocr_upload_dir: std::path::Path::new(&data_root).join("ocr"),
+            ai_provider: "openai_compatible".to_string(),
+            ai_model: "glm-4-flash".to_string(),
+            ai_base_url: "https://open.bigmodel.cn/api/paas/v4".to_string(),
+            ai_include_candidate_name: false,
+            database_url: ica_database_url.clone(),
+            backup_dir: std::path::Path::new(&data_root)
+                .join("backups")
+                .display()
+                .to_string(),
+            backup_keep_count: 10,
+            data_retention_days: 180,
+            ai_max_tokens: 1500,
+            ai_timeout: 60,
+            ai_temperature: 0.4,
+            ai_daily_budget_cents: 0,
+            ai_budget_warning_threshold: 90,
+            jwt_secret: String::new(),
+            jwt_access_token_expire_minutes: 15,
+            jwt_refresh_token_expire_days: 7,
+            bcrypt_cost: 4,
+            database_path: format!("{}/ica.db", data_root.display()),
+        },
+    ))
+    .map_err(|e| {
+        log_line(&host_log, &format!("host: FATAL ipc state: {e}"));
+        eprintln!("FATAL: ipc state: {e}");
+    })
+    .unwrap_or_else(|_| std::process::exit(1));
+
     let ui_dir = unit.join("ui");
     let host_log_setup = host_log.clone();
     let host_log_event = host_log.clone();
@@ -771,6 +815,14 @@ fn main() {
             let _ = ctx;
             handle_ica(request, &ui_dir, &host_log_scheme)
         })
+        .manage(ica_state)
+        .invoke_handler(tauri::generate_handler![
+            ica_backend::positions_list,
+            ica_backend::positions_get,
+            ica_backend::positions_create,
+            ica_backend::positions_patch,
+            ica_backend::positions_delete,
+        ])
         .setup(move |app| {
             // Open at the app root so the SPA router lands on the Dashboard
             // route (工作台) directly; navigating to /index.html instead would

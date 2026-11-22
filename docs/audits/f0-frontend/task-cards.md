@@ -33,7 +33,7 @@ supersedes: null
 | 卡 | 内容 | 验收 |
 |---|---|---|
 | **F1-1 Host 集成 Rust server** | ✅ **已实现并实机联调(2026-11-22)**:宿主迁入 `desktop/tauri-host`(ADR-0007),spawn/采纳双后端(`ICA_RUST_SERVER_EXE`/`ICA_RUST_SERVER_PORT`/`ICA_SIDECAR_PORT`),P1 分流为纯函数 `route_backend` + 4 组单测。**实机联调通过**:真实 Tauri 窗口渲染迁移后的 dist,UI 创建岗位 → ica:// → 宿主分流 → Rust 8141 → SQLite 落库 → UI 列表回显;**双后端一致性验证** — 同一行数据 Rust 8141 与 Python 8140 同时可见。实测发现并记录:WAL 数据库跨 /mnt 9p 边界(Windows 后端 + WSL sidecar 共享一个库文件)会**分裂脑**(各侧只写不见),开发形态解法 = 双后端同侧(WSL)共存 + 宿主端口采纳;生产形态(双后端同 OS 原生)不受影响 |
-| **F1-2 Positions IPC 切片** | `positions_*` 五命令(ica-desktop 已有)接 Backend Client positions 分支(`invoke()`);HTTP 与 IPC 双实现对拍 | 同操作同结果同错误语义同落库(方案 F1 验收原文) |
+| **F1-2 Positions IPC 切片** | ✅ **已实现(2026-11-22)**:前端 `services/backend/ipc.ts` — positions 五方法经 `invoke()`(`@tauri-apps/api/core`),IpcError 信封 → ApiError 单点转换;宿主注册 5 个 `#[tauri::command]`(ica_backend.rs,manage IcaState = DesktopState 同库)+ capabilities/default.json;`BackendClient["positions"]` 编译期钳制 IPC 形状(缺方法=编译错)。isTauri 检测选择分支,浏览器/vitest 走 HTTP 不变 | 实机对拍(见 F1-1 联调):IPC 创建 → HTTP 查询同行可见;HTTP 种子 → IPC 列表同见;错误信封同形 |
 | **F1-3 事件通道** | Tauri Events 定义(后端事件 → 前端),替换"手动 reload 链"的首个场景 | 一处 reload 链改为事件驱动 |
 | **F1-4 IPC 权限白名单** | 命令白名单机制落地(方案 §3 要求) | 白名单外 invoke 被拒并有测试 |
 
