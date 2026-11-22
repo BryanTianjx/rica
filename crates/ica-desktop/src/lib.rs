@@ -19,4 +19,7 @@ pub mod ipc_allowlist;
 pub mod state;
 
 pub use error::{IpcError, IpcErrorBody};
+// SEC-01: the desktop host obtains its JWT signing key exclusively through
+// this re-exported infrastructure component (CSPRNG + secure persistence).
+pub use ica_infra::jwt_key;
 pub use state::{DesktopConfig, DesktopState};
