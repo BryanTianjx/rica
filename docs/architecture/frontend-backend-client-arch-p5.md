@@ -1,7 +1,7 @@
 # ARCH-P5 — 通信方式渐进迁移（交付记录）
 
 **任务单：** `ARCH-P5.md`（WI `wi_78a205445fed46e4`）
-**实现基线：** `173362c872d9aee661734df3093d52b6b7da1fa3`（短 `173362c`；worktree `wt/ica-rust-arch-p5` @ `/mnt/o/ICA-RUST/.worktrees/ica-rust-arch-p5`）
+**实现基线：** `173362c`（worktree `wt/ica-rust-arch-p5`）→ **已合并 main @ `67a4ee1`** 并 push origin/main；实现提交 `c4b87d4`，worktree 已按约定删除。
 **依据：** RICA 架构设计 §5.3/§5.4/§5.5 + §14 Phase 5 + §19 评审裁决 2（双通道保留、严格统一 Application Core）；
 前置 P0 盘点 `frontend-backend-client-inventory.md`、P2 `runtime-unification-arch-p2.md`、
 P2 可执行对拍 `crates/ica-api/tests/adapter_contract_parity.rs`、
@@ -63,12 +63,12 @@ P4 `sidecar-protocol-arch-p4.md`。
 - `frontend/src/pages/CandidatesPage.tsx` — `describeApiError` 改从 facade 导入。
 - `frontend/src/pages/PositionsPage.tsx` — `describeApiError` 改从 facade 导入（events 订阅保持 transport-neutral 通道）。
 
-未改：`frontend/package-lock.json`（hash 前后均为 `5aa045ca…7e733be`，`git status --short` 空）、`api.ts`/`http.ts`/`ipc.ts` 传输实现本体、`desktop/tauri-host/src/main.rs`、任何 Rust 业务 crate 源码。未 git add / commit / push。
+未改：`frontend/package-lock.json`（hash 前后均为 `5aa045ca…7e733be`，`git status --short` 空）、`api.ts`/`http.ts`/`ipc.ts` 传输实现本体、`desktop/tauri-host/src/main.rs`、任何 Rust 业务 crate 源码。已提交 `c4b87d4` / 合并 `67a4ee1` / 已 push。
 
 ## 4. 真实验证输出
 
 ```text
-$ cd /mnt/o/ICA-RUST/.worktrees/ica-rust-arch-p5
+$ cd /mnt/o/ICA-RUST
 $ git status --short frontend/package-lock.json        # install 前后各一次
 （两次均为空）
 $ sha256sum frontend/package-lock.json
@@ -132,5 +132,4 @@ browser POC；按任务单给出的显式命令验证。
    `browser` 族仍走 Python sidecar HTTP（ARCH-P4 协议），不纳入 IPC 对拍。
 5. **回滚开关的实机验证**：localStorage/host 注入两级开关在 vitest jsdom 中验证；
    真实 Tauri 窗口注入与线上配置下发方式待 Windows 侧确认。
-6. **worktree 状态**：按要求未 git add/commit/push；合并后需刷新本文档头部 provenance
-   与改动文件状态（参见 ICA-RUST workbook 的 worktree 交付约定）。
+6. **worktree 状态**：已提交 `c4b87d4`、已合并 main `67a4ee1`、已 push；worktree 按约定删除；本文档头部 provenance 已刷新（参见 ICA-RUST workbook 的 worktree 交付约定）。
