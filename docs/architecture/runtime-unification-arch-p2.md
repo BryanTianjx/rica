@@ -1,7 +1,7 @@
 # ARCH-P2 — Unified Rust Application Runtime (交付记录)
 
-**Worktree / branch:** `/mnt/o/ICA-RUST/.worktrees/ica-rust-arch-p2` @ `wt/ica-rust-arch-p2` @ `3df2012`
-**性质:** 实现 + 本地可编译 crate 的测试；未 git add / commit / push，未改基线仓。
+**实现基线：** `3df2012`（worktree `wt/ica-rust-arch-p2`）→ **已合并 main @ `fb26644`**；worktree 已按约定删除。
+**性质:** 实现 + 本地可编译 crate 的测试；实现提交 `d5177bf`，merge `fb26644`，已 push origin/main；未改基线仓。
 **依据:** 任务卡 `ARCH-P2.md`，P0 盘点 `docs/architecture/architecture-dependency-map.md`，ADR-001/002/008，§4.2 阶段 B / §4.4 / §5.2 / §5.5 / §9.2。
 
 ## 1. 交付结论
@@ -112,4 +112,4 @@ browser POC 用例（编排方已验证带 skip 的显式命令安全）。因�
    `ipc_allowlist` 源码级一致性测试与本次对 worker 源码的断言。Windows 侧实机验证待人工。
 4. **Sidecar 协议**：`code` 是加性字段，supervisor 仍读旧 `error` 文本；带真实 Chromium 的
    worker 行为未验证（DEF-006 POC 三条按编排方指令 skip）。
-5. **未做**：未 git add/commit/push；未改基线仓 `d39e321`；未接前端；未新增 crate。
+5. **未做**：未改基线仓；未接前端；未新增 crate。（提交/推送/合并已由编排方完成，见头部。）
