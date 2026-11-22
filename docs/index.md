@@ -75,7 +75,9 @@ supersedes: null
 |---|---|
 | `engineering/ENG-ICA-SPECS-R1.0.md` | Draft(待批准) |
 | `scripts/README.md` | Active |
-| `README.md`(根) | Active(2026-11-21 纠偏更新) |
+| `README.md`(根) | Active(2026-11-23 ARCH-P6 状态纠偏:68/68) |
+| `.github/workflows/quality-gate.yml` | Active(ARCH-P6 统一门禁 CI,无发布动作) |
+| `.github/BRANCH_PROTECTION.md` | Proposed(GOV-01 规则待管理员在 GitHub 设置落实) |
 | `.gitignore`、`rust-toolchain.toml`、`.cargo/` | Active |
 
 ### DOC-06 测试质量
@@ -85,6 +87,8 @@ supersedes: null
 | `testing/test-case-catalog.md` | Draft(脚本生成,待登记确认) |
 | `testing/traceability-matrix.csv` | Draft(同上) |
 | `testing/test-report-r1.0.md` | Draft(待批准) |
+| `testing/test-report-arch-p6.md` | Active(ARCH-P6 当前 HEAD 执行报告,绑定 SHA) |
+| `testing/desktop-release-acceptance.md` | **BLOCKED**(Windows 实机待验,用户接受的环境受限项) |
 | `testing/defect-register.md` | Active(台账随缺陷开闭维护) |
 | `templates/` | Active(项目模板) |
 
@@ -105,6 +109,7 @@ supersedes: null
 | `audits/tauri-architecture-audit-r0.1.md` | Archived(历史) |
 | `audits/w4-independent/README.md` + FINDINGS/LWW/OCR + rerun/ | Archived(验收记录,不可变) |
 | `audits/mvp-r1.0/`(6 份:README/baseline/module/api/ipc-gui/test-baseline/verify-matrix) | Draft(待项目负责人确认) |
+| `audits/arch-p6-delivery-record.md` | Active(ARCH-P6 交付记录,绑定 HEAD 与执行证据) |
 
 ### DOC-10 项目知识
 | 文档 | 状态 |

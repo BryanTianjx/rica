@@ -1,0 +1,63 @@
+name: Quality Gate
+
+# ARCH-P6 / QA-01 / GOV-01: one repeatable CI entry point. This workflow only
+# VERIFIES. It never commits, pushes, merges, tags or publishes a release.
+# Manual release remains a human action (see .github/BRANCH_PROTECTION.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (pinned commit, no credentials persisted)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Rust toolchain (channel pinned by rust-toolchain.toml)
+        run: |
+          rustup show active-toolchain
+          rustup component add rustfmt clippy
+
+      - name: Node.js for the frontend gates
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The single entry point for local AND CI. It delegates to scripts/check.py,
+      # the endpoint reconciliation scripts, the sidecar contract test, the
+      # frontend package.json scripts and the Tauri host. SKIP/BLOCKED stages are
+      # reported honestly (no Windows host, no cargo-audit); the gate never
+      # self-signs Verified.
+      - name: Run unified quality gate
+        run: python3 scripts/gate.py --ci --out gate-run.json
+        env:
+          ICA_GATE_TIMEOUT: '900'
+
+      - name: Publish gate execution record (traceability to this HEAD)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-run-${{ github.sha }}
+          path: gate-run.json
+          if-no-files-found: warn
+
+# Intentionally absent: release job, publish step, gh release, git push,
+# automatic merge, dependency auto-update. A release is a manual, human-gated
+# action; CI is a merge-blocking check only.

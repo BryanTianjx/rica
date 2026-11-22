@@ -25,6 +25,13 @@ ICA-RUST
 **版本：** R1.0
 **基准日期：** 2026-11-20
 **状态：** 审计基线已确定，工程证据待逐项复核
+
+> **状态同步说明（ARCH-P6，2026-11-23）**：本文件是 2026-11-20 的审计输入快照，
+> 头部 `4cbb736` 是当时的基准 HEAD，不是当前 HEAD。当前 HEAD 与实测证据以
+> `docs/testing/test-report-arch-p6.md`（绑定 `40575e1`）和
+> `docs/audits/arch-p6-delivery-record.md` 为准；本文中的旧 VERIFY/进度描述不得
+> 再被当作当前状态引用。没有改写历史审计文本，只追加本说明。
+
 **项目：** ICA (Intelligent Candidate Assistant)
 **审计对象：** ICA-RUST
 **产品基线：** ICA Python
