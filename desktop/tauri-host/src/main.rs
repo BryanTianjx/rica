@@ -31,6 +31,7 @@
 // the token flow survives the local default "" (which PyJWT refuses).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use ica_contracts::proxy_headers;
 use std::io::{BufRead, BufReader, Read, Write};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -443,47 +444,60 @@ fn spawn_sidecar(
     Ok(Some(port))
 }
 
-/// Minimal blocking HTTP/1.1 forward (Connection: close). The spike proved
-/// stdlib-only is sufficient for the slice; a hardened proxy is G3-04 scope.
-fn forward_to(port: u16, method: &str, path: &str, body: &[u8]) -> Result<(u16, Vec<u8>), String> {
+/// Minimal blocking HTTP/1.1 forward (Connection: close).
+///
+/// SEC-02: the webview's full header set is passed in and reduced by the
+/// explicit `ica_contracts::proxy_headers` allowlist — nothing is hand-built
+/// from browser input. `Host`, `Connection` and `Content-Length` are generated
+/// by that shared policy; hop-by-hop / unsafe headers never leave the host.
+/// Both directions use the policy's separate allowlists, so the proxy and a
+/// direct HTTP call to the same backend observe the same business behaviour.
+fn forward_to(
+    port: u16,
+    method: &str,
+    path: &str,
+    headers: &tauri::http::HeaderMap,
+    body: &[u8],
+) -> Result<proxy_headers::ForwardResponse, String> {
+    // The `http` crate already parses/validates names and values; a value
+    // that is not valid UTF-8 cannot be a token or key and is simply skipped.
+    // Values are never logged (SEC-02 §4.5.7).
+    let pairs: Vec<(String, String)> = headers
+        .iter()
+        .filter_map(|(name, value)| {
+            value
+                .to_str()
+                .ok()
+                .map(|v| (name.as_str().to_string(), v.to_string()))
+        })
+        .collect();
+    let selected = proxy_headers::select_request_headers(pairs).map_err(|e| e.to_string())?;
+    let req = proxy_headers::render_request(method, path, port, &selected, body.len())
+        .map_err(|e| e.to_string())?;
+
     let mut stream =
         std::net::TcpStream::connect(("127.0.0.1", port)).map_err(|e| e.to_string())?;
     stream
         .set_read_timeout(Some(Duration::from_secs(30)))
         .map_err(|e| e.to_string())?;
-    let req = format!(
-        "{} /{} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        method,
-        path,
-        port,
-        body.len()
-    );
-    stream
-        .write_all(req.as_bytes())
-        .map_err(|e| e.to_string())?;
+    stream.write_all(&req).map_err(|e| e.to_string())?;
     stream.write_all(body).map_err(|e| e.to_string())?;
     let mut response = Vec::new();
     stream
         .read_to_end(&mut response)
         .map_err(|e| e.to_string())?;
-    let header_end = response
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .ok_or("bad response from backend")?;
-    let status_line = String::from_utf8_lossy(&response[..header_end]);
-    let code: u16 = status_line
-        .split_whitespace()
-        .nth(1)
-        .and_then(|s| s.parse().ok())
-        .ok_or("no status code in backend response")?;
-    Ok((code, response[header_end + 4..].to_vec()))
+    proxy_headers::parse_response(&response).map_err(|e| e.to_string())
 }
 
 fn poll_health(timeout_ms: u64, port: u16) -> bool {
     let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms);
     while std::time::Instant::now() < deadline {
-        if let Ok((200, _)) = forward_to(port, "GET", "health", b"") {
-            return true;
+        if let Ok(forwarded) =
+            forward_to(port, "GET", "health", &tauri::http::HeaderMap::new(), b"")
+        {
+            if forwarded.status == 200 {
+                return true;
+            }
         }
         std::thread::sleep(Duration::from_millis(200));
     }
@@ -552,6 +566,9 @@ fn handle_ica(
             format!("{}?{}", uri_path, query)
         };
         let method = request.method().to_string();
+        // SEC-02: capture the full webview header set before consuming the
+        // body. Values are reduced to the explicit allowlist inside forward_to.
+        let headers = request.headers().clone();
         let body: Vec<u8> = request.into_body();
         // P1 dual-backend routing: the browser subsystem and AI-EXT model
         // CRUD live on the Python sidecar, the 68-route contract lives on
@@ -561,12 +578,25 @@ fn handle_ica(
             Backend::Rust => (RUST_PORT.load(Ordering::SeqCst), "ica-server"),
             Backend::Python => (PY_PORT.load(Ordering::SeqCst), "sidecar"),
         };
-        return match forward_to(port, &method, &api_target, &body) {
-            Ok((code, resp_body)) => tauri::http::Response::builder()
-                .status(code)
-                .header("content-type", "application/json")
-                .body(resp_body)
-                .unwrap(),
+        return match forward_to(port, &method, &api_target, &headers, &body) {
+            Ok(forwarded) => {
+                // SEC-02 §4.6: response headers use their OWN allowlist.
+                // Backend errors (401/403/400/500) keep their status, body and
+                // safe headers, so desktop answers match a direct HTTP call.
+                let mut builder = tauri::http::Response::builder().status(forwarded.status);
+                let mut has_content_type = false;
+                for (name, value) in &forwarded.headers {
+                    if name == "content-type" {
+                        has_content_type = true;
+                    }
+                    builder = builder.header(name.as_str(), value.as_str());
+                }
+                if !has_content_type {
+                    // Preserve the host's legacy default for header-less replies.
+                    builder = builder.header("content-type", "application/json");
+                }
+                builder.body(forwarded.body).unwrap()
+            }
             Err(e) => tauri::http::Response::builder()
                 .status(502)
                 .body(format!("{backend_name} forward failed: {e}").into_bytes())
