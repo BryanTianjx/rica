@@ -221,6 +221,18 @@ refresh-token rotation, bcrypt password hashing and the synthetic local user
 answering `me`. **The 68-route contract is fully implemented (68/68).**
 Model CRUD stays AI-EXT as ruled (4 routes outside the 68).
 
+Comparison record (2026-11-22): the cross-language replay now covers
+**286 cases — including all W5/W6 routes** — and answers **286/286
+matched, 0 failure(s)**, with the 18-table final-state diff green and the
+baseline untouched (git clean, HEAD 9ed173c, sha256 unchanged). New
+normalizations for genuinely per-side values: token pairs (fresh JWTs),
+backup file names/paths/sizes (timestamps + per-implementation page
+layouts), the per-side config directories, the OCR staging side-marker in
+error details, and the future refresh-token expiries. The comparison runs
+with a shared JWT_SECRET (the local default "" makes PyJWT refuse to
+sign) and per-side BACKUP_DIRs (the OCR staging stays shared — that
+detail IS the allowed_prefix contract).
+
 Earlier reconciliation note: **W5 is complete (15/15)** — `GET /api/audit-events` (65), the settings slice
 (60/63/64), the AI read/config slice (`GET /ai/models` 1, `GET/PATCH
 /ai/routing` 2-3, `GET /ai/usage` 4, `GET/PATCH /ai/budget` 5-6), the

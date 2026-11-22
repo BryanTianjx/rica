@@ -748,6 +748,93 @@ CASES: list[dict] = [
     # ── Final observations ─────────────────────────────────────────────────
     {"name": "positions_final", "method": "GET", "path": "/api/positions?include_archived=true"},
     {"name": "candidates_final", "method": "GET", "path": "/api/candidates?include_archived=true"},
+
+    # ── W5: settings + AI (local mode; the ai-key side effect lives in the
+    # OS credential store on Rust and in the baseline's secret_store file on
+    # Python — only the RESPONSES and rows are compared) ───────────────────
+    {"name": "settings_read", "method": "GET", "path": "/api/settings"},
+    {"name": "ai_egress_read", "method": "GET", "path": "/api/settings/ai-egress"},
+    {"name": "ai_key_put", "method": "PUT", "path": "/api/settings/ai-key",
+     "json": {"ai_api_key": "contract-key-1234"}},
+    {"name": "settings_after_key", "method": "GET", "path": "/api/settings"},
+    {"name": "ai_egress_consent_revoke", "method": "POST",
+     "path": "/api/settings/ai-egress/consent", "json": {"consent_granted": False}},
+    {"name": "ai_egress_consent_grant", "method": "POST",
+     "path": "/api/settings/ai-egress/consent", "json": {"consent_granted": True}},
+    {"name": "ai_egress_consent_missing", "method": "POST",
+     "path": "/api/settings/ai-egress/consent", "json": {}},
+    {"name": "ai_models_list", "method": "GET", "path": "/api/ai/models"},
+    {"name": "ai_routing_patch", "method": "PATCH", "path": "/api/ai/routing",
+     "json": {"routing": {"salary_talk": "standard", "greeting": "premium"}}},
+    {"name": "ai_routing_patch_unknown_type", "method": "PATCH", "path": "/api/ai/routing",
+     "json": {"routing": {"not_a_type": "standard"}}},
+    {"name": "ai_usage_get", "method": "GET", "path": "/api/ai/usage"},
+    {"name": "ai_budget_patch", "method": "PATCH", "path": "/api/ai/budget",
+     "json": {"daily_budget_cents": 1000, "warning_threshold": 50}},
+    {"name": "ai_budget_get", "method": "GET", "path": "/api/ai/budget"},
+    {"name": "ai_budget_patch_bad_threshold", "method": "PATCH", "path": "/api/ai/budget",
+     "json": {"daily_budget_cents": 10, "warning_threshold": 101}},
+
+    # Backups: the file mechanics are per side; names carry a timestamp and
+    # sizes reflect each implementation's page layout, so the diff normalises
+    # these bodies to their shapes.
+    {"name": "backups_create", "method": "POST", "path": "/api/backups", "json": {}},
+    {"name": "backups_list", "method": "GET", "path": "/api/backups"},
+
+    # ── W6: auth (registration order matters — the seed carries the default
+    # tenant, so every registration joins it as member) ───────────────────
+    {"name": "auth_register_owner", "method": "POST", "path": "/api/auth/register",
+     "json": {"email": "Owner@Example.com", "password": "contract-pass-1"},
+     "capture": {"owner_user_id": "id"}},
+    {"name": "auth_register_duplicate_email", "method": "POST", "path": "/api/auth/register",
+     "json": {"email": "owner@example.com", "password": "contract-pass-1"}},
+    {"name": "auth_register_bad_email", "method": "POST", "path": "/api/auth/register",
+     "json": {"email": "no-at-sign", "password": "contract-pass-1"}},
+    {"name": "auth_register_short_password", "method": "POST", "path": "/api/auth/register",
+     "json": {"email": "ok@example.com", "password": "short"}},
+    {"name": "auth_register_unknown_tenant", "method": "POST", "path": "/api/auth/register",
+     "json": {"email": "x@example.com", "password": "contract-pass-1",
+              "tenant_id": "t-missing"}},
+    {"name": "auth_login_wrong_password", "method": "POST", "path": "/api/auth/login",
+     "json": {"email": "owner@example.com", "password": "wrong-pass"}},
+    {"name": "auth_login", "method": "POST", "path": "/api/auth/login",
+     "json": {"email": "owner@example.com", "password": "contract-pass-1"},
+     "capture": {"refresh_token_1": "refresh_token"}},
+    {"name": "auth_refresh_rotates", "method": "POST", "path": "/api/auth/refresh",
+     "json": {"refresh_token": "{refresh_token_1}"},
+     "capture": {"refresh_token_2": "refresh_token"}},
+    {"name": "auth_refresh_replay_is_single_use", "method": "POST", "path": "/api/auth/refresh",
+     "json": {"refresh_token": "{refresh_token_1}"}},
+    {"name": "auth_logout_revokes", "method": "POST", "path": "/api/auth/logout",
+     "json": {"refresh_token": "{refresh_token_2}"}},
+    {"name": "auth_refresh_after_logout", "method": "POST", "path": "/api/auth/refresh",
+     "json": {"refresh_token": "{refresh_token_2}"}},
+    {"name": "auth_logout_idempotent", "method": "POST", "path": "/api/auth/logout",
+     "json": {"refresh_token": "{refresh_token_2}"}},
+    {"name": "auth_me_local", "method": "GET", "path": "/api/auth/me"},
+
+    # ── W6: shares (the actor is the synthetic local user, seeded) ────────
+    {"name": "shares_create", "method": "POST", "path": "/api/shares",
+     "json": {"recipient_id": "{owner_user_id}",
+              "resource_type": "position", "resource_id": "p-seed-1"}},
+    {"name": "shares_upgrade", "method": "POST", "path": "/api/shares",
+     "json": {"recipient_id": "{owner_user_id}",
+              "resource_type": "position", "resource_id": "p-seed-1",
+              "permission": "write"}},
+    {"name": "shares_create_self", "method": "POST", "path": "/api/shares",
+     "json": {"recipient_id": "00000000-0000-0000-0000-000000000001",
+              "resource_type": "candidate", "resource_id": "c-seed-1"}},
+    {"name": "shares_create_unknown_recipient", "method": "POST", "path": "/api/shares",
+     "json": {"recipient_id": "u-missing",
+              "resource_type": "candidate", "resource_id": "c-seed-1"}},
+    {"name": "shares_list", "method": "GET", "path": "/api/shares"},
+    {"name": "shares_delete_missing", "method": "DELETE",
+     "path": "/api/shares/no-such-share"},
+
+    # ── Final W5/W6 observations ───────────────────────────────────────────
+    {"name": "audit_events_w6", "method": "GET",
+     "path": "/api/audit-events?limit=100"},
+    {"name": "backups_list_final", "method": "GET", "path": "/api/backups"},
 ]
 
 #: Tables compared row-by-row after the scenario.
@@ -766,6 +853,13 @@ DB_TABLES = [
     "import_records",
     # W7 — the extraction drafts (confirm writes into candidates FROM here)
     "browser_candidate_extractions",
+    # W5/W6 — the settings/AI/auth/shares state
+    "tenants",
+    "users",
+    "refresh_tokens",
+    "shares",
+    "ai_model_routing",
+    "app_settings",
 ]
 
 #: Columns that hold a JSON document; the diff compares them parsed, so the
@@ -900,6 +994,13 @@ _UUID_TOKEN_RE = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 )
 
+#: Timestamp-like substrings, for the row-sort key: two sides never agree on
+#: the wall-clock instant a near-now row was written, and an unstable sort
+#: would present the same row-set in a different order.
+_TS_IN_TEXT = re.compile(
+    r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?"
+)
+
 
 def dump_db(path: str) -> dict[str, object]:
     """Every row of the business tables, with JSON columns parsed."""
@@ -921,8 +1022,11 @@ def dump_db(path: str) -> dict[str, object]:
             # primary key cannot reorder the list differently on the two sides;
             # the diff compares content.
             rows.sort(
-                key=lambda row: _UUID_TOKEN_RE.sub(
-                    "<uuid>", json.dumps(row, sort_keys=True, ensure_ascii=False)
+                key=lambda row: _TS_IN_TEXT.sub(
+                    "<ts>",
+                    _UUID_TOKEN_RE.sub(
+                        "<uuid>", json.dumps(row, sort_keys=True, ensure_ascii=False)
+                    ),
                 )
             )
             state[table] = rows
@@ -972,6 +1076,23 @@ def _stage_ocr_images(staging_dir: str, side: str) -> dict[str, str]:
     return {"ocr_image": image_path, "ocr_bad_image": bad_path, "ocr_wide_image": wide_path}
 
 
+def _substitute_context(value, context: dict[str, str]):
+    """Replace `{key}` placeholders in every string leaf with captured values.
+
+    Only keys that ARE in the context are touched, so existing bodies with
+    literal braces (none today) keep working.
+    """
+    if isinstance(value, dict):
+        return {key: _substitute_context(item, context) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_substitute_context(item, context) for item in value]
+    if isinstance(value, str):
+        for key, captured in context.items():
+            value = value.replace("{" + key + "}", captured)
+        return value
+    return value
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default=BASE_URL_DEFAULT)
@@ -1009,16 +1130,22 @@ def main(argv: list[str]) -> int:
                 "headers": {},
             }
             continue
-        result = fetch(args.base_url, case["method"], path, case.get("json"),
+        json_body = case.get("json")
+        if json_body is not None and context:
+            json_body = _substitute_context(json_body, context)
+        result = fetch(args.base_url, case["method"], path, json_body,
                        extra_headers=case.get("headers"))
         results[case["name"]] = result
         body = result["body"]
         for key, field in case.get("capture", {}).items():
-            if not isinstance(body, dict) or field not in body:
+            value = body
+            for part in field.split("."):
+                value = value.get(part) if isinstance(value, dict) else None
+            if value is None:
                 print(f"  cannot capture {field!r} from {case['name']}: {body!r}")
                 failures += 1
                 continue
-            context[key] = str(body[field])
+            context[key] = str(value)
         print(f"{case['name']:42s} {result['status']} {path}")
 
     db_state = {} if args.skip_db else dump_db(args.db)

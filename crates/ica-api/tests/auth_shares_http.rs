@@ -62,7 +62,9 @@ async fn the_first_registration_bootstraps_a_tenant_and_admin_role() {
     assert_eq!(dup.body["error"]["code"], "email_conflict");
     assert_eq!(dup.body["error"]["message"], "Email is already registered");
 
-    // Shape errors keep the baseline's messages.
+    // Shape errors keep the baseline's messages. The password length trips
+    // the BODY layer first (pydantic's own min_length), exactly like the
+    // baseline's RegisterRequest.
     for (body, message) in [
         (
             r#"{"email":"no-at-sign","password":"long-enough"}"#,
@@ -70,13 +72,22 @@ async fn the_first_registration_bootstraps_a_tenant_and_admin_role() {
         ),
         (
             r#"{"email":"ok@example.com","password":"short"}"#,
-            "Password must be at least 8 characters",
+            "Request payload failed validation",
         ),
     ] {
         let error = post(app.clone(), "/api/auth/register", body).await;
         assert_eq!(error.status, 422, "{body}");
         assert_eq!(error.body["error"]["message"], message);
     }
+    let short = post(
+        app.clone(),
+        "/api/auth/register",
+        r#"{"email":"ok@example.com","password":"short"}"#,
+    )
+    .await;
+    let issue = &short.body["error"]["details"]["errors"][0];
+    assert_eq!(issue["type"], "string_too_short");
+    assert_eq!(issue["loc"], serde_json::json!(["body", "password"]));
 
     // An unknown tenant id is a 404.
     let unknown = post(

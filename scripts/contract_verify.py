@@ -160,6 +160,14 @@ def start_python_baseline() -> subprocess.Popen:
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["DATABASE_URL"] = f"sqlite:///{WORK / 'python.db'}"
     env["ICA_DATA_DIR"] = str(WORK / "python-data")
+    # W6: the token flow needs a real HMAC secret on both sides (the local
+    # default "" makes PyJWT refuse to sign, which 500s the login).
+    env["JWT_SECRET"] = "contract-verify-hmac-secret"
+    # Backups are per side: the create/restore flows write under this
+    # directory, and a shared one would let one side's files appear in the
+    # other side's listing (the OCR staging stays shared — that contract
+    # detail is the allowed_prefix itself).
+    env["BACKUP_DIR"] = str(WORK / "python-data" / "backups-py")
     log = (WORK / "python.log").open("w")
 
     # `exec`-like behaviour: the process group is started directly so killing
@@ -225,6 +233,9 @@ def start_rust_port() -> subprocess.Popen:
     # reports `details.allowed_prefix`, so both sides must resolve against the
     # SAME root or the envelopes differ on a path rather than on behaviour.
     env["ICA_DATA_DIR"] = str(WORK / "python-data")
+    env["BACKUP_DIR"] = str(WORK / "python-data" / "backups-rs")
+    # W6: the same HMAC secret the Python side gets (see start_python).
+    env["JWT_SECRET"] = "contract-verify-hmac-secret"
     # The OCR models live in the baseline's venv (the port runs the SAME
     # model set, so the recognised text matches). Point the engine at them.
     models = Path(PY_BASELINE) / ".venv/lib/python3.12/site-packages/rapidocr/models"

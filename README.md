@@ -157,7 +157,7 @@ starts the Rust port, captures both sides, and diffs responses plus the final
 state of all eleven business tables. It finishes by proving the baseline is
 untouched (`git status` empty, ica.db sha256 unchanged).
 
-Last recorded result: **zero-failure comparison over the 248-case set**
+Last recorded result: **zero-failure comparison over the 286-case set (W5/W6 included)**
 (recorded in [`docs/ICA-RUST 当前设计总方案.md`](docs/ICA-RUST%20当前设计总方案.md) §1;
 the W2 dashboard `calendar` baseline-drift item was closed by the G0 governance).
 Re-run the comparison yourself rather than trusting any number here — the

@@ -423,6 +423,31 @@ def seed_browser_fixtures(connection) -> None:
     )
 
 
+def seed_local_identity(connection) -> None:
+    """The deployed local-mode identity: default tenant + synthetic user.
+
+    The sharing endpoints' owner FK needs a users row for the local actor
+    (...0001), and a fresh database does not have one — the baseline's own
+    empty local DB fails the same way. Registration then joins this tenant
+    as a member: the bootstrap-admin path is exercised by the Rust unit
+    tests instead of this comparison.
+    """
+    now = "2026-11-10 08:00:00.000000"
+    connection.execute(
+        "INSERT OR IGNORE INTO tenants (id, name, created_at, updated_at)"
+        " VALUES ('00000000-0000-0000-0000-000000000000', 'Local', ?, ?)",
+        (now, now),
+    )
+    connection.execute(
+        "INSERT OR IGNORE INTO users (id, tenant_id, email, password_hash,"
+        " display_name, role, is_active, created_at, updated_at)"
+        " VALUES ('00000000-0000-0000-0000-000000000001',"
+        " '00000000-0000-0000-0000-000000000000', '', '', 'Local User',"
+        " 'admin', 1, ?, ?)",
+        (now, now),
+    )
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="/tmp/ica-contract/seed.db")
@@ -439,6 +464,7 @@ def main(argv: list[str]) -> int:
     connection = sqlite3.connect(str(out))
     try:
         connection.executescript(Path(args.schema).read_text(encoding="utf-8"))
+        seed_local_identity(connection)
         connection.executemany(
             "INSERT INTO positions (id, name, description, location, status, archived,"
             " created_at, updated_at, salary_min, salary_max, skill_requirements, notes)"

@@ -95,6 +95,18 @@ W5/W6 域(23 端点)、GUI 集成、打包交付、真实 AI Provider、E2E 十�
 要点:硬杀(强于优雅停机的持久性证据)后 SQLite 文件一致(在线备份 API + WAL
 checkpoint 的组合),重启后服务自检通过、业务数据/备份文件/审计轨迹三者齐备。
 
+## 15. 跨语言对拍记录(2026-11-22,W5/W6 纳入)
+
+对拍集扩展至 **286 case**(新增 auth×13、settings/AI×12、backups×3、shares×6 与
+最终观察),`contract_verify.py` 全流程 **286/286 匹配、0 失败**,18 张表终态 diff
+全 PASS,基线库未动(git clean / sha256 一致)。对拍工程同步:
+- seed 预置本地身份(本地租户 + 合成用户,与部署现实一致);
+- capture 支持嵌套字段捕获与 body 占位符替换(refresh 轮换链、shares 接收者);
+- diff 归一化新增:令牌对、备份文件名/路径/大小、每侧配置目录、OCR 暂存 side 标记、
+  未来时间戳(`<future>`);行排序键屏蔽时间戳(双侧近现值不同导致的顺序漂移);
+- 两侧共用 JWT_SECRET(本地默认空串会使 PyJWT 拒签)、各自独立 BACKUP_DIR
+  (OCR 暂存保持共享 — 该目录本身就是 allowed_prefix 契约)。
+
 ## 14. 依赖安全扫描记录(SEC-09,2026-11-22)
 
 `cargo-audit v0.23.0`(RustSec advisory 库 1555 条,Cargo.lock 390 依赖)首次例行执行:

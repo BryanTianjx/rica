@@ -2285,7 +2285,28 @@ pub fn auth_register(raw: RawAuthRegister) -> Result<AuthRegister, ContractError
         }
     };
     let password = match raw.password {
-        Incoming::Value(value) => value,
+        Incoming::Value(value) => {
+            // The baseline's RegisterRequest rejects the length at the body
+            // layer first (pydantic min_length/max_length); the service-level
+            // message stays for non-HTTP callers.
+            if value.chars().count() < 8 {
+                issues.push(issue(
+                    "string_too_short",
+                    "password",
+                    "String should have at least 8 characters",
+                    Value::String(value.clone()),
+                ));
+            }
+            if value.chars().count() > 128 {
+                issues.push(issue(
+                    "string_too_long",
+                    "password",
+                    "String should have at most 128 characters",
+                    Value::String(value.clone()),
+                ));
+            }
+            value
+        }
         Incoming::Null => {
             issues.push(issue(
                 "string_type",

@@ -208,6 +208,11 @@ def _normaliser(capture: dict, mapping: dict[str, str] | None = None,
             parsed = _parse_timestamp(value)
             if parsed is not None and parsed >= threshold:
                 return "<now>"
+            # W6: a refresh token's expiry sits days ahead of the capture —
+            # the near-now window never catches it, and the two sides' literal
+            # values can never agree.
+            if parsed is not None and parsed > started_at:
+                return "<future>"
             return replace_uuids(value)
         return value
 
@@ -263,6 +268,85 @@ def normalise_envelope(body: Any, status: int) -> Any:
             "details_keys": sorted(details) if isinstance(details, dict) else None,
         }
     }
+
+
+def normalise_case_body(name: str, body: Any) -> Any:
+    """Collapse the W5/W6 responses' genuinely per-side values to shapes.
+
+    * token pairs: the JWT signature and the refresh token are random on
+      every issue; the token_type/expires_in/user are contract.
+    * backups: the file NAME embeds a timestamp, the PATH embeds each side's
+      own directories, and the SIZE reflects each implementation's page
+      layout — the name shape and the kind are contract.
+    * settings: database_url and backup_dir name each side's own throwaway
+      directories; the baseline runs from /tmp/ica-py-baseline and this repo
+      from /tmp/ica-rs-port, so the values can never literally agree.
+    """
+    if not isinstance(body, (dict, list)):
+        return body
+
+    def walk(value):
+        if isinstance(value, dict):
+            return {key: walk(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [walk(item) for item in value]
+        if isinstance(value, str):
+            import re as _re
+            if _re.search(r"(ica-backup|pre-restore)-[0-9A-Za-z-]+\.db", value):
+                return _re.sub(
+                    r"(ica-backup|pre-restore)-[0-9A-Za-z-]+\.db",
+                    "<backup-file>",
+                    value,
+                )
+            return value
+        return value
+
+    def strip_backup_volatile(record):
+        if not isinstance(record, dict):
+            return record
+        record = dict(record)
+        for field in ("database_url", "backup_dir", "path"):
+            if isinstance(record.get(field), str):
+                record[field] = "<" + field + ">"
+        if "size_bytes" in record:
+            record["size_bytes"] = "<size>"
+        return record
+
+    if name.startswith("auth_login") or name.startswith("auth_refresh"):
+        if not isinstance(body, dict):
+            return body
+        body = walk(dict(body))
+        if "access_token" in body:
+            body["access_token"] = "<jwt>"
+        if "refresh_token" in body:
+            body["refresh_token"] = "<refresh>"
+        return body
+    if "backup" in name or name.startswith("settings"):
+        body = walk(body)
+        if isinstance(body, list):
+            return [strip_backup_volatile(item) for item in body]
+        return strip_backup_volatile(body)
+    if name.startswith("imports_ocr"):
+        # The undecodable-image reason echoes the staged FILE PATH, whose
+        # name embeds the side (each side reads its own copy — the request
+        # deletes it). The basename with the side marker stripped is the
+        # contract; the staging layout is not.
+        def walk_ocr(value):
+            if isinstance(value, dict):
+                return {key: walk_ocr(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [walk_ocr(item) for item in value]
+            if isinstance(value, str):
+                import re as _re
+                return _re.sub(
+                    r"contract-ocr-[a-z-]*(py|rs)\.png",
+                    "contract-ocr.png",
+                    value,
+                )
+            return value
+
+        return walk_ocr(body)
+    return body
 
 
 def field_set(value: Any) -> Any:
@@ -523,8 +607,10 @@ def main(argv: list[str]) -> int:
         if name in STATUS_DECLARED_CASES:
             print(f"DECL {name} (asserted in the improvements section)")
             continue
-        left_body = py_norm(py_cases[name].get("body"))
-        right_body = rs_norm(rs_cases[name].get("body"))
+        left_body = normalise_case_body(
+            name, py_norm(py_cases[name].get("body")))
+        right_body = normalise_case_body(
+            name, rs_norm(rs_cases[name].get("body")))
         if name in TOTAL_DECLARED_CASES:
             left_body = _without_counts(left_body)
             right_body = _without_counts(right_body)
@@ -553,12 +639,20 @@ def main(argv: list[str]) -> int:
         # Each side is normalised with its *own* UUID map: the same row has
         # different random ids on the two servers, and the placeholder numbering
         # is per capture.
+        def mask_secrets(table, rows):
+            if table == "users":
+                return [{**row, "password_hash": "<bcrypt>"} for row in rows]
+            if table == "refresh_tokens":
+                return [{**row, "token_hash": "<sha256>"} for row in rows]
+            return rows
+
         py_rows = {
-            table: [py_norm(row) for row in rows]
+            table: [py_norm(row) for row in mask_secrets(table, rows)]
             for table, rows in py["db_state"].items()
         }
         rs_rows = {
-            table: [rs_norm(row) for row in rows]
+            # the same masking, on the Rust side
+            table: [rs_norm(row) for row in mask_secrets(table, rows)]
             for table, rows in rs["db_state"].items()
         }
         for problem in diff_db_state(py_rows, rs_rows, lambda value: value):
