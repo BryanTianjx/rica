@@ -66,6 +66,10 @@ pub struct RuntimePolicy {
     pub health_timeout_ms: u64,
     pub graceful_shutdown_timeout_ms: u64,
     pub max_restarts: u32,
+    /// Per-request deadline for a Sidecar Protocol call (§7.3/§7.4).
+    pub request_timeout_ms: u64,
+    /// Hard ceiling on concurrently pending Sidecar requests (§7.4).
+    pub max_concurrent_requests: usize,
     pub diagnostics_enabled: bool,
 }
 
@@ -77,6 +81,8 @@ impl Default for RuntimePolicy {
             health_timeout_ms: 20_000,
             graceful_shutdown_timeout_ms: 5_000,
             max_restarts: 2,
+            request_timeout_ms: 30_000,
+            max_concurrent_requests: 16,
             diagnostics_enabled: true,
         }
     }
@@ -109,6 +115,13 @@ impl RuntimePolicy {
                 "ICA_MAX_RESTARTS" => {
                     policy.max_restarts = positive_or(value, policy.max_restarts as u64) as u32;
                 }
+                "ICA_SIDECAR_REQUEST_TIMEOUT_MS" => {
+                    policy.request_timeout_ms = positive_or(value, policy.request_timeout_ms);
+                }
+                "ICA_SIDECAR_MAX_CONCURRENT_REQUESTS" => {
+                    policy.max_concurrent_requests =
+                        positive_or(value, policy.max_concurrent_requests as u64) as usize;
+                }
                 "ICA_DIAGNOSTICS" => {
                     policy.diagnostics_enabled = !value.trim().eq_ignore_ascii_case("off");
                 }
@@ -132,6 +145,11 @@ impl RuntimePolicy {
 
     pub fn graceful_shutdown_timeout(&self) -> Duration {
         Duration::from_millis(self.graceful_shutdown_timeout_ms)
+    }
+
+    /// Per-request deadline enforced by the Sidecar Protocol supervisor.
+    pub fn request_timeout(&self) -> Duration {
+        Duration::from_millis(self.request_timeout_ms)
     }
 
     /// True only for the legacy resident mode: the host spawns ica-server
@@ -200,5 +218,27 @@ mod tests {
             Duration::from_millis(5_000)
         );
         assert_eq!(policy.max_restarts, 3);
+        assert_eq!(
+            policy.request_timeout(),
+            Duration::from_millis(30_000),
+            "a request timeout must always be positive"
+        );
+        assert_eq!(policy.max_concurrent_requests, 16);
+    }
+
+    #[test]
+    fn sidecar_request_knobs_are_host_injected_and_bounded() {
+        let policy = RuntimePolicy::from_pairs([
+            ("ICA_SIDECAR_REQUEST_TIMEOUT_MS", "1500"),
+            ("ICA_SIDECAR_MAX_CONCURRENT_REQUESTS", "4"),
+        ]);
+        assert_eq!(policy.request_timeout(), Duration::from_millis(1500));
+        assert_eq!(policy.max_concurrent_requests, 4);
+        let invalid = RuntimePolicy::from_pairs([
+            ("ICA_SIDECAR_REQUEST_TIMEOUT_MS", "0"),
+            ("ICA_SIDECAR_MAX_CONCURRENT_REQUESTS", "-1"),
+        ]);
+        assert_eq!(invalid.request_timeout_ms, 30_000);
+        assert_eq!(invalid.max_concurrent_requests, 16);
     }
 }
