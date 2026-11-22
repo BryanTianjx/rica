@@ -55,25 +55,43 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
-/** Single-flight refresh: concurrent 401s share one rotation. */
-let refreshInFlight: Promise<string | null> | null = null;
+/**
+ * SEC-03 single-flight refresh: every concurrent 401 in the webview shares
+ * one rotation, so a rotated refresh token is presented exactly once.
+ * `rotate()` talks to the endpoint with raw `fetch` — it never goes through
+ * `request()` — so a refresh response can never recursively trigger a refresh.
+ */
+export type RefreshOutcome =
+  | { ok: true; accessToken: string }
+  | { ok: false; reason: 'no_refresh_token' | 'rejected' | 'failed' };
 
-async function refreshAccessToken(): Promise<string | null> {
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
+
+async function rotate(): Promise<RefreshOutcome> {
   const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
+  if (!refreshToken) return { ok: false, reason: 'no_refresh_token' };
   try {
     const response = await fetch(`${BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
-    if (!response.ok) return null;
+    if (!response.ok) return { ok: false, reason: 'rejected' };
     const data = (await response.json()) as { access_token: string; refresh_token: string };
     setTokens(data.access_token, data.refresh_token);
-    return data.access_token;
+    return { ok: true, accessToken: data.access_token };
   } catch {
-    return null;
+    return { ok: false, reason: 'failed' };
   }
+}
+
+export function refreshSession(): Promise<RefreshOutcome> {
+  if (!refreshInFlight) {
+    refreshInFlight = rotate().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
 }
 
 function isAuthPath(path: string): boolean {
@@ -104,14 +122,9 @@ async function request<T>(
   });
 
   if (response.status === 401 && !retried && !isAuthPath(path)) {
-    // Access token expired (or missing): rotate once, then replay the request.
-    if (!refreshInFlight) {
-      refreshInFlight = refreshAccessToken().finally(() => {
-        refreshInFlight = null;
-      });
-    }
-    const newToken = await refreshInFlight;
-    if (newToken) {
+    // Access token expired (or missing): rotate once (deduplicated), then replay.
+    const outcome = await refreshSession();
+    if (outcome.ok) {
       return request<T>(path, options, true);
     }
     // Refresh failed: the session is gone — drop the tokens and tell the

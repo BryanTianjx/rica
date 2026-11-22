@@ -12,6 +12,7 @@
 //! crate. It MAY depend on `ica-application` — the validators construct the
 //! application layer's already-validated payloads.
 
+pub mod auth_session;
 pub mod body;
 pub mod dto;
 pub mod error;
@@ -19,6 +20,10 @@ pub mod events;
 pub mod proxy_headers;
 pub mod query;
 
+pub use auth_session::{
+    auth_transition, AuthEvent, AuthPhase, AuthSessionState, SessionEndReason, AUTH_PHASE_NAMES,
+    ALL_AUTH_PHASES,
+};
 pub use body::{
     candidate_confirm, draft_approve, draft_group_select, draft_patch, follow_up_create,
     follow_up_evaluate, follow_up_patch, follow_up_policy_patch, follow_up_result,

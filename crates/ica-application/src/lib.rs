@@ -9,6 +9,7 @@ pub mod ai_key;
 pub mod ai_registry;
 pub mod audit_trail;
 pub mod auth;
+pub mod auth_recovery;
 pub mod backup;
 pub mod candidates;
 pub mod conversations;
@@ -42,6 +43,10 @@ pub use audit_trail::recent_audit_events;
 pub use auth::{
     create_share, delete_share, list_shares, local_user, login, logout, me, refresh, register,
     IssuedTokens, ShareData, UserRead,
+};
+pub use auth_recovery::{
+    transition as auth_transition, AuthEvent, AuthPhase, AuthSessionState, SessionEndReason,
+    ALL_AUTH_PHASES,
 };
 pub use backup::{create_backup, list_backups, restore_backup};
 pub use candidates::{
