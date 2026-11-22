@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -161,7 +162,18 @@ def main() -> int:
 
     print()
     print("== 4/4 cargo test ==")
-    code, output = run_capture(["cargo", "test", "--workspace"], env)
+    # An environment hook, not a new CLI surface: the unified ARCH-P6 gate
+    # (scripts/gate.py) needs to exclude the three DEF-006 browser_poc tests,
+    # which hang on hosts where Chromium is discovered but cannot launch.
+    # Empty by default, so every existing invocation is byte-for-byte the same
+    # command as before. Kept here so check.py stays the single source of
+    # truth for "how the Rust test gate is run".
+    extra = shlex.split(os.environ.get("CARGO_TEST_EXTRA_ARGS", ""))
+    # `--` is mandatory: without it cargo parses `--skip` as its own flag and
+    # exits with "unexpected argument '--skip' found" before any test runs.
+    test_command = ["cargo", "test", "--workspace", *(["--", *extra] if extra else [])]
+    print(f"   command: {' '.join(test_command)}")
+    code, output = run_capture(test_command, env)
     if code != 0:
         return code
 

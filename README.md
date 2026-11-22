@@ -2,14 +2,18 @@
 
 Rust port of the ICA Personal backend (axum + sqlx + SQLite).
 
-**Status: R0 + W1 + W2 + W3 + W4 + W7 — 45 of the 68 contract endpoints, plus the auxiliary `POST /api/imports/{session_id}/confirm-candidate` (ADR-0003 D-2, the only path from a browser page into `candidates`).** The
-implemented surface covers positions, candidates, conversations, messages,
-timelines, follow-ups, the dashboard, drafts/AI entry points and the import /
-export / OCR routes — every one contract-verified against the Python baseline
-(responses **and** the rows they leave behind). The remaining
-23 contract routes (W5: AI + settings/audit/backups, W6: auth + shares) are
-mapped in [`docs/rust-migration-contract.md`](docs/rust-migration-contract.md)
-and are **not** implemented yet. No auth, no real AI calls, no frontend change.
+**Status: all 68 contract endpoints are implemented in the Rust router, plus the
+auxiliary `POST /api/imports/{session_id}/confirm-candidate` (ADR-0003 D-2).**
+Measured at HEAD `40575e1` by `python3 scripts/endpoint_reconciliation.py --json`:
+`contract=68 implemented=68 missing=0 extra_routes=0 auxiliary_routes=1`.
+The earlier "45 of 68 / W5–W6 not implemented / no frontend change" text in this
+README was stale (audit finding DOC-01) and has been replaced with the value the
+gate actually measures — re-run the script rather than trusting this sentence.
+Feature-level caveats that remain (local-mode identity, independent security
+verification, Windows desktop acceptance) are recorded in
+[`docs/audits/arch-p6-delivery-record.md`](docs/audits/arch-p6-delivery-record.md)
+and [`docs/testing/desktop-release-acceptance.md`](docs/testing/desktop-release-acceptance.md);
+they are **not** claimed as verified here.
 
 The per-wave route table lives in the migration contract §2. The measured
 status (test counts, comparison numbers, audit trail) lives in
@@ -92,6 +96,32 @@ cargo fmt --all -- --check
 cargo clippy --all-targets --workspace -- -D warnings
 cargo test --workspace
 ```
+
+### Unified full-stack gate and CI (ARCH-P6)
+
+One entry point for local and CI — it delegates to the existing scripts and
+does not re-implement them:
+
+```bash
+python3 scripts/gate.py --out /tmp/gate-run.json
+```
+
+It chains Rust (`scripts/check.py`), the sidecar wire contract test
+(`ica-contracts/sidecar_contract_test`), endpoint reconciliation, frontend
+`lint` / `build` (tsc) / `test` (vitest), the Tauri host (syntax check always;
+real build only where glib/WebKit exist), `cargo audit` when installed, and the
+E2E entry point when one exists. Stages that cannot run here are reported as
+`SKIP`/`BLOCKED` with reasons — never silently promoted to PASS, and the gate
+never self-signs `Verified`.
+
+CI: `.github/workflows/quality-gate.yml` runs the same entry point on PRs to
+`main`; it is a check only and contains no release/publish/push step.
+Main-branch protection rules and the manual release process:
+[`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md).
+Current HEAD-bound execution report:
+[`docs/testing/test-report-arch-p6.md`](docs/testing/test-report-arch-p6.md).
+Windows desktop acceptance is explicitly `BLOCKED` on this WSL host:
+[`docs/testing/desktop-release-acceptance.md`](docs/testing/desktop-release-acceptance.md).
 
 ### Where build artefacts go (decision D2)
 

@@ -29,6 +29,13 @@ In Progress → Fixed → Ready for Retest → Verified → Closed。
 | DEF-004 | 未提交 B1 POC 违反 fmt/clippy 门禁(7 警告+fmt diff) | Minor | P2 | ica-desktop(未提交文件) | ff7b9eb(2026-11-21) | **Closed**(fmt --check 通过 + clippy 全仓 0 警告;365/0 全绿回归确认) |
 | DEF-005 | ica-baseline.sql 头注释过时("20 tables/66 indexes",实测 32/121) | Trivial | P3 | ica-infra/schema | ff7b9eb(2026-11-21) | **Closed**(2026-11-21 头注释已重测修正) |
 | DEF-006 | browser_poc 在"发现 Chromium 但浏览器不可启动"的机器上无限挂起 | Major | P2 | ica-desktop/tests/browser_poc.rs(未提交) | ff7b9eb(2026-11-21) | Triaged |
+| DEF-007 | libsqlite3-sys 供应链漏洞(RUSTSEC-2026-0459) | Minor | P2 | Cargo.lock / sqlx-sqlite + rusqlite | 2026-11-22 (cargo-audit) | **Accepted + 监测**(独立安全验证待人工) |
+| DEF-008 | 失维护依赖告警 ×3(chrono / paste / ttf-parser) | Minor | P2 | Cargo.lock | 2026-11-22 (cargo-audit) | **Accepted + 监测**(官方无修复版本) |
+
+> DOC-04 同步（ARCH-P6）：DEF-007/008 此前只在「明细」出现、汇总表漏登记，现已补齐。
+> `Fixed ≠ Verified`；本表没有把任何条目自签为 Verified。AC3（Windows 实机）
+> 为环境受限 BLOCKED，不登记为通过。当前 HEAD 的执行证据见
+> `docs/testing/test-report-arch-p6.md`。
 
 ## 明细
 
