@@ -88,7 +88,8 @@ supersedes: null
 | `testing/traceability-matrix.csv` | Draft(同上) |
 | `testing/test-report-r1.0.md` | Draft(待批准) |
 | `testing/test-report-arch-p6.md` | Active(ARCH-P6 当前 HEAD 执行报告,绑定 SHA) |
-| `testing/desktop-release-acceptance.md` | **EVIDENCED_PARTIAL**(Windows 实机 6/9 项已执行,待负责人签署) |
+| `testing/desktop-release-acceptance.md` | **EVIDENCED_PARTIAL**(Windows 实机 7/9 项已执行,待负责人签署) |
+| `scripts/stage_rust_server.ps1` | Active(ica-server 随包 stage,Embedded Mode 必需) |
 | `testing/evidence/windows-acceptance/` | Preflight only(本机预检证据,非验收通过) |
 | `scripts/windows_acceptance.ps1` | Active(实机预检采集器,不代签) |
 | `testing/defect-register.md` | Active(台账随缺陷开闭维护) |

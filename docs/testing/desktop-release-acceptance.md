@@ -4,7 +4,7 @@ document_id: "DESKTOP-ACCEPT-ICA-R1"
 document_type: "AcceptanceChecklist"
 project: "ICA-RUST"
 version: "1.0.0"
-status: "EVIDENCED_PARTIAL — 6/9 项已在 Windows 11 实机执行（W4/W5/W6 未完成），待负责人签署"
+status: "EVIDENCED_PARTIAL — 7/9 项已在 Windows 11 实机执行（W4/W5 未执行，W9 部分），待负责人签署"
 created: "2026-11-23"
 updated: "2026-11-23"
 owner: "ICA-RUST 项目负责人"
@@ -17,11 +17,12 @@ supersedes: null
 
 # AC3 / QA-03：桌面安装·升级·卸载·恢复验收（Windows 实机）
 
-## 0. 结论先行：**部分实测（6/9），未签署，不是全量 PASS**
+## 0. 结论先行：**部分实测（7/9），未签署，不是全量 PASS**
 
 归档时（2026-11-23 早间）本机为 WSL2，无 Windows 实机，原结论为 BLOCKED。
-随后在本机 Windows 11 x64 实机上完成了构建、静默安装、首启、强杀重启和卸载
-共 6 项实测（见 §5）；W4/W5/W6 仍未执行。Agent 不代签，本文件状态需负责人确认。
+随后在本机 Windows 11 x64 实机上完成了构建、静默安装、首启、强杀重启、卸载
+和产品路径备份恢复共 7 项实测（见 §5）；W4/W5 未执行，W9 部分完成（无签名/tag）。
+Agent 不代签，本文件状态需负责人确认。
 
 以下是**归档时**的环境证据，保留作为历史，不覆盖 §5 的实机结果：
 
@@ -58,7 +59,7 @@ host 连 Linux 侧真编译也不可做（只做了 `rustfmt` 语法检查）；
 | W3 | SQLite 数据库自动初始化 | 检查用户数据目录 `ica.db` 与 DDL 对象数（32 表/121 索引） | **PASS** | `sidecar-runtime.log`（migration `501a807efa03`）、§5 表统计 |
 | W4 | 从上一版本升级成功 | 装旧版→写入业务数据→就地安装新版→启动，确认数据保留 | **NOT_EXECUTED**（无上一版安装包） | — |
 | W5 | 数据 Migration 成功 | 旧版库升级后核对 `schema_migrations` 与行数 | **NOT_EXECUTED**（依赖 W4） | — |
-| W6 | Backup/Restore Drill 成功（产品路径） | 在实机 UI 走 backups/restore，核对行数与审计事件 | **BLOCKED**（产品 API 依赖的 `ica-server.exe` 未随包，见 §5 缺陷） | 机制级证据见 §2，不替代实机 |
+| W6 | Backup/Restore Drill 成功（产品路径） | 在实机走产品 HTTP API 的 backups/restore，核对状态与审计事件 | **PASS**（修复 `ica-server.exe` 未随包后实测，见 §5） | `api-backup-create.json`、`api-restore-confirm-409.json`、`api-restore-confirm-200.json`、`api-audit-events.json` |
 | W7 | 异常退出后可重新启动 | 强杀进程→重启→核对 DB/配置/日志持久化 | **PASS** | `restart-after-kill.log` |
 | W8 | 卸载行为符合数据保留策略 | 卸载后检查安装目录、注册表键与用户数据目录 | **PASS** | `uninstall.log`（前后目录/注册表对照） |
 | W9 | 安装包版本和构建信息可追溯 | 核对 tauri.conf.json、version-manifest、SHA256SUMS、签名/tag | **PARTIAL**（版本/哈希一致；未签名、无 tag） | `windows-acceptance-20261123T134723Z.json` |
@@ -75,16 +76,16 @@ AC4 已在临时库上真实执行 backup→mutate→restore→verify：10/10 �
 
 ## 3. 解阻条件
 
-Windows 实机与 NSIS 安装包已具备（见 §4/§5）。剩余条件：
-① 上一版本安装包（W4/W5）；② 修复 `ica-server.exe` 未随包的产品缺陷后复验 W6；
+Windows 实机、NSIS 安装包与 W6 产品路径均已具备/实测（见 §4/§5）。剩余条件：
+① 上一版本安装包（W4/W5）；② W9 的 Authenticode 签名与发布 tag；
 ③ 一名有签字权的人核对 §5 证据并签署。
 三者齐备后，本文件状态可由人改为 `Approved`；**Agent 不得自签**。
 
 ## 4. 本底分支推进记录（2026-11-23，Windows 实机）
 
 原 §0 的「无 Windows 实机」是归档时的真实结论；本轮已在 Windows 11 x64
-实机上构建出真实 NSIS 安装包并执行了 6 项实测（见 §5）。未执行的 3 项
-（W4/W5/W6）与签署要求仍保留，详见 §3。
+实机上构建出真实 NSIS 安装包，修复 `ica-server.exe` 未随包缺陷后执行了
+7 项实测（见 §5）。W4/W5 未执行，签署要求仍保留，详见 §3。
 
 - 本底分支：`baseline/windows-real-machine-acceptance`（从 `main` @ `d007705` 切出，改动未提交）。
 - 新增证据采集器 `scripts/windows_acceptance.ps1`：只采集环境/前置事实并输出
@@ -134,19 +135,31 @@ sha256 `82f89b5b…55daf`。隔离安装目录 `O:\temp\ica-accept-install`，
 | W8 卸载 | `uninstall.exe /S` | `UNINSTALL_EXIT=0`；安装目录消失；Chrome/Edge 注册表键均消失；`ica.db`/`jwt_secret`/日志/manifest 仍保留 |
 | W9 追溯 | 预检脚本 + manifest 对照 | 安装包名含 `0.2.2`，manifest 版本/构建 commit 一致；**无 Authenticode 签名、无发布 tag**，不判 PASS |
 
-**发现的缺陷（需另立 delta 卡，不在本分支修复）**：`host.log` 在 UI 加载后报
-`on-demand ica-server failed: the Rust server binary was not found`（尝试
-`ICA_RUST_SERVER_EXE`、`bundle-resources/ica-server.exe`、`bundle-resources/server/ica-server.exe`、
-应用根 `ica-server.exe` 均不存在）。因此 Embedded Mode 下前端走 HTTP 的
-业务 API（如 `/api/v1/meta`）返回 **404**，W6 的产品路径无法执行。
-这是打包清单 `desktop/tauri-host/tauri.conf.json` 未纳入 Rust server 二进制的
-真实缺陷，**不得用 sidecar `/health` 200 推断业务 API 可用**。
+**缺陷已修复并复验**：首轮构建的安装包 `host.log` 曾报
+`on-demand ica-server failed: the Rust server binary was not found`，业务 HTTP
+路由全部 404。根因是 `desktop/tauri-host/tauri.conf.json` 的 `bundle.resources`
+未纳入 Rust server 二进制。修复：① 在 `bundle.resources` 加入
+`bundle-resources/ica-server.exe`；② 新增可复现脚本 `scripts/stage_rust_server.ps1`
+（`cargo build --release -p ica-server` 并 stage 到 bundle-resources）。
+重建安装包（222.58 MiB，sha256 `ec5ccb3b…b405`）并在新的隔离目录
+`O:\temp\ica-accept-install2` / `O:\temp\ica-accept-data2` 复验：
+- `host.log` 出现 `ica-server listening on 127.0.0.1:8673 (managed by SidecarManager)`；
+  `ica-server.log` 有 `startup self-check passed: 32 tables present`、`{"listening": true, "port": 8673}`。
+- 业务 API 实测：`GET /health` 200；`GET /api/dashboard` 200；
+  `GET /api/positions` 200；`GET /api/auth/me` 200。
+- W6 产品路径：`POST /api/backups` 200（生成 880,640 B 备份）；
+  `GET /api/backups` 200（含该备份）；`restore confirm=false` → **409**；
+  `restore confirm=true` → **200**（含 `previous_copy` 安全副本）；
+  `GET /api/audit-events` 含 `backup.restored` 事件。
+- 注意：`/api/v1/meta` 并非当前路由表中的端点（旧文档遗留探针），
+  不能用它判断修复是否生效；应以 `/api/dashboard` 等真实契约端点为准。
 
-**证据目录**：`docs/testing/evidence/windows-acceptance/`，其中
-`stage-windows-payload.log`、`tauri-nsis-build.log`、`install-silent.log`、
-`launch-first.log`、`host-runtime.log`、`sidecar-runtime.log`、
-`restart-after-kill.log`、`uninstall.log` 为原始输出；
-`windows-acceptance-20261123T134723Z.json/.md` 为带安装包 sha256 的预检报告。
+**证据目录**：`docs/testing/evidence/windows-acceptance/`，除首轮记录外新增
+`stage-rust-server.log`、`tauri-nsis-build-with-server.log`、
+`verify-embedded-server-fix.log`、`api-health.json`、`api-dashboard.json`、
+`api-backups-list.json`、`api-backup-create.json`、`api-restore-confirm-409.json`、
+`api-restore-confirm-200.json`、`api-audit-events.json`；
+`windows-acceptance-20261123T141500Z.json/.md` 为修复后安装包的预检报告。
 
-**签署**：未签署。W4/W5 缺上一版本安装包，W6 待上述缺陷修复后复验，
+**签署**：未签署。W4/W5 缺上一版本安装包，W9 无签名/tag，
 W1 的交互安装亦未执行；负责人核对后再决定是否把本文件改为 `Approved`。

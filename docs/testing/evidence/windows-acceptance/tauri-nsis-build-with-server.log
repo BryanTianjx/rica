@@ -1,0 +1,10 @@
+        Info Looking up installed tauri packages to check mismatched versions...
+   Compiling ica-desktop-host v0.2.1 (O:\ICA-RUST\desktop\tauri-host)
+    Finished `release` profile [optimized] target(s) in 1m 22s
+       Built application at: O:\ICA-RUST\desktop\tauri-host\target\release\ica-desktop-host.exe
+        Info Patching O:\ICA-RUST\desktop\tauri-host\target\release\ica-desktop-host.exe with bundle type information: nsis
+        Info Target: x64
+     Running makensis to produce O:\ICA-RUST\desktop\tauri-host\target\release\bundle\nsis\ICA Personal_0.2.2_x64-setup.exe
+    Finished 1 bundle at:
+        O:\ICA-RUST\desktop\tauri-host\target\release\bundle\nsis\ICA Personal_0.2.2_x64-setup.exe (222.58 MiB)
+

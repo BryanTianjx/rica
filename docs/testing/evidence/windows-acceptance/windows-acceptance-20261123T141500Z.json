@@ -1,0 +1,136 @@
+{
+    "schema":  "DESKTOP-ACCEPT-ICA-R1/preflight-v1",
+    "kind":  "PREFLIGHT_NOT_ACCEPTANCE",
+    "environment":  {
+                        "captured_at_utc":  "2026-11-23T14:15:01.7225677Z",
+                        "machine":  "TIAN",
+                        "user":  "TIAN",
+                        "os_caption":  "Microsoft Windows 11 家庭版 中文版",
+                        "os_version":  "10.0.26200",
+                        "os_build":  "26200",
+                        "os_architecture":  "64 位",
+                        "powershell_version":  "5.1.26100.9818",
+                        "process_architecture":  "X64",
+                        "git_head":  "f8b9284062637aee808f9c1349fc99933ada0aed",
+                        "git_branch":  "main",
+                        "data_dir":  "O:\\temp\\ica-accept-data2"
+                    },
+    "installer":  {
+                      "path":  "O:\\ICA-RUST\\desktop\\tauri-host\\target\\release\\bundle\\nsis\\ICA Personal_0.2.2_x64-setup.exe",
+                      "name":  "ICA Personal_0.2.2_x64-setup.exe",
+                      "bytes":  233396990,
+                      "sha256":  "ec5ccb3b1c9debcf404f2606b7c3a45c31f4ccb85d684a5b48e318ab9fa6b405"
+                  },
+    "bundle_resources":  {
+                             "sidecar":  {
+                                             "placeholder":  false,
+                                             "files":  4224,
+                                             "exists":  true
+                                         },
+                             "ui":  {
+                                        "placeholder":  false,
+                                        "files":  3,
+                                        "exists":  true
+                                    },
+                             "browsers":  {
+                                              "placeholder":  false,
+                                              "files":  315,
+                                              "exists":  true
+                                          },
+                             "version_manifest":  true,
+                             "sha256sums":  true
+                         },
+    "release_readiness":  {
+                              "installer_present":  true,
+                              "bundle_resources_placeholder":  false,
+                              "note":  "Bundle resources must be staged from a real sidecar/UI/browser runtime before an NSIS installer can be built."
+                          },
+    "checks":  [
+                   {
+                       "id":  "W1",
+                       "title":  "Windows clean install",
+                       "status":  "READY",
+                       "detail":  "Installer captured: ICA Personal_0.2.2_x64-setup.exe. Silent and interactive installs still require a human.",
+                       "evidence":  [
+                                        "O:\\ICA-RUST\\desktop\\tauri-host\\target\\release\\bundle\\nsis\\ICA Personal_0.2.2_x64-setup.exe"
+                                    ]
+                   },
+                   {
+                       "id":  "W2",
+                       "title":  "First launch / health",
+                       "status":  "MANUAL",
+                       "detail":  "Launch the installed app on this host; record window appearance, health probe output and crash dialogs.",
+                       "evidence":  [
+
+                                    ]
+                   },
+                   {
+                       "id":  "W3",
+                       "title":  "SQLite schema auto-initialization",
+                       "status":  "MANUAL",
+                       "detail":  "Inspect the data dir DDL against crates/ica-infra/schema/ica-baseline.sql (32 tables / 121 indexes).",
+                       "evidence":  [
+
+                                    ]
+                   },
+                   {
+                       "id":  "W4",
+                       "title":  "In-place upgrade keeps data",
+                       "status":  "MANUAL",
+                       "detail":  "Install previous version, write business rows, install current version, compare row counts.",
+                       "evidence":  [
+
+                                    ]
+                   },
+                   {
+                       "id":  "W5",
+                       "title":  "Migration idempotence",
+                       "status":  "MANUAL",
+                       "detail":  "Check schema_migrations and row snapshots before/after upgrade.",
+                       "evidence":  [
+
+                                    ]
+                   },
+                   {
+                       "id":  "W6",
+                       "title":  "Backup/restore via product path",
+                       "status":  "MANUAL",
+                       "detail":  "Mechanism-level drill already exists (TEST-ICA-DRILL-001); product UI/NSIS path still needs real evidence.",
+                       "evidence":  [
+
+                                    ]
+                   },
+                   {
+                       "id":  "W7",
+                       "title":  "Restart after forced termination",
+                       "status":  "MANUAL",
+                       "detail":  "taskkill /F the app, restart, verify probe data, backup list and audit trail persisted.",
+                       "evidence":  [
+
+                                    ]
+                   },
+                   {
+                       "id":  "W8",
+                       "title":  "Uninstall keeps user data",
+                       "status":  "MANUAL",
+                       "detail":  "Compare registry keys and data dir tree before/after uninstall; native messaging keys must disappear.",
+                       "evidence":  [
+
+                                    ]
+                   },
+                   {
+                       "id":  "W9",
+                       "title":  "Version / build traceability",
+                       "status":  "READY",
+                       "detail":  "Installer filename contains tauri.conf.json version 0.2.2; signature, version-manifest and SHA256SUMS still need human verification.",
+                       "evidence":  [
+                                        "O:\\ICA-RUST\\desktop\\tauri-host\\target\\release\\bundle\\nsis\\ICA Personal_0.2.2_x64-setup.exe",
+                                        "O:\\ICA-RUST\\desktop\\tauri-host\\tauri.conf.json"
+                                    ]
+                   }
+               ],
+    "sign_off":  {
+                     "status":  "NOT_SIGNED",
+                     "note":  "Agent must not sign Windows acceptance. A human owner signs W1..W9 in docs/testing/desktop-release-acceptance.md."
+                 }
+}

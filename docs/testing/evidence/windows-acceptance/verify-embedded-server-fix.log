@@ -1,0 +1,31 @@
+INSTALL_EXIT=0
+SERVER_EXE=True
+LAUNCH_PID=6984
+ApplicationFrameHost:5064
+ica-desktop-host:6984
+ica-server:1704
+=== HOST LOG
+[     0ms] host: starting; unit=O:\temp\ica-accept-install2\bundle-resources (installer bundle-resources)
+[     0ms] host: runtime policy http_mode=embedded handshake_ms=60000 health_ms=20000 graceful_ms=5000
+[     1ms] host: Embedded Mode â€?local HTTP server NOT started at boot (on demand on first /api; ICA_HTTP_SERVER_MODE=embedded)
+[  4573ms] host: sidecar listening on 127.0.0.1:7401
+[  4584ms] host: AppRuntime ready (phase=ready)
+[  4584ms] health component=PythonSidecar kind=liveness state=healthy detail=state=ready uptime_ms=11
+[  4585ms] health component=RustHttpServer kind=liveness state=not-applicable detail=state=stopped uptime_ms=0
+[  4585ms] health component=AppRuntime kind=readiness state=healthy detail=assembled through AppRuntime::new (P2 runtime())
+[  4585ms] health component=SQLite kind=readiness state=not-applicable detail=checked by DesktopState::connect startup self-check
+[  4586ms] health component=AI Adapter kind=dependency state=not-applicable detail=provider key probed by the AI use cases
+[  4586ms] health component=Backup kind=dependency state=not-applicable detail=backup status read by the backup use case
+[  4587ms] health component=Authentication kind=dependency state=not-applicable detail=local mode; no multi-user session probe
+[  5584ms] host: ui loaded (http://ica.localhost/)
+[  5595ms] host: ica request uri=ica://localhost/
+[  5615ms] host: ica request uri=ica://localhost/assets/index-BmqP3wF0.js
+[  5617ms] host: ica request uri=ica://localhost/assets/index-CY80JeYa.css
+[  5676ms] host: Embedded Mode â€?starting ica-server on demand (policy=embedded)
+[  5797ms] host: ica-server listening on 127.0.0.1:8673 (managed by SidecarManager)
+=== SERVER LOG
+[2m2026-11-23T14:12:57.862440Z[0m [32m INFO[0m [2mica_server[0m[2m:[0m startup self-check passed: 32 tables present
+[2m2026-11-23T14:12:57.868321Z[0m [32m INFO[0m [2mica_server[0m[2m:[0m applied schema migrations: [1]
+{"listening": true, "port": 8673}
+[2m2026-11-23T14:12:57.874020Z[0m [32m INFO[0m [2mica_server[0m[2m:[0m ICA server listening on http://127.0.0.1:0 (database: O:\temp\ica-accept-data2/ica.db)
+health component=RustHttpServer state=ready port=8673
