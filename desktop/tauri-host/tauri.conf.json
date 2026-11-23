@@ -17,6 +17,7 @@
     "targets": ["nsis"],
     "icon": ["icons/icon.ico"],
     "resources": [
+      "bundle-resources/ica-server.exe",
       "bundle-resources/sidecar",
       "bundle-resources/ui",
       "bundle-resources/browsers",
