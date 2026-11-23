@@ -36,6 +36,46 @@ Uncovered dimension entries: **364**. The machine-readable
 companion `contract-coverage.json` is rendered by `contract_diff.py` as the trailing
 `UNCOVERED` section on every comparison; `--check-uncovered` asserts it is non-empty.
 
+## Route coverage ≠ verification 完成率（SPEC-QA-002 §5.2 / §12.3）
+
+本矩阵统计的是**维度级用例覆盖**（✅/❌），不是「实现存在」，也不是「已验证通过」。
+三者必须分开陈述，否则会复现此前 `verification_coverage = implemented/total` 造成的
+**68/68 假象**。依据 SPE-QA-002 §5.2「已实现不代表符合标准；未测试不能标记为通过」
+与 §12.3「不要仅凭测试通过率得出 VERIFIED 结论」、SPE-QA-001 §4.2（用例最小字段），
+口径固定如下：
+
+| 指标 | 定义 | 数据来源 | 当前值 |
+| --- | --- | --- | --- |
+| Route Coverage | Rust 路由/代码存在的契约端点数 ÷ 契约总数 | router 源码 + 契约表 | **68/68** |
+| Test-case Coverage | `contract-coverage.json` 中 `case_count > 0` 的端点数 ÷ 契约总数 | 本矩阵 Companion JSON | **65/68** |
+| Verification Coverage | 用例覆盖 **且** 有逐端点执行 PASS 证据的端点数 ÷ 契约总数 | `--execution-evidence`（本轮未提供） | **0/68** |
+| 未覆盖端点 | `case_count == 0` 的契约端点清单 | `uncovered_endpoints` | **3**（#14/#32/#68） |
+
+修正后脚本的真实输出（SPEC-QA worktree，实跑
+`python3 scripts/endpoint_reconciliation.py --json`）：
+
+```json
+"counts": {"contract_total": 68, "implemented": 68, "missing": 0, "extra_routes": 0,
+           "verified": 0, "covered_not_attested": 65, "not_tested": 4}
+"coverage": {"route_coverage": "68/68", "test_case_coverage": "65/68",
+             "verification_coverage": "0/68", "not_tested": "4/69"}
+"uncovered_endpoints": [
+  {"contract_id": 14, "method": "DELETE", "path": "/shares/{share_id}", "implementation": "Implemented", "reason": "no test case in contract-coverage.json"},
+  {"contract_id": 32, "method": "POST", "path": "/drafts/{draft_id}/reject", "implementation": "Implemented", "reason": "no test case in contract-coverage.json"},
+  {"contract_id": 68, "method": "POST", "path": "/backups/{name}/restore", "implementation": "Implemented", "reason": "no test case in contract-coverage.json"}
+]
+```
+
+关键结论：这 3 个端点**路由存在（Implemented）但零用例覆盖**，旧脚本会把它们标成
+`Verified`；修正后为 `NOT_TESTED`。其余 65 个有用例但无逐端点执行证据，状态
+`COVERED_NOT_ATTESTED`，同样不是 `Verified`。反证可复跑
+`python3 scripts/endpoint_reconciliation.py --selftest`。本矩阵与 Companion JSON 只证明
+「对拍清单覆盖到的行为」，不证明等价，也不构成 VERIFIED 结论。
+
+> 口径注：`contract_capture.py` 的 `CASES` 顶层条目实测 **286** 条（AST 解析），
+> 与 `contract-coverage.json.summary.capture_cases = 286` 一致。`grep -c '"name":'`
+> 得到的 308 含请求体/DB_TABLES 中的嵌套 `name` 键，不是 CASE 数；不要拿 308 作分母。
+
 ## Per-contract matrix
 
 | # | Method | Path | Wave | 正常 | 边界 | 无效 | 权限 | DB异常 | 并发 | L4 | L5修复回归 | 未覆盖原因 |
