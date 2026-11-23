@@ -1,0 +1,13 @@
+RELAUNCH_PID=24692
+ApplicationFrameHost:5064
+ica-desktop-host:24692
+python:4656
+=== LOG TAIL
+[  2331ms] health component=Backup kind=dependency state=not-applicable detail=backup status read by the backup use case
+[  2331ms] health component=Authentication kind=dependency state=not-applicable detail=local mode; no multi-user session probe
+[  3047ms] host: ui loaded (http://ica.localhost/)
+[  3056ms] host: ica request uri=ica://localhost/
+[  3075ms] host: ica request uri=ica://localhost/assets/index-BmqP3wF0.js
+[  3077ms] host: ica request uri=ica://localhost/assets/index-CY80JeYa.css
+[  3135ms] host: Embedded Mode â€?starting ica-server on demand (policy=embedded)
+[  3135ms] host: on-demand ica-server failed: the Rust server binary was not found (tried ICA_RUST_SERVER_EXE, O:\temp\ica-accept-install\bundle-resources/ica-server.exe, O:\temp\ica-accept-install\bundle-resources/server/ica-server.exe, O:\temp\ica-accept-install/ica-server.exe)

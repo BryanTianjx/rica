@@ -1,0 +1,8 @@
+applying migrations: O:\temp\ica-accept-data\ica.db -> 501a807efa03
+schema OK: 501a807efa03
+{"event": "listening", "host": "127.0.0.1", "port": 6553}
+health component=PythonSidecar state=ready port=6553
+schema already at 501a807efa03; no migration needed
+schema OK: 501a807efa03
+{"event": "listening", "host": "127.0.0.1", "port": 11617}
+health component=PythonSidecar state=ready port=11617

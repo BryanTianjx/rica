@@ -1,0 +1,36 @@
+[     0ms] host: starting; unit=O:\temp\ica-accept-install\bundle-resources (installer bundle-resources)
+[     0ms] host: runtime policy http_mode=embedded handshake_ms=60000 health_ms=20000 graceful_ms=5000
+[     1ms] host: Embedded Mode — local HTTP server NOT started at boot (on demand on first /api; ICA_HTTP_SERVER_MODE=embedded)
+[  3999ms] host: sidecar listening on 127.0.0.1:6553
+[  4010ms] host: AppRuntime ready (phase=ready)
+[  4010ms] health component=PythonSidecar kind=liveness state=healthy detail=state=ready uptime_ms=11
+[  4011ms] health component=RustHttpServer kind=liveness state=not-applicable detail=state=stopped uptime_ms=0
+[  4011ms] health component=AppRuntime kind=readiness state=healthy detail=assembled through AppRuntime::new (P2 runtime())
+[  4011ms] health component=SQLite kind=readiness state=not-applicable detail=checked by DesktopState::connect startup self-check
+[  4011ms] health component=AI Adapter kind=dependency state=not-applicable detail=provider key probed by the AI use cases
+[  4012ms] health component=Backup kind=dependency state=not-applicable detail=backup status read by the backup use case
+[  4012ms] health component=Authentication kind=dependency state=not-applicable detail=local mode; no multi-user session probe
+[  8110ms] host: ui loaded (http://ica.localhost/)
+[  8681ms] host: ica request uri=ica://localhost/
+[  8706ms] host: ica request uri=ica://localhost/assets/index-BmqP3wF0.js
+[  8708ms] host: ica request uri=ica://localhost/assets/index-CY80JeYa.css
+[  8778ms] host: Embedded Mode — starting ica-server on demand (policy=embedded)
+[  8778ms] host: on-demand ica-server failed: the Rust server binary was not found (tried ICA_RUST_SERVER_EXE, O:\temp\ica-accept-install\bundle-resources/ica-server.exe, O:\temp\ica-accept-install\bundle-resources/server/ica-server.exe, O:\temp\ica-accept-install/ica-server.exe)
+[     0ms] host: starting; unit=O:\temp\ica-accept-install\bundle-resources (installer bundle-resources)
+[     0ms] host: runtime policy http_mode=embedded handshake_ms=60000 health_ms=20000 graceful_ms=5000
+[     1ms] host: Embedded Mode — local HTTP server NOT started at boot (on demand on first /api; ICA_HTTP_SERVER_MODE=embedded)
+[  2322ms] host: sidecar listening on 127.0.0.1:11617
+[  2329ms] host: AppRuntime ready (phase=ready)
+[  2329ms] health component=PythonSidecar kind=liveness state=healthy detail=state=ready uptime_ms=7
+[  2330ms] health component=RustHttpServer kind=liveness state=not-applicable detail=state=stopped uptime_ms=0
+[  2330ms] health component=AppRuntime kind=readiness state=healthy detail=assembled through AppRuntime::new (P2 runtime())
+[  2330ms] health component=SQLite kind=readiness state=not-applicable detail=checked by DesktopState::connect startup self-check
+[  2331ms] health component=AI Adapter kind=dependency state=not-applicable detail=provider key probed by the AI use cases
+[  2331ms] health component=Backup kind=dependency state=not-applicable detail=backup status read by the backup use case
+[  2331ms] health component=Authentication kind=dependency state=not-applicable detail=local mode; no multi-user session probe
+[  3047ms] host: ui loaded (http://ica.localhost/)
+[  3056ms] host: ica request uri=ica://localhost/
+[  3075ms] host: ica request uri=ica://localhost/assets/index-BmqP3wF0.js
+[  3077ms] host: ica request uri=ica://localhost/assets/index-CY80JeYa.css
+[  3135ms] host: Embedded Mode — starting ica-server on demand (policy=embedded)
+[  3135ms] host: on-demand ica-server failed: the Rust server binary was not found (tried ICA_RUST_SERVER_EXE, O:\temp\ica-accept-install\bundle-resources/ica-server.exe, O:\temp\ica-accept-install\bundle-resources/server/ica-server.exe, O:\temp\ica-accept-install/ica-server.exe)
