@@ -40,7 +40,7 @@ fn init_tracing() {
 /// Only loopback hosts may be bound until network authentication exists.
 ///
 /// The Python baseline and the desktop shell both use a local sidecar; there
-/// is no auth middleware in this build (that work belongs to the SEC card).
+/// is no auth middleware in this build (that work belongs to SEC-04-B/C).
 /// Binding anything else would expose the whole HTTP surface unauthenticated.
 fn validate_bind_host(host: &str) -> Result<(), String> {
     let trimmed = host.trim();
@@ -50,6 +50,65 @@ fn validate_bind_host(host: &str) -> Result<(), String> {
     Err(format!(
         "refusing to bind to non-loopback host '{host}': this build has no network authentication; set HOST=127.0.0.1 (or localhost) to start"
     ))
+}
+
+/// SEC-04-A: the explicit opt-in for *attempting* remote mode.
+///
+/// Absence of the variable, an empty value, or `false` all keep the Local-only
+/// fail-fast policy. Only the literal `true` (case-insensitive) is an opt-in;
+/// `1` / `yes` / other values are rejected rather than guessed at.
+const AUTH_REQUIRED_ENV: &str = "ICA_AUTH_REQUIRED";
+
+/// SEC-04-A: honest readiness flag. SEC-04-B/C must flip this to `true` only
+/// when a real authentication gate AND resource authorization exist; until
+/// then an opt-in cannot make a non-loopback bind safe.
+const NETWORK_AUTHENTICATION_READY: bool = false;
+
+/// The message an explicit opt-in receives while real auth is absent. It is
+/// deliberately explicit so the flag can never be mistaken for a security
+/// control (no "authentication enabled" claim anywhere in this build).
+const AUTH_NOT_IMPLEMENTED_MESSAGE: &str = "多用户认证尚未实现，不能启用远程模式";
+
+/// Parse the explicit opt-in. Pure (no environment reads) so the semantics are
+/// unit-testable without mutating process-global state.
+fn parse_auth_required(value: Option<&str>) -> Result<bool, String> {
+    match value.map(str::trim) {
+        None | Some("") => Ok(false),
+        Some(v) if v.eq_ignore_ascii_case("false") => Ok(false),
+        Some(v) if v.eq_ignore_ascii_case("true") => Ok(true),
+        Some(other) => Err(format!(
+            "{AUTH_REQUIRED_ENV} must be true or false, got '{other}'"
+        )),
+    }
+}
+
+/// SEC-04-A startup exposure policy: Local-only by default, explicit opt-in
+/// required for a remote bind, and still blocked until real auth ships.
+///
+/// Loopback is always allowed. For a non-loopback host:
+///   * no explicit opt-in -> the original fail-fast error (`validate_bind_host`);
+///   * opt-in but `NETWORK_AUTHENTICATION_READY == false` -> the dedicated
+///     "multi-user authentication is not implemented" error;
+///   * opt-in and readiness (future SEC-04-B/C) -> allowed, with the real auth
+///     middleware installed by that card, not by this one.
+fn validate_bind_policy(host: &str, auth_required: bool) -> Result<(), String> {
+    if validate_bind_host(host).is_ok() {
+        return Ok(());
+    }
+    if !auth_required {
+        // Keep the exact wording the three bas002 fail-fast tests pin.
+        return validate_bind_host(host);
+    }
+    if !NETWORK_AUTHENTICATION_READY {
+        return Err(format!(
+            "refusing to bind to non-loopback host '{host}': {AUTH_NOT_IMPLEMENTED_MESSAGE} \
+             ({AUTH_REQUIRED_ENV}=true was set, but this build has no real multi-user authentication / JWT middleware; \
+             SEC-04-B/C are not implemented; set HOST=127.0.0.1 to start in Local-only mode)"
+        ));
+    }
+    // Reachable only after SEC-04-B/C flip the readiness flag and install the
+    // real gate. `run` still parses and binds the address below.
+    Ok(())
 }
 
 /// Read an environment variable, falling back to `default` when it is unset.
@@ -66,10 +125,17 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(|key| !key.trim().is_empty())
         .unwrap_or(false);
     let host = env_or("HOST", "127.0.0.1");
-    // SPE-BAS-002 §13.1: this build has no network authentication middleware.
-    // A non-loopback bind would expose the local-only HTTP surface unauthenticated,
-    // so reject it before touching the database, not after the listener is up.
-    validate_bind_host(&host)?;
+    // SEC-04-A: environment-only, explicitly opt-in. The policy refuses every
+    // non-loopback bind unless BOTH the switch is set and real auth exists —
+    // before the database is touched or a listener is opened.
+    let auth_required_raw = std::env::var(AUTH_REQUIRED_ENV).ok();
+    let auth_required = parse_auth_required(auth_required_raw.as_deref())?;
+    validate_bind_policy(&host, auth_required)?;
+    if auth_required && !NETWORK_AUTHENTICATION_READY {
+        tracing::warn!(
+            "{AUTH_REQUIRED_ENV}=true is set but real multi-user authentication is not implemented; server stays Local-only on {host}"
+        );
+    }
     let data_dir = env_or("ICA_DATA_DIR", "./data");
     let ai_daily_budget_cents: i64 = env_or("AI_DAILY_BUDGET_CENTS", "0")
         .parse()
@@ -440,5 +506,96 @@ mod tests {
         let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
         let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
         assert!(listener.local_addr().unwrap().ip().is_loopback());
+    }
+
+    // ── SEC-04-A: independent verification of the AC1 wording ──────────────
+
+    #[test]
+    fn sec04_a_fail_fast_wording_is_stable() {
+        for host in ["0.0.0.0", "::", "192.168.1.10", "example.com"] {
+            let error = validate_bind_host(host).unwrap_err();
+            assert!(
+                error.contains("refusing to bind to non-loopback host"),
+                "{error}"
+            );
+            assert!(error.contains("no network authentication"), "{error}");
+        }
+    }
+
+    // ── SEC-04-A AC2: explicit opt-in, still honest about missing auth ─────
+
+    #[test]
+    fn sec04_a_non_loopback_is_refused_without_explicit_opt_in() {
+        for host in ["0.0.0.0", "::", "192.168.1.10", "example.com"] {
+            let error = validate_bind_policy(host, false).unwrap_err();
+            assert!(
+                error.contains("refusing to bind to non-loopback host"),
+                "{error}"
+            );
+            assert!(error.contains("no network authentication"), "{error}");
+        }
+    }
+
+    #[test]
+    fn sec04_a_opt_in_without_real_auth_is_refused_with_a_clear_message() {
+        for host in ["0.0.0.0", "::", "192.168.1.10"] {
+            let error = validate_bind_policy(host, true).unwrap_err();
+            assert!(
+                error.contains("多用户认证尚未实现，不能启用远程模式"),
+                "{error}"
+            );
+            assert!(
+                error.contains("refusing to bind to non-loopback host"),
+                "{error}"
+            );
+            // The opt-in must be honoured: no generic "no network
+            // authentication" fail-fast text once it has been set.
+            assert!(
+                !error.contains("this build has no network authentication"),
+                "{error}"
+            );
+            assert!(error.contains("SEC-04-B/C"), "{error}");
+        }
+    }
+
+    #[test]
+    fn sec04_a_auth_required_flag_is_explicit_only() {
+        assert_eq!(parse_auth_required(None), Ok(false));
+        assert_eq!(parse_auth_required(Some("")), Ok(false));
+        assert_eq!(parse_auth_required(Some(" false ")), Ok(false));
+        assert_eq!(parse_auth_required(Some("FALSE")), Ok(false));
+        assert_eq!(parse_auth_required(Some(" true ")), Ok(true));
+        assert_eq!(parse_auth_required(Some("TRUE")), Ok(true));
+        for other in ["1", "yes", "on", "0", "maybe"] {
+            let error = parse_auth_required(Some(other)).unwrap_err();
+            assert!(
+                error.contains("ICA_AUTH_REQUIRED must be true or false"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn sec04_a_loopback_stays_allowed_with_or_without_opt_in() {
+        for host in ["127.0.0.1", "localhost", "::1", " LOCALHOST "] {
+            for auth_required in [false, true] {
+                assert!(
+                    validate_bind_policy(host, auth_required).is_ok(),
+                    "{host} / {auth_required}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sec04_a_does_not_pretend_authentication_is_implemented() {
+        // A const block keeps the "auth is not implemented" state checkable
+        // while satisfying clippy::assertions_on_constants under -D warnings.
+        const {
+            assert!(
+                !NETWORK_AUTHENTICATION_READY,
+                "flip this only in SEC-04-B/C together with a real auth gate"
+            );
+        };
     }
 }
