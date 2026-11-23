@@ -91,6 +91,9 @@ pub mod code {
     pub const INTERNAL: &str = "internal_error";
     pub const PROVIDER: &str = "ai_provider_error";
     pub const UNAUTHORIZED: &str = "unauthorized";
+    /// SEC-04-B/C: identity is known but the action is not permitted (403).
+    /// Distinct from `UNAUTHORIZED`, which means missing/invalid identity (401).
+    pub const FORBIDDEN: &str = "forbidden";
 }
 
 /// Sidecar replies use a line protocol, but their `code` comes from the same

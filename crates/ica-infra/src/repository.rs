@@ -26,7 +26,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use ica_application::{
-    Field, NewPosition, PositionFilter, PositionPatch, PositionRepository, RepositoryError,
+    Field, NewPosition, PositionFilter, PositionPatch, PositionRepository, RepositoryError, Scope,
 };
 use ica_domain::{Position, PositionStatus};
 use sqlx::{FromRow, SqliteConnection};
@@ -118,11 +118,23 @@ impl PositionRow {
 
 /// `WHERE` fragment plus its text binds for a position filter.
 pub(crate) fn filter_sql(filter: &PositionFilter) -> (String, Vec<String>) {
-    let mut conditions: Vec<&str> = Vec::new();
+    let mut conditions: Vec<String> = Vec::new();
     let mut binds: Vec<String> = Vec::new();
 
     if !filter.include_archived {
-        conditions.push("p.archived = 0");
+        conditions.push("p.archived = 0".to_string());
+    }
+
+    // SEC-04-B/C: an authenticated identity must never read another tenant's
+    // rows. Admins see everything in their tenant; members only own rows.
+    // `None` is the documented Local mode and adds no predicate.
+    if let Some(scope) = &filter.scope {
+        conditions.push("p.tenant_id = ?".to_string());
+        binds.push(scope.tenant_id.clone());
+        if !scope.is_admin {
+            conditions.push("p.owner_id = ?".to_string());
+            binds.push(scope.actor_id.clone());
+        }
     }
 
     // `search` arrives normalised by the domain layer (trimmed, non-empty).
@@ -130,12 +142,14 @@ pub(crate) fn filter_sql(filter: &PositionFilter) -> (String, Vec<String>) {
     // in the Python service: a user-supplied `%` stays a wildcard.
     if let Some(search) = filter.search.as_deref() {
         let pattern = format!("%{search}%");
-        conditions.push("(LOWER(p.name) LIKE LOWER(?) OR LOWER(p.location) LIKE LOWER(?))");
+        conditions
+            .push("(LOWER(p.name) LIKE LOWER(?) OR LOWER(p.location) LIKE LOWER(?))".to_string());
         binds.push(pattern.clone());
         binds.push(pattern);
     }
 
-    (where_clause(&conditions), binds)
+    let refs: Vec<&str> = conditions.iter().map(String::as_str).collect();
+    (where_clause(&refs), binds)
 }
 
 /// Run one position query on a pool or a transaction.
@@ -167,6 +181,31 @@ pub(crate) async fn find_position_by_id(
     let sql = format!("{SELECT_COLUMNS} WHERE p.id = ?");
     let mut rows = fetch_positions(connection, &sql, &[id.to_string()]).await?;
     Ok(rows.pop())
+}
+
+/// SEC-04-B/C: true only when the row exists inside the caller's scope. An
+/// out-of-scope row is treated as missing by scoped mutations as well as reads.
+async fn scoped_position_exists(
+    pool: &sqlx::SqlitePool,
+    id: &str,
+    scope: &Scope,
+) -> Result<bool, RepositoryError> {
+    let sql = if scope.is_admin {
+        "SELECT 1 FROM positions WHERE id = ? AND tenant_id = ?".to_string()
+    } else {
+        "SELECT 1 FROM positions WHERE id = ? AND tenant_id = ? AND owner_id = ?".to_string()
+    };
+    let mut query = sqlx::query_scalar::<_, i64>(&sql)
+        .bind(id)
+        .bind(&scope.tenant_id);
+    if !scope.is_admin {
+        query = query.bind(&scope.actor_id);
+    }
+    Ok(query
+        .fetch_optional(pool)
+        .await
+        .map_err(repo_error)?
+        .is_some())
 }
 
 #[async_trait]
@@ -227,6 +266,22 @@ impl PositionRepository for SqliteStore {
         Ok(rows.pop())
     }
 
+    async fn find_scoped(
+        &self,
+        id: &str,
+        scope: &Scope,
+    ) -> Result<Option<Position>, RepositoryError> {
+        let mut sql = format!("{SELECT_COLUMNS} WHERE p.id = ? AND p.tenant_id = ?");
+        let mut binds = vec![id.to_string(), scope.tenant_id.clone()];
+        if !scope.is_admin {
+            sql.push_str(" AND p.owner_id = ?");
+            binds.push(scope.actor_id.clone());
+        }
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let mut rows = fetch_positions(&mut connection, &sql, &binds).await?;
+        Ok(rows.pop())
+    }
+
     async fn create(&self, new: NewPosition) -> Result<Position, RepositoryError> {
         let now = to_sql_timestamp(&Utc::now());
         let id = crate::store::new_uuid();
@@ -271,6 +326,58 @@ impl PositionRepository for SqliteStore {
         tx.commit().await.map_err(repo_error)?;
 
         self.find(&id)
+            .await?
+            .ok_or_else(|| RepositoryError::unavailable("inserted position disappeared"))
+    }
+
+    async fn create_scoped(
+        &self,
+        new: NewPosition,
+        scope: &Scope,
+    ) -> Result<Position, RepositoryError> {
+        let now = to_sql_timestamp(&Utc::now());
+        let id = crate::store::new_uuid();
+
+        let mut tx = self.pool().begin().await.map_err(repo_error)?;
+        sqlx::query(concat!(
+            "INSERT INTO positions (id, name, description, location, skill_requirements,",
+            " experience_requirements, education_requirements, salary_min, salary_max,",
+            " status, archived, notes, created_at, updated_at, owner_id, tenant_id)",
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)"
+        ))
+        .bind(&id)
+        .bind(&new.name)
+        .bind(&new.description)
+        .bind(&new.location)
+        .bind(&new.skill_requirements)
+        .bind(&new.experience_requirements)
+        .bind(&new.education_requirements)
+        .bind(new.salary_min)
+        .bind(new.salary_max)
+        .bind(new.status.as_str())
+        .bind(&new.notes)
+        .bind(&now)
+        .bind(&now)
+        .bind(&scope.actor_id)
+        .bind(&scope.tenant_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(repo_error)?;
+
+        insert_audit(
+            &mut tx,
+            AuditEntry::new(
+                "position.created",
+                "position",
+                &id,
+                format!("Created position '{}'", new.name),
+            ),
+        )
+        .await
+        .map_err(repo_error)?;
+        tx.commit().await.map_err(repo_error)?;
+
+        self.find_scoped(&id, scope)
             .await?
             .ok_or_else(|| RepositoryError::unavailable("inserted position disappeared"))
     }
@@ -431,5 +538,24 @@ impl PositionRepository for SqliteStore {
         .map_err(repo_error)?;
         tx.commit().await.map_err(repo_error)?;
         Ok(true)
+    }
+
+    async fn update_scoped(
+        &self,
+        id: &str,
+        patch: PositionPatch,
+        scope: &Scope,
+    ) -> Result<Option<Position>, RepositoryError> {
+        if !scoped_position_exists(self.pool(), id, scope).await? {
+            return Ok(None);
+        }
+        self.update(id, patch).await
+    }
+
+    async fn delete_scoped(&self, id: &str, scope: &Scope) -> Result<bool, RepositoryError> {
+        if !scoped_position_exists(self.pool(), id, scope).await? {
+            return Ok(false);
+        }
+        self.delete(id).await
     }
 }

@@ -28,6 +28,10 @@ use crate::payload::{
 pub struct PositionFilter {
     pub include_archived: bool,
     pub search: Option<String>,
+    /// SEC-04-B: when present, the SQLite adapter MUST restrict rows to this
+    /// tenant and (for a non-admin actor) to rows they own. `None` preserves
+    /// the documented single-user Local mode.
+    pub scope: Option<crate::Scope>,
 }
 
 /// A persistence failure.
@@ -235,8 +239,29 @@ pub trait PositionRepository: Send + Sync {
     /// One position by id, or ``None`` when it does not exist.
     async fn find(&self, id: &str) -> Result<Option<Position>, RepositoryError>;
 
+    /// SEC-04-B/C: same lookup, but a real identity may only see rows in its
+    /// own tenant (and, for members, rows it owns). The default keeps legacy
+    /// Local-mode test doubles working; the SQLite adapter overrides it.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<Position>, RepositoryError> {
+        self.find(id).await
+    }
+
     /// Insert one position and its audit event in a single transaction.
     async fn create(&self, new: NewPosition) -> Result<Position, RepositoryError>;
+
+    /// SEC-04-B/C: insert with the authenticated actor's ownership. The
+    /// default keeps legacy Local-mode doubles unchanged.
+    async fn create_scoped(
+        &self,
+        new: NewPosition,
+        _scope: &crate::Scope,
+    ) -> Result<Position, RepositoryError> {
+        self.create(new).await
+    }
 
     /// Apply a patch; ``Ok(None)`` means the row does not exist.
     async fn update(
@@ -245,11 +270,31 @@ pub trait PositionRepository: Send + Sync {
         patch: PositionPatch,
     ) -> Result<Option<Position>, RepositoryError>;
 
+    /// SEC-04-B/C: patch only a row inside the caller's scope. The default
+    /// keeps legacy Local-mode doubles unchanged.
+    async fn update_scoped(
+        &self,
+        id: &str,
+        patch: PositionPatch,
+        _scope: &crate::Scope,
+    ) -> Result<Option<Position>, RepositoryError> {
+        self.update(id, patch).await
+    }
+
     /// Delete one position; ``Ok(false)`` means the row does not exist.
     ///
     /// The FK is `ON DELETE SET NULL`, so linked candidates keep their row and
     /// lose only the link.
     async fn delete(&self, id: &str) -> Result<bool, RepositoryError>;
+
+    /// SEC-04-B/C: delete only a row inside the caller's scope.
+    async fn delete_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<bool, RepositoryError> {
+        self.delete(id).await
+    }
 }
 
 /// Read and write access to candidates.

@@ -27,6 +27,34 @@ pub struct RequestContext {
     pub correlation_id: String,
 }
 
+/// Repository-level resource scope derived from an authenticated context.
+/// `None` in a filter means the documented Local mode (no filtering), so all
+/// existing single-user call sites keep their behaviour. A `Some` scope forces
+/// tenant isolation and owner filtering in the SQL adapter.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Scope {
+    pub tenant_id: String,
+    pub actor_id: String,
+    pub is_admin: bool,
+}
+
+impl Scope {
+    /// A real (non-synthetic) identity must always carry a repository scope.
+    /// The Local user is the sole exception.
+    pub fn from_context(ctx: &RequestContext) -> Option<Self> {
+        if ctx.actor_id == crate::auth::LOCAL_USER_ID
+            && ctx.tenant_id == crate::auth::LOCAL_TENANT_ID
+        {
+            return None;
+        }
+        Some(Self {
+            tenant_id: ctx.tenant_id.clone(),
+            actor_id: ctx.actor_id.clone(),
+            is_admin: ctx.is_admin(),
+        })
+    }
+}
+
 impl RequestContext {
     /// Local Mode: both adapters currently synthesize the same local actor.
     pub fn local() -> Self {
@@ -81,6 +109,12 @@ pub enum Permission {
     SharesRead,
     SharesCreate,
     SharesDelete,
+    /// SEC-04-B: the five contract-level action classes used by the C suite.
+    ResourceRead,
+    ResourceWrite,
+    ResourceDelete,
+    ResourceShare,
+    AdminOperation,
 }
 
 fn denied(message: &str) -> ApplicationError {
@@ -92,14 +126,45 @@ fn denied(message: &str) -> ApplicationError {
     }
 }
 
-/// The single authorization gate. Identity checks are uniform; object-level
-/// ownership is checked by the use case that can see the object's owner.
-pub fn authorize(ctx: &RequestContext, _permission: Permission) -> Result<(), ApplicationError> {
+fn forbidden(message: &str) -> ApplicationError {
+    ApplicationError::StatusWithCode {
+        status: 403,
+        code: "forbidden",
+        message: message.to_string(),
+        details: serde_json::json!({}),
+    }
+}
+
+impl Permission {
+    /// Role gate for the action itself. Object ownership is a separate check
+    /// (`RequestContext::can_administer`) performed by the use case that can
+    /// see the target row.
+    fn allowed_for_role(self, role: &str) -> bool {
+        match self {
+            Self::AdminOperation => role == "admin",
+            Self::SharesRead
+            | Self::SharesCreate
+            | Self::SharesDelete
+            | Self::ResourceRead
+            | Self::ResourceWrite
+            | Self::ResourceDelete
+            | Self::ResourceShare => role == "admin" || role == "member",
+        }
+    }
+}
+
+/// The single authorization gate. Identity checks are uniform; the permission
+/// is no longer ignored: an unknown/inactive actor is 401, while a known actor
+/// without the required role is 403 `forbidden`.
+pub fn authorize(ctx: &RequestContext, permission: Permission) -> Result<(), ApplicationError> {
     if !ctx.active || ctx.actor_id.is_empty() {
         return Err(denied("Authentication is required"));
     }
     if ctx.tenant_id.is_empty() {
         return Err(denied("Tenant context is required"));
+    }
+    if !permission.allowed_for_role(&ctx.role) {
+        return Err(forbidden("Permission denied"));
     }
     Ok(())
 }
@@ -135,6 +200,28 @@ mod tests {
             assert_eq!(ApplicationError::code(&error), "unauthorized");
             assert_eq!(ApplicationError::http_status(&error), 401);
         }
+    }
+
+    #[test]
+    fn permission_is_enforced_not_ignored() {
+        let admin = RequestContext::local();
+        let member = RequestContext::from_identity("u-2", "t-1", "member", true, "x");
+        for action in [
+            Permission::ResourceRead,
+            Permission::ResourceWrite,
+            Permission::ResourceDelete,
+            Permission::ResourceShare,
+            Permission::SharesRead,
+            Permission::SharesCreate,
+            Permission::SharesDelete,
+        ] {
+            assert!(authorize(&admin, action).is_ok());
+            assert!(authorize(&member, action).is_ok());
+        }
+        assert!(authorize(&admin, Permission::AdminOperation).is_ok());
+        let error = authorize(&member, Permission::AdminOperation).expect_err("member denied");
+        assert_eq!(ApplicationError::code(&error), "forbidden");
+        assert_eq!(ApplicationError::http_status(&error), 403);
     }
 
     #[test]

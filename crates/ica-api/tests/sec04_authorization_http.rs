@@ -142,10 +142,13 @@ fn http_and_ipc_share_and_auth_paths_use_the_same_use_cases() {
         assert!(IPC.contains(call), "IPC adapter must call {call}");
     }
 
-    // Both transports build the trusted identity the same way and never pass
-    // a caller-controlled actor id or a hand-picked `is_admin` boolean.
-    assert_eq!(HTTP.matches("RequestContext::local()").count(), 3);
+    // SEC-04-B: HTTP now receives the verified identity from the auth
+    // middleware (a real JWT when present, the synthetic local actor in Local
+    // mode); IPC still constructs the trusted local actor in its own adapter.
+    assert_eq!(HTTP.matches("RequestContext::local()").count(), 0);
     assert_eq!(IPC.matches("RequestContext::local()").count(), 3);
+    assert!(HTTP.contains("Extension<ica_application::RequestContext>"));
+    assert!(HTTP.contains("auth::authenticate"));
     for source in [HTTP, IPC] {
         assert!(!source.contains("is_admin"));
         assert!(!source.contains("&local.id"));

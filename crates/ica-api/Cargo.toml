@@ -21,6 +21,9 @@ tracing.workspace = true
 # stays on this side of the contracts boundary.
 form_urlencoded.workspace = true
 serde_urlencoded.workspace = true
+# SEC-04-B/C: verify access-token JWTs in the HTTP adapter so a real identity
+# reaches the Application layer instead of the synthetic Local user.
+jsonwebtoken = "9"
 
 [dev-dependencies]
 tracing-subscriber = { workspace = true }

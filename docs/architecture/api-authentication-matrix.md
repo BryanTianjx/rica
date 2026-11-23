@@ -192,3 +192,22 @@ SEC04-A-PUBLIC-ENDPOINTS-END -->
 | `crates/ica-server/src/main.rs:60,74,94` | `ICA_AUTH_REQUIRED` 显式开关、纯解析函数、`validate_bind_policy` 启动阻断 |
 | `crates/ica-server/src/main.rs:65,70` | `NETWORK_AUTHENTICATION_READY=false` 与 `多用户认证尚未实现，不能启用远程模式` |
 | `crates/ica-server/src/main.rs:127,133` | `HOST` 默认 `127.0.0.1`，启动前执行暴露策略 |
+
+## SEC-04-B/C 实施映射（2026-11-23）
+
+上表「SEC-04-A 当前策略」列是 A 卡的历史事实快照；B/C 卡实施后，
+MultiUser 模式的实际门禁由下表定义（Local 模式仍保持原行为）：
+
+| 层 | 实施点 | 68 契约映射 |
+| --- | --- | --- |
+| 认证 | `crates/ica-api/src/auth.rs::authenticate` + `PUBLIC_PATHS` | 2 条公开 + 非契约 `/health` 无凭据；其余 66 条必须有合法 HS256 access token |
+| 身份 | `RequestContext` 注入 request extensions | `/auth/me` 与 shares 端点从 JWT claims 取真实 actor/tenant/role，不再合成 Local 身份 |
+| 权限 | `ica_application::authorize(ctx, Permission)` | 角色门槛（admin/member）与资源归属分离；`forbidden` 403 与 `unauthorized` 401 分列 |
+| 资源 | `Scope::from_context` + `PositionFilter.scope` | positions 的 list/get/create/update/delete 强制 tenant 过滤，member 限 owner；跨租户返回 404 |
+| 模式 | `ICA_AUTH_MODE=local\|multiuser` | Local 保持单用户边界；MultiUser 拒绝匿名/伪造 token |
+
+三向追溯（契约 → 授权点 → 用例）由
+`crates/ica-api/tests/sec04_bc_authorization_http.rs` 的
+`contract_authorization_trace_is_complete` 与前述 68 行矩阵共同 pin 住；
+负向用例见同文件的 `anonymous_and_forged_bearers_are_rejected_with_baseline_code`、
+`cross_tenant_reads_are_invisible`、`write_and_delete_obey_identity_and_ownership`。

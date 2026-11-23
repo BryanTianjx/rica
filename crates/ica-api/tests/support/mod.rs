@@ -373,8 +373,9 @@ pub async fn w1_app() -> (Router, tempfile::TempDir) {
     (app, dir)
 }
 
-/// Wire the router over `path` (read-write).
-pub async fn app_for(path: &Path) -> Router {
+/// Build the shared Application state over `path` (read-write). Tests that
+/// need MultiUser mode wrap it with `router_with_mode` themselves.
+pub async fn app_state_for(path: &Path) -> AppState {
     let pool = connect(&format!("sqlite:///{}", path.display()))
         .await
         .expect("open seeded database");
@@ -403,7 +404,7 @@ pub async fn app_for(path: &Path) -> Router {
         },
         ai_budget.clone(),
     );
-    ica_api::router(AppState::new(
+    AppState::new(
         Arc::new(store.clone()) as Arc<dyn PositionRepository>,
         Arc::new(store.clone()) as Arc<dyn CandidateRepository>,
         Arc::new(store.clone()) as Arc<dyn ConversationRepository>,
@@ -475,7 +476,17 @@ pub async fn app_for(path: &Path) -> Router {
             jwt_refresh_token_expire_days: 7,
             bcrypt_cost: 4,
         },
-    ))
+    )
+}
+
+/// Wire the router over `path` in Local mode (the historical default).
+pub async fn app_for(path: &Path) -> Router {
+    ica_api::router(app_state_for(path).await)
+}
+
+/// Wire the router over `path` with an explicit SEC-04-B auth mode.
+pub async fn app_for_mode(path: &Path, mode: ica_api::auth::AuthMode) -> Router {
+    ica_api::router_with_mode(app_state_for(path).await, mode)
 }
 
 /// Install a tracing subscriber once per test binary, so a 500's real cause
@@ -560,8 +571,56 @@ pub async fn post_with_headers(
     send(app, request).await
 }
 
+/// Issue a GET with extra headers (SEC-04-B bearer identity in tests).
+pub async fn get_with_headers(app: Router, uri: &str, headers: &[(&str, &str)]) -> TestResponse {
+    let mut builder = axum::http::Request::builder()
+        .method("GET")
+        .uri(uri)
+        .header("accept", "application/json");
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    send(app, builder.body(Body::empty()).expect("build request")).await
+}
+
 pub async fn patch(app: Router, uri: &str, body: &str) -> TestResponse {
     with_body(app, "PATCH", uri, body).await
+}
+
+/// Issue a PATCH with extra headers (SEC-04-B bearer identity in tests).
+pub async fn patch_with_headers(
+    app: Router,
+    uri: &str,
+    body: &str,
+    headers: &[(&str, &str)],
+) -> TestResponse {
+    let mut builder = axum::http::Request::builder()
+        .method("PATCH")
+        .uri(uri)
+        .header("accept", "application/json")
+        .header("content-type", "application/json");
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    send(
+        app,
+        builder
+            .body(Body::from(body.to_string()))
+            .expect("build request"),
+    )
+    .await
+}
+
+/// Issue a DELETE with extra headers (SEC-04-B bearer identity in tests).
+pub async fn delete_with_headers(app: Router, uri: &str, headers: &[(&str, &str)]) -> TestResponse {
+    let mut builder = axum::http::Request::builder()
+        .method("DELETE")
+        .uri(uri)
+        .header("accept", "application/json");
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    send(app, builder.body(Body::empty()).expect("build request")).await
 }
 
 pub async fn delete(app: Router, uri: &str) -> TestResponse {

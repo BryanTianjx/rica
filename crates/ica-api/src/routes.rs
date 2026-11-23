@@ -13,11 +13,12 @@
 use std::sync::Arc;
 
 use axum::body::Bytes;
-use axum::extract::{Path, State};
+use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{delete, get, post, put};
 use axum::{middleware, Json, Router};
 
+use crate::auth::{self, AuthMode};
 use crate::body;
 use crate::dto::{
     AIEgressRead, AiBudgetRead, AiKeyStatus, AiModelsRead, AiRoutingRead, AiUsageRead,
@@ -107,8 +108,14 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/shares/{share_id}",
 ];
 
-/// Build the router for `state`.
+/// Build the router for `state` using the configured auth mode.
 pub fn router(state: AppState) -> Router {
+    router_with_mode(state, AuthMode::from_env())
+}
+
+/// Build the router with an explicit SEC-04-B auth mode. Tests use this to
+/// exercise MultiUser mode without mutating process-wide environment variables.
+pub fn router_with_mode(state: AppState, mode: AuthMode) -> Router {
     let patterns: RoutePatterns = Arc::from(ROUTE_PATTERNS);
     let head_patterns = patterns.clone();
     Router::new()
@@ -237,6 +244,14 @@ pub fn router(state: AppState) -> Router {
         .route("/api/shares/{share_id}", delete(delete_share_endpoint))
         .fallback(unknown_path)
         .method_not_allowed_fallback(|| async { crate::http_parity::method_not_allowed() })
+        // SEC-04-B/C: the auth layer injects the verified RequestContext into
+        // request extensions. `Extension<AuthMode>` is added after it, so it
+        // runs first and the middleware can read the configured mode.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::authenticate,
+        ))
+        .layer(Extension(mode))
         // `reject_head` must sit *inside* the redirect (added first = run last):
         // Starlette redirects `/api/positions/` before it ever considers the
         // method, so a `HEAD` with a trailing slash is a 307, not a 405.
@@ -266,30 +281,39 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
 /// UI can render "1-50 of 213" and decide whether to show a next-page control.
 async fn list_positions(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<RawListPositionsQuery>,
 ) -> Result<Json<PageResponse<PositionRead>>, ApiError> {
     let query = query::validate(raw)?;
-    let page = ica_application::list_positions(state.positions(), query).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let page = ica_application::list_positions_scoped(state.positions(), query, scope).await?;
     Ok(Json(PageResponse::from_page(page, PositionRead::from)))
 }
 
 /// `POST /api/positions` — create one, 201 with the stored row.
 async fn create_position(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<PositionRead>), ApiError> {
     let raw: body::RawPositionCreate = body::parse(&body)?;
     let new = body::position_create(raw)?;
-    let position = ica_application::positions::create_position(state.positions(), new).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let position =
+        ica_application::create_position_scoped(state.positions(), new, scope.as_ref()).await?;
     Ok((StatusCode::CREATED, Json(PositionRead::from(position))))
 }
 
 /// `GET /api/positions/{position_id}` — one position, archived or not.
 async fn get_position(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(position_id): Path<String>,
 ) -> Result<Json<PositionRead>, ApiError> {
-    let position = ica_application::get_position(state.positions(), &position_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let position =
+        ica_application::get_position_scoped(state.positions(), &position_id, scope.as_ref())
+            .await?;
     Ok(Json(PositionRead::from(position)))
 }
 
@@ -299,22 +323,32 @@ async fn get_position(
 /// `status: null` is ignored, exactly like the baseline.
 async fn update_position(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(position_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<PositionRead>, ApiError> {
     let raw: body::RawPositionPatch = body::parse(&body)?;
     let patch = body::position_patch(raw)?;
-    let position =
-        ica_application::positions::update_position(state.positions(), &position_id, patch).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let position = ica_application::update_position_scoped(
+        state.positions(),
+        &position_id,
+        patch,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(PositionRead::from(position)))
 }
 
 /// `DELETE /api/positions/{position_id}` — 204, candidates keep their row.
 async fn delete_position(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(position_id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
-    ica_application::positions::delete_position(state.positions(), &position_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    ica_application::delete_position_scoped(state.positions(), &position_id, scope.as_ref())
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1357,22 +1391,35 @@ async fn logout_endpoint(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// `GET /auth/me` — the current user; local mode answers the synthetic one.
-async fn me_endpoint() -> Json<UserRead> {
-    Json(UserRead::from(&ica_application::local_user()))
+/// `GET /auth/me` — the identity established by the SEC-04-B auth middleware.
+/// Local mode still answers the synthetic user; a verified bearer answers with
+/// the real actor/tenant/role carried by the access token.
+async fn me_endpoint(Extension(ctx): Extension<ica_application::RequestContext>) -> Json<UserRead> {
+    if ctx.actor_id == ica_application::auth::LOCAL_USER_ID {
+        return Json(UserRead::from(&ica_application::local_user()));
+    }
+    Json(UserRead {
+        id: ctx.actor_id,
+        email: String::new(),
+        display_name: String::new(),
+        role: ctx.role,
+        tenant_id: ctx.tenant_id,
+        is_active: ctx.active,
+    })
 }
 
 /// `POST /shares` — grant (or upgrade) one recipient's access. The local
 /// user is the owner.
 async fn create_share_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<ShareRead>), ApiError> {
     let raw: body::RawShareCreate = body::parse(&body)?;
     let create = body::share_create(raw)?;
-    // The trusted identity travels in a RequestContext; authorization runs in
-    // the Application use case on BOTH transports.
-    let ctx = ica_application::RequestContext::local();
+    // The trusted identity travels in a RequestContext injected by the
+    // SEC-04-B middleware; authorization runs in the Application use case on
+    // BOTH transports.
     let share = ica_application::create_share(
         state.auth_repo(),
         &ctx,
@@ -1388,8 +1435,8 @@ async fn create_share_endpoint(
 /// `GET /shares` — the user's shares (granted or received), newest first.
 async fn list_shares_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<Vec<ShareRead>>, ApiError> {
-    let ctx = ica_application::RequestContext::local();
     let shares = ica_application::list_shares(state.auth_repo(), &ctx).await?;
     Ok(Json(shares.iter().map(ShareRead::from).collect()))
 }
@@ -1397,9 +1444,9 @@ async fn list_shares_endpoint(
 /// `DELETE /shares/{id}` — owner or admin, decided by the Application layer.
 async fn delete_share_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(share_id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
-    let ctx = ica_application::RequestContext::local();
     ica_application::delete_share(state.auth_repo(), &ctx, &share_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
