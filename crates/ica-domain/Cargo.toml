@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Pure domain model for the ICA backend: entities, enums, pagination and search rules."
 
 # Layer 1 (innermost). No web framework, no database driver, no async runtime:
@@ -15,3 +17,6 @@ sha2.workspace = true
 regex.workspace = true
 # `normalize_name` (candidate extraction): NFKC, like `unicodedata.normalize`.
 unicode-normalization.workspace = true
+
+[lints]
+workspace = true

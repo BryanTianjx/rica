@@ -19,12 +19,43 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.98"
 publish = false
+# SPE-BAS-002 §5.2/§5.3: public package metadata has one source of truth.
+# LICENSE (repo root, MIT) and CHANGELOG.md stay in sync with these fields.
+license = "MIT"
+repository = "https://github.com/BryanTianjx/rica"
+
+# SPE-BAS-002 §8.5: one lint baseline for the whole workspace. Members inherit
+# it with `[lints] workspace = true`; no crate defines its own competing set.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+unused_must_use = "deny"
+# DEFERRED (SPEC-BAS-002 §8.5 target: library warn+). Workspace lints are
+# uniform — Cargo forbids a member overriding an inherited lint — and
+# `-D warnings` promotes warn to deny. Measured on this tree: 265 missing
+# documentation items. Declared at `allow` so the strict lints below remain
+# active and the gate stays green; the doc rollout is a tracked follow-up.
+missing_docs = "allow"
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "warn"
+await_holding_lock = "deny"
+dbg_macro = "deny"
+# DEFERRED for the same reason (measured: 16 unwrap/expect on the first
+# checked targets, 187 call sites in tree). Target per §8.5: library deny,
+# application warn; a per-crate rollout is required before tightening.
+unwrap_used = "allow"
+expect_used = "allow"
+todo = "warn"
 
 # Single source of truth for dependency versions. The layering rule is
 # encoded here as much as in the source: ica-domain and ica-application are
 # deliberately absent from every web/database/runtime entry below.
 [workspace.dependencies]
 # ── domain / application (no framework, no runtime) ───────────────────────
+# SPE-BAS-002 §10.1: library/domain error types derive thiserror. Version 2 is
+# already in Cargo.lock (transitively); declaring it here makes the direct
+# dependency explicit and single-sourced.
+thiserror = "2"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 async-trait = "0.1"
 # Content fingerprint (`content_hash`): pure computation, so the domain keeps

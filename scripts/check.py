@@ -156,8 +156,8 @@ def main() -> int:
         return 1
 
     print()
-    print("== 3/4 cargo clippy --all-targets -- -D warnings ==")
-    if run(["cargo", "clippy", "--all-targets", "--workspace", "--", "-D", "warnings"], env) != 0:
+    print("== 3/4 cargo clippy --locked --all-targets -- -D warnings ==")
+    if run(["cargo", "clippy", "--locked", "--all-targets", "--workspace", "--", "-D", "warnings"], env) != 0:
         return 1
 
     print()
@@ -171,7 +171,7 @@ def main() -> int:
     extra = shlex.split(os.environ.get("CARGO_TEST_EXTRA_ARGS", ""))
     # `--` is mandatory: without it cargo parses `--skip` as its own flag and
     # exits with "unexpected argument '--skip' found" before any test runs.
-    test_command = ["cargo", "test", "--workspace", *(["--", *extra] if extra else [])]
+    test_command = ["cargo", "test", "--locked", "--workspace", *(["--", *extra] if extra else [])]
     print(f"   command: {' '.join(test_command)}")
     code, output = run_capture(test_command, env)
     if code != 0:

@@ -17,8 +17,11 @@ pub struct ListCandidates {
     pub limit: usize,
 }
 
+/// SPE-BAS-002 §10.1: use the thiserror `#[from]` bridge here. The generated
+/// `From<RepositoryError>` keeps the original error as `source()` while the
+/// wire mapping (`code`/`http_status`/`message`) matches the old helper.
 fn unavailable(error: RepositoryError) -> ApplicationError {
-    error.application_error()
+    error.into()
 }
 
 /// List one page of candidates, `updated_at DESC`, with the real total.

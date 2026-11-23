@@ -40,6 +40,17 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # SPE-BAS-002 §13.4: the dependency policy is checked in this workflow,
+      # not left to a local-only script. `cargo deny check` covers licenses,
+      # advisories and bans (deny.toml at the repo root).
+      - name: Dependency audit tools (cargo-deny + cargo-audit)
+        run: |
+          cargo install cargo-deny --locked
+          cargo install cargo-audit --locked
+
+      - name: Dependency audit (cargo deny check)
+        run: cargo deny check
+
       # The single entry point for local AND CI. It delegates to scripts/check.py,
       # the endpoint reconciliation scripts, the sidecar contract test, the
       # frontend package.json scripts and the Tauri host. SKIP/BLOCKED stages are
@@ -49,6 +60,27 @@ jobs:
         run: python3 scripts/gate.py --ci --out gate-run.json
         env:
           ICA_GATE_TIMEOUT: '900'
+
+      # SPE-BAS-002 §15.3: a BLOCKED security_scan is NOT a pass. The merge
+      # gate below refuses to complete unless that stage actually PASSed.
+      # NOTE: gate.py itself is deliberately untouched here — changing it is
+      # in the SPEC-SCRIPTS card's scope. This workflow enforces the same
+      # BLOCKED rule at the CI boundary.
+      - name: Enforce security_scan PASS (merge blocker)
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          record = json.loads(open("gate-run.json", encoding="utf-8").read())
+          stage = next((s for s in record["stages"] if s["name"] == "security_scan"), None)
+          if stage is None:
+              print("security_scan stage missing from gate-run.json - refusing to merge")
+              sys.exit(1)
+          print(f"security_scan status: {stage['status']}")
+          if stage["status"] != "PASS":
+              print("BLOCKED: security_scan must be PASS before merge (SPE-BAS-002 15.3).")
+              print(stage.get("detail", ""))
+              sys.exit(1)
+          PY
 
       - name: Publish gate execution record (traceability to this HEAD)
         if: always()

@@ -105,6 +105,10 @@ impl Drop for JwtKey {
         // Volatile writes stop the optimiser from eliding the wipe. Rotation
         // drops the previous key here, so old key material is cleared.
         for byte in self.bytes.iter_mut() {
+            // SAFETY: `byte` is a unique, live mutable reference into
+            // `self.bytes`, so the volatile write is aligned, in-bounds and
+            // has no aliasing readers for the duration of the write. Volatile
+            // is required so the optimiser cannot elide the key wipe.
             unsafe { std::ptr::write_volatile(byte, 0u8) };
         }
     }

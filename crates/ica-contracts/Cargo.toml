@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "The transport-neutral wire contract: request validation, response DTOs and the error shape shared by every adapter."
 
 # Layer 2.5, beside `ica-application`: pure data and pure validation. No axum,
@@ -17,3 +19,6 @@ serde_json.workspace = true
 chrono.workspace = true
 form_urlencoded.workspace = true
 serde_urlencoded.workspace = true
+
+[lints]
+workspace = true
