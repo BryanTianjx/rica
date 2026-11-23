@@ -3,10 +3,10 @@ title: "ICA-RUST 缺陷台账"
 document_id: "DEF-ICA-REGISTER-001"
 document_type: "DefectRegister"
 project: "ICA-RUST"
-version: "1.0.0"
+version: "1.1.0"
 status: "Active"
 created: "2026-11-21"
-updated: "2026-11-21"
+updated: "2026-11-23"
 owner: "ICA-RUST 项目负责人"
 reviewers: []
 related_documents:
@@ -21,16 +21,25 @@ supersedes: null
 复现步骤/预期/实际/证据/修复版本/回归验证)。生命周期:New → Triaged → Assigned →
 In Progress → Fixed → Ready for Retest → Verified → Closed。
 
-| 编号 | 标题 | 严重度 | 优先级 | 模块 | 发现版本 | 状态 |
-|---|---|---|---|---|---|---|
-| DEF-001 | OCR 测试夹具 Windows 平台缺陷(非法 JSON 转义) | Minor | P1 | ica-api/tests/w4_imports_http.rs | ff7b9eb(2026-11-21) | **Closed**(2026-11-21 修复,365/0 全绿回归确认) |
-| DEF-002 | 数据库零迁移机制,已装库无法升级 | Major | P1 | ica-infra / ica-server | ff7b9eb(2026-11-21) | **Closed**(ica-infra::migrations,6 测试通过;365/0 全绿回归确认) |
-| DEF-003 | 核心招聘闭环 E2E 测试缺位 | Major | P2 | 全仓 | ff7b9eb(2026-11-21) | Triaged |
-| DEF-004 | 未提交 B1 POC 违反 fmt/clippy 门禁(7 警告+fmt diff) | Minor | P2 | ica-desktop(未提交文件) | ff7b9eb(2026-11-21) | **Closed**(fmt --check 通过 + clippy 全仓 0 警告;365/0 全绿回归确认) |
-| DEF-005 | ica-baseline.sql 头注释过时("20 tables/66 indexes",实测 32/121) | Trivial | P3 | ica-infra/schema | ff7b9eb(2026-11-21) | **Closed**(2026-11-21 头注释已重测修正) |
-| DEF-006 | browser_poc 在"发现 Chromium 但浏览器不可启动"的机器上无限挂起 | Major | P2 | ica-desktop/tests/browser_poc.rs(未提交) | ff7b9eb(2026-11-21) | Triaged |
-| DEF-007 | libsqlite3-sys 供应链漏洞(RUSTSEC-2026-0459) | Minor | P2 | Cargo.lock / sqlx-sqlite + rusqlite | 2026-11-22 (cargo-audit) | **Accepted + 监测**(独立安全验证待人工) |
-| DEF-008 | 失维护依赖告警 ×3(chrono / paste / ttf-parser) | Minor | P2 | Cargo.lock | 2026-11-22 (cargo-audit) | **Accepted + 监测**(官方无修复版本) |
+## 结构化字段（SPEC-QA / SPE-QA-001 §9.4）
+
+`FixVersion` 与 `RetestResult` 为结构化字段，取值固定，不用自由文本代替：
+
+- `FixVersion`: `NOT_FIXED` / `NOT_AVAILABLE` / 具体修复版本或日期+范围（无 commit 号时如实写"commit 未记录"）。
+- `RetestResult`: `PASS` / `PASS_BY_INSPECTION` / `NOT_EXECUTED` / `BLOCKED`。
+  `PASS` 只在已有回归输出可引时填写；无自动化验证的重测写 `PASS_BY_INSPECTION`；
+  未修复、未重测或环境受限一律写 `NOT_EXECUTED` / `BLOCKED`，不得自签 Verified。
+
+| 编号 | 标题 | 严重度 | 优先级 | 模块 | 发现版本 | 状态 | FixVersion | RetestResult |
+|---|---|---|---|---|---|---|---|---|
+| DEF-001 | OCR 测试夹具 Windows 平台缺陷(非法 JSON 转义) | Minor | P1 | ica-api/tests/w4_imports_http.rs | ff7b9eb(2026-11-21) | **Closed**(2026-11-21 修复,365/0 全绿回归确认) | 2026-11-21 夹具修复(commit 未记录) | PASS |
+| DEF-002 | 数据库零迁移机制,已装库无法升级 | Major | P1 | ica-infra / ica-server | ff7b9eb(2026-11-21) | **Closed**(ica-infra::migrations,6 测试通过;365/0 全绿回归确认) | 2026-11-21 引入 ica-infra::migrations | PASS |
+| DEF-003 | 核心招聘闭环 E2E 测试缺位 | Major | P2 | 全仓 | ff7b9eb(2026-11-21) | Triaged | NOT_FIXED | NOT_EXECUTED |
+| DEF-004 | 未提交 B1 POC 违反 fmt/clippy 门禁(7 警告+fmt diff) | Minor | P2 | ica-desktop(未提交文件) | ff7b9eb(2026-11-21) | **Closed**(fmt --check 通过 + clippy 全仓 0 警告;365/0 全绿回归确认) | 2026-11-21 POC 清理(已提交代码) | PASS |
+| DEF-005 | ica-baseline.sql 头注释过时("20 tables/66 indexes",实测 32/121) | Trivial | P3 | ica-infra/schema | ff7b9eb(2026-11-21) | **Closed**(2026-11-21 头注释已重测修正) | 2026-11-21 头注释修正 | PASS_BY_INSPECTION |
+| DEF-006 | browser_poc 在"发现 Chromium 但浏览器不可启动"的机器上无限挂起 | Major | P2 | ica-desktop/tests/browser_poc.rs(未提交) | ff7b9eb(2026-11-21) | Triaged | NOT_FIXED | NOT_EXECUTED |
+| DEF-007 | libsqlite3-sys 供应链漏洞(RUSTSEC-2026-0459) | Minor | P2 | Cargo.lock / sqlx-sqlite + rusqlite | 2026-11-22 (cargo-audit) | **Accepted + 监测**(独立安全验证待人工) | NOT_FIXED(待 libsqlite3-sys ≥ 0.39 协同升级) | NOT_EXECUTED |
+| DEF-008 | 失维护依赖告警 ×3(chrono / paste / ttf-parser) | Minor | P2 | Cargo.lock | 2026-11-22 (cargo-audit) | **Accepted + 监测**(官方无修复版本) | NOT_AVAILABLE(官方无修复版本) | NOT_EXECUTED |
 
 > DOC-04 同步（ARCH-P6）：DEF-007/008 此前只在「明细」出现、汇总表漏登记，现已补齐。
 > `Fixed ≠ Verified`；本表没有把任何条目自签为 Verified。AC3（Windows 实机）
@@ -50,6 +59,8 @@ In Progress → Fixed → Ready for Retest → Verified → Closed。
 - **修复方案(已评):** 路径改 `std::env::temp_dir()`;JSON 体改 serde_json 序列化;
   模型路径参数化(env 或 cfg)。环境差异按 SPE-QA-001 兼容性测试条款治理。
 - **证据:** docs/audits/mvp-r1.0/test-baseline.md §2。
+- **FixVersion:** 2026-11-21 夹具修复(commit 未记录)。
+- **RetestResult:** PASS — `365 passed / 0 failed`(台账原记录;历史证据 test-report-r1.0.md)。
 
 ### DEF-002 数据库零迁移机制
 - **复现条件:** 检查 crates/ica-infra 与 ica-server;`grep -r migrate\|refinery`。
@@ -57,17 +68,23 @@ In Progress → Fixed → Ready for Retest → Verified → Closed。
 - **实际:** 仅 baseline 快照;测试整库应用;server 只自检 2 张表;alembic_version 表存在但无版本行。
 - **影响:** 真实用户数据装库后无法升级 schema — MVP 发布门禁阻断项。
 - **证据:** docs/audits/mvp-r1.0/module-inventory.md §3。
+- **FixVersion:** 2026-11-21 引入 `ica-infra::migrations`(6 测试通过)。
+- **RetestResult:** PASS — migrations 6/6 + `365 passed / 0 failed`(台账原记录)。
 
 ### DEF-003 核心招聘闭环 E2E 缺位
 - **复现条件:** 对照 R1.0 文档 §8.2 十二步闭环清单与现有测试文件。
 - **实际:** 无跨模块 E2E(项目→岗位→候选人→沟通→跟进→AI 草稿→重启验证)。
 - **关联:** AUDIT-ICA-ENG-001 行动清单 #6/#7;随 Phase 4/5 建立。
+- **FixVersion:** NOT_FIXED。
+- **RetestResult:** NOT_EXECUTED — E2E 用例尚未建立，无回归可引。
 
 ### DEF-004 B1 POC lint 违规
 - **复现条件:** 工作树(未提交 browser.rs/bin/browser_poc.rs)执行 `cargo fmt --check` 与 clippy。
 - **实际:** fmt diff 仅在 ica-browser-worker.rs;clippy 7 警告全属 ica-desktop POC 文件;
   已提交代码零违规。另 1 个 unused import。
 - **处置:** 与 S-3(POC 入库决策)联动:清理后提交或明确不入库。
+- **FixVersion:** 2026-11-21 POC 清理(已提交代码)。
+- **RetestResult:** PASS — `fmt --check` 0 diff + clippy 全仓 0 警告 + `365 passed / 0 failed`(台账原记录)。
 
 ### DEF-006 browser_poc 环境健壮性缺陷(挂起)
 - **复现条件:** Windows 机器上 `discover_chromium` 能找到 Chromium 路径、但浏览器实际无法启动/连接
@@ -78,6 +95,8 @@ In Progress → Fixed → Ready for Retest → Verified → Closed。
   `discover_chromium` 成功 ≠ 可启动,launch 失败要回到跳过路径。
 - **本轮规避:** 全量验证以 `--skip` 显式排除 3 个 POC 用例并记录(Skipped,不计入 Passed)。
 - **证据:** 进程列表(19:52:02 三个 worker,0 CPU)+ 测试日志 60 秒超时告警 ×3。
+- **FixVersion:** NOT_FIXED。
+- **RetestResult:** NOT_EXECUTED — 3 例以 `--skip` 排除(Skipped 不计入 Passed);见 test-report-arch-p6.md §1.2。
 
 ### DEF-007 libsqlite3-sys 供应链漏洞(RUSTSEC-2026-0459)
 - **发现方式:** cargo-audit v0.23.0(2026-11-22,1555 条 advisory / 390 依赖扫描)。
@@ -91,6 +110,8 @@ In Progress → Fixed → Ready for Retest → Verified → Closed。
   (两者必须同步升到兼容版本),升级后跑全量回归(含备份/迁移/事务测试)。升级前
   以 DEF-008 的接受+监测口径管理。
 - **证据:** docs/testing/sec09-audit-r1.log。
+- **FixVersion:** NOT_FIXED — 待 libsqlite3-sys ≥ 0.39 的 sqlx/rusqlite 协同升级。
+- **RetestResult:** NOT_EXECUTED — 升级未实施，无升级后回归证据。
 
 ### DEF-008 失维护依赖告警 ×3(接受 + 监测)
 - **发现方式:** 同 DEF-007 扫描。
@@ -100,8 +121,12 @@ In Progress → Fixed → Ready for Retest → Verified → Closed。
 - **处置:** 接受 + 监测(挂在本仓 cargo audit 门禁上,advisory 更新出修复即跟进)。
   chrono 迁移(time/jiff)属大范围 API 翻新,归入技术债台账而非本轮。
 - **证据:** docs/testing/sec09-audit-r1.log。
+- **FixVersion:** NOT_AVAILABLE — 三个 advisory 官方均无修复版本。
+- **RetestResult:** NOT_EXECUTED — 接受+监测口径，待 advisory 更新后重扫。
 
 ### DEF-005 baseline.sql 头注释过时
 - **复现条件:** `grep '^CREATE TABLE' crates/ica-infra/schema/ica-baseline.sql | wc -l` = 32;
   `grep -c 'CREATE INDEX'` = 121;文件头写 "20 tables, 66 indexes"。
 - **处置:** 重新生成(脚本导出)或人工修正注释;不触碰 DDL 本身。
+- **FixVersion:** 2026-11-21 头注释修正。
+- **RetestResult:** PASS_BY_INSPECTION — 重测 `32 tables / 121 indexes`;无自动化断言，不自签 PASS。
