@@ -1,0 +1,24 @@
+=== BEFORE
+DB_EXISTS=True
+REG_CHROME=True
+REG_EDGE=True
+DATA O:\temp\ica-accept-data\ica.db
+DATA O:\temp\ica-accept-data\ica.db-shm
+DATA O:\temp\ica-accept-data\ica.db-wal
+DATA O:\temp\ica-accept-data\jwt_secret
+DATA O:\temp\ica-accept-data\browser\connector\com.ica.connector.json
+DATA O:\temp\ica-accept-data\logs\host.log
+DATA O:\temp\ica-accept-data\logs\sidecar.log
+UNINSTALL_EXIT=0
+=== AFTER
+INSTALL_DIR_EXISTS=False
+REG_CHROME=False
+REG_EDGE=False
+DB_EXISTS=True
+DATA O:\temp\ica-accept-data\ica.db
+DATA O:\temp\ica-accept-data\ica.db-shm
+DATA O:\temp\ica-accept-data\ica.db-wal
+DATA O:\temp\ica-accept-data\jwt_secret
+DATA O:\temp\ica-accept-data\browser\connector\com.ica.connector.json
+DATA O:\temp\ica-accept-data\logs\host.log
+DATA O:\temp\ica-accept-data\logs\sidecar.log

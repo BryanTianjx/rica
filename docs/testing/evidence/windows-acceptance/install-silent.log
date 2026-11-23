@@ -1,0 +1,15 @@
+INSTALL_EXIT=0
+FILES=4546
+OK ica-desktop-host.exe bytes=44675072
+OK bundle-resources\sidecar\runtime\python\python.exe bytes=91648
+OK bundle-resources\ui\index.html bytes=528
+OK bundle-resources\version-manifest.json bytes=2030
+OK bundle-resources\SHA256SUMS bytes=542379
+MISSING unins000.exe
+=== REG
+OK HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.ica.connector = O:\temp\ica-accept-data\browser\connector\com.ica.connector.json
+OK HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.ica.connector = O:\temp\ica-accept-data\browser\connector\com.ica.connector.json
+=== DATA
+O:\temp\ica-accept-data\browser
+O:\temp\ica-accept-data\browser\connector
+O:\temp\ica-accept-data\browser\connector\com.ica.connector.json

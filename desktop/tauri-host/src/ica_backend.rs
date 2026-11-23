@@ -34,6 +34,7 @@ fn announce(app: &AppHandle, kind: PositionChangeKind, id: impl Into<String>) {
 /// HTTP read observe each other (F2's persistence-parity acceptance).
 /// `DesktopState::from_store` assembles every port view from the one store,
 /// mirroring ica-server's assembly one adapter at a time.
+#[derive(Clone)]
 pub struct IcaState {
     inner: DesktopState,
 }

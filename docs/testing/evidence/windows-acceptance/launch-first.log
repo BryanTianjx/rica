@@ -1,0 +1,13 @@
+LAUNCH_PID=5288
+ApplicationFrameHost:5064
+ica-desktop-host:5288
+python:20200
+python:28524
+=== DATA
+O:\temp\ica-accept-data\ica.db bytes=876544
+O:\temp\ica-accept-data\ica.db-shm bytes=32768
+O:\temp\ica-accept-data\ica.db-wal bytes=0
+O:\temp\ica-accept-data\jwt_secret bytes=64
+O:\temp\ica-accept-data\browser\connector\com.ica.connector.json bytes=298
+O:\temp\ica-accept-data\logs\host.log bytes=1277
+O:\temp\ica-accept-data\logs\sidecar.log bytes=203

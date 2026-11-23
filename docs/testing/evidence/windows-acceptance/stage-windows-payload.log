@@ -1,0 +1,47 @@
+[stage_bundle] version=0.2.2 target=x86_64-pc-windows-msvc tier=B1 release_asset=true
+[stage_bundle] == interpreter ==
+fetch_runtime: archive verified sha256=1f2ab53880fc67ea323398c6388e05af28addc99a8e389209f08a51fdff4b149 bytes=22014416
+fetch_runtime: extracted O:\temp\ica-stage\build\x86_64-pc-windows-msvc\sidecar\runtime\python (pyc in outgoing tree: 0)
+fetch_runtime: trim dirs=9 files=0 pyc=565->159
+fetch_runtime: runtime=O:\temp\ica-stage\build\x86_64-pc-windows-msvc\sidecar\runtime\python bytes=40221990 entries=881 budget=41943040 within_budget=True
+{"archive_sha256": "1f2ab53880fc67ea323398c6388e05af28addc99a8e389209f08a51fdff4b149", "interpreter": "O:\\temp\\ica-stage\\build\\x86_64-pc-windows-msvc\\sidecar\\runtime\\python\\python.exe", "interpreter_version": "3.12.16", "pinned_python": "3.12.16", "release_asset": true, "runtime_dir": "O:\\temp\\ica-stage\\build\\x86_64-pc-windows-msvc\\sidecar\\runtime\\python", "runtime_source": "pinned-archive", "target": "x86_64-pc-windows-msvc", "trimmed_bytes": 40221990, "trimmed_bytes_max": 41943040, "within_budget": true}
+[stage_bundle] == dependencies ==
+ok   required  bcrypt               <- bcrypt
+ok   required  cryptography         <- cryptography
+ok   required  fastapi              <- fastapi
+ok   required  httpx                <- httpx
+ok   required  jwt                  <- pyjwt
+ok   required  pydantic             <- pydantic
+ok   required  pydantic_settings    <- pydantic-settings
+ok   required  sqlalchemy           <- sqlalchemy
+ok   required  starlette            <- starlette
+note optional  PIL                  <- not shipped (optional extra omitted): application\ocr_service.py:line 41
+note optional  rapidocr             <- not shipped (optional extra omitted): application\ocr_service.py:line 42
+ok   platform  x86_64-pc-windows-msvc               O:\temp\ica-stage\build\x86_64-pc-windows-msvc\versions\0.2.2\sidecar\site-packages
+checked 9 required + 2 guarded import(s) against 35 base distribution(s)
+G-DEP OK
+[stage_bundle] == payload site-packages .pth ==
+pth: O:\temp\ica-stage\build\x86_64-pc-windows-msvc\versions\0.2.2\sidecar\runtime\python\Lib\site-packages\ica-payload-site-packages.pth -> ..\..\..\..\site-packages
+[stage_bundle] == application ==
+[stage_bundle] == browser python packages ==
+[stage_bundle] == ui ==
+connector manifest template: O:\temp\ica-stage\build\x86_64-pc-windows-msvc\versions\0.2.2\sidecar\tools\connector_manifest.json (extension dagjdegfbllmdckkoopdafogoofjkmba)
+[stage_bundle] == compileall (B1) ==
+[stage_bundle] == manifest ==
+manifest: O:\temp\ica-stage\build\x86_64-pc-windows-msvc\versions\0.2.2\version-manifest.json (4227 files hashed)
+alembic_head=501a807efa03 app_version=0.2.2 python=3.12.16 tier=B1 runtime_source=pinned-archive build_commit=9ed173cdc6736f1213fc5697537c7f2e3a433709 release_asset=true pyc={"sidecar/app": {"py": 119, "py_bytes": 1209674, "pyc": 119, "pyc_bytes": 1450239}, "sidecar/runtime/python/Lib": {"py": 592, "py_bytes": 10268088, "pyc": 592, "pyc_bytes": 10761826}, "sidecar/site-packages": {"py": 1090, "py_bytes": 20145755, "pyc": 1090, "pyc_bytes": 22404827}}
+unit_bytes=226902911
+[stage_bundle] == launcher + current.json ==
+[stage_bundle] size gate: M5a 157286400 B + browser allowance 134217728 B
+[stage_bundle] == size gate (unit <= 291504128 B) ==
+component                           bytes      MiB  entries
+sidecar/app                       2661283     2.54      277
+sidecar/site-packages           176309216   168.14     3095
+sidecar/runtime                  46970597    44.79     1342
+ui                                 404812     0.39        5
+unit total                      226902911   216.39
+  of which .pyc (C-1)            34616892    33.01
+  base (unit-.pyc)              192286019   183.38
+  C-1 components: base 192286019 B + bytecode 34616892 B (OCR, where present, is part of site-packages: ADR-0002)
+tier=B1 target=x86_64-pc-windows-msvc release_asset=true gate=291504128 within_gate=true
+[stage_bundle] install root staged at /o/temp/ica-stage/build/x86_64-pc-windows-msvc (current.json -> versions/0.2.2)
