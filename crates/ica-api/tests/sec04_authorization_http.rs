@@ -328,3 +328,69 @@ fn sec04_a_matrix_policy_column_matches_whitelist() {
     }
     assert_eq!(public.len(), 2, "only register/login are public contracts");
 }
+
+// ── SEC-04-BC: the matrix's declared public paths must equal PUBLIC_PATHS ──
+
+/// Parse the machine-readable B/C public-path whitelist (the 5 bootstrap
+/// paths) from the authentication matrix. Unlike the A-card marker block
+/// above, this one is the B/C source of truth and must equal
+/// `ica_api::auth::PUBLIC_PATHS` in BOTH directions.
+fn documented_bc_public_paths() -> Vec<String> {
+    let after = SEC04_A_MATRIX
+        .split("<!-- SEC04-BC-PUBLIC-PATHS-BEGIN")
+        .nth(1)
+        .expect("matrix must carry the SEC04-BC public-paths marker");
+    let block = after
+        .split("SEC04-BC-PUBLIC-PATHS-END -->")
+        .next()
+        .expect("matrix must close the SEC04-BC public-paths marker");
+    block
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with("<!--"))
+        .map(str::to_string)
+        .collect()
+}
+
+/// B-AC2 drift gate. The old A-card assertion only compared the matrix markers
+/// with `routes.rs` route registration; it never compared them with the actual
+/// runtime whitelist `auth::PUBLIC_PATHS`. That let `/api/auth/refresh` and
+/// `/api/auth/logout` become public in code while the doc still claimed they
+/// needed an access token. Pin both sides here so either direction of drift
+/// breaks the build.
+#[test]
+fn sec04_bc_public_paths_match_auth_public_paths() {
+    let mut documented = documented_bc_public_paths();
+    documented.sort();
+    let mut from_code: Vec<String> = ica_api::auth::PUBLIC_PATHS
+        .iter()
+        .map(|path| path.to_string())
+        .collect();
+    from_code.sort();
+
+    // Bidirectional: a documented path missing from code, or a code path
+    // missing from the doc, both fail here.
+    assert_eq!(
+        documented, from_code,
+        "matrix SEC04-BC public paths and auth::PUBLIC_PATHS have drifted"
+    );
+    // Pin the concrete 5-path set as well, so silently shrinking/renaming the
+    // whole set in both places cannot pass.
+    assert_eq!(
+        from_code,
+        vec![
+            "/api/auth/login".to_string(),
+            "/api/auth/logout".to_string(),
+            "/api/auth/refresh".to_string(),
+            "/api/auth/register".to_string(),
+            "/health".to_string(),
+        ],
+        "PUBLIC_PATHS must be the documented 5-path bootstrap chain"
+    );
+
+    // The doc must not still claim refresh/logout require an access token.
+    assert!(
+        SEC04_A_MATRIX.contains("不要求 access token"),
+        "matrix must state that bootstrap paths do not require an access token"
+    );
+}

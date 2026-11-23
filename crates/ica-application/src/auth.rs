@@ -398,6 +398,23 @@ pub async fn delete_share(
             message: format!("Share '{share_id}' was not found"),
         });
     };
+    // SEC-04-B/C cross-tenant guard: `can_administer` only compares the actor
+    // id and the admin role, so on its own it would let a tenant-B admin
+    // revoke a tenant-A share (HTTP 204). Admin is tenant-scoped: resolve the
+    // owner's tenant and hide out-of-scope rows like other cross-tenant
+    // resources (404). The Local synthetic share has no owner user row, so it
+    // keeps its existing behaviour.
+    if let Some(owner) = repository
+        .get_user(&share.owner_id)
+        .await
+        .map_err(|error| error.application_error())?
+    {
+        if owner.tenant_id != ctx.tenant_id {
+            return Err(ApplicationError::NotFound {
+                message: format!("Share '{share_id}' was not found"),
+            });
+        }
+    }
     if !ctx.can_administer(&share.owner_id) {
         return Err(unauthorized("Only the owner can revoke this share"));
     }
