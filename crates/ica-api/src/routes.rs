@@ -1403,3 +1403,69 @@ async fn delete_share_endpoint(
     ica_application::delete_share(state.auth_repo(), &ctx, &share_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+/// SEC-04-A AC3 — route-manifest assertions only. No routing behaviour is
+/// changed here: the tests pin that the matrix's paths and public whitelist
+/// describe the routes actually registered by [`router`].
+#[cfg(test)]
+mod sec04_a_route_manifest_tests {
+    use super::ROUTE_PATTERNS;
+
+    const MATRIX: &str = include_str!("../../../docs/architecture/api-authentication-matrix.md");
+
+    /// The three public endpoints (two contract rows + the liveness probe)
+    /// must be real registrations, not documentation fiction.
+    #[test]
+    fn public_whitelist_is_registered() {
+        for path in ["/health", "/api/auth/register", "/api/auth/login"] {
+            assert!(
+                ROUTE_PATTERNS.contains(&path),
+                "SEC-04-A public endpoint {path} is missing from the route manifest"
+            );
+        }
+    }
+
+    /// Every one of the 68 contract rows resolves to a registered axum path;
+    /// the extra `confirm-candidate` route is the documented D-2 helper.
+    #[test]
+    fn every_matrix_contract_path_is_a_registered_route() {
+        const EXTRA: &str = "/api/imports/{session_id}/confirm-candidate";
+        let mut documented: Vec<String> = Vec::new();
+        let mut rows = 0usize;
+        for line in MATRIX.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with('|') {
+                continue;
+            }
+            let cells: Vec<&str> = trimmed
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect();
+            if cells.len() < 3 || cells[0].parse::<u32>().is_err() {
+                continue;
+            }
+            rows += 1;
+            let path = cells[2].trim_matches('`');
+            let registered = format!("/api{path}");
+            assert!(
+                ROUTE_PATTERNS.contains(&registered.as_str()),
+                "matrix contract {} has no matching route registration: {path}",
+                cells[0]
+            );
+            documented.push(registered);
+        }
+        assert_eq!(rows, 68, "the matrix must register exactly 68 contracts");
+
+        // Reverse direction: no manifest entry is undocumented, apart from
+        // the liveness probe and the D-2 non-contract helper.
+        for pattern in ROUTE_PATTERNS {
+            assert!(
+                documented.iter().any(|path| path == pattern)
+                    || *pattern == "/health"
+                    || *pattern == EXTRA,
+                "route {pattern} is missing from the authentication matrix"
+            );
+        }
+    }
+}

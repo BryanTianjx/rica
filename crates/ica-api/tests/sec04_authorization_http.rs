@@ -192,3 +192,136 @@ async fn send(app: axum::Router, request: axum::http::Request<axum::body::Body>)
     };
     TestResponse { status, body }
 }
+
+// ── SEC-04-A AC3: the matrix's public whitelist is executable evidence ────
+
+const SEC04_A_MATRIX: &str =
+    include_str!("../../../docs/architecture/api-authentication-matrix.md");
+const SEC04_A_ROUTES: &str = include_str!("../src/routes.rs");
+const SEC04_A_SERVER_MAIN: &str = include_str!("../../../crates/ica-server/src/main.rs");
+
+/// Parse the machine-readable whitelist fenced by the SEC04-A markers in the
+/// authentication matrix. The markers are the single source of truth shared
+/// between the document and this assertion.
+fn documented_public_endpoints() -> Vec<(String, String)> {
+    let after = SEC04_A_MATRIX
+        .split("SEC04-A-PUBLIC-ENDPOINTS-BEGIN")
+        .nth(1)
+        .expect("matrix must carry the SEC04-A public-endpoint marker");
+    let block = after
+        .split("SEC04-A-PUBLIC-ENDPOINTS-END")
+        .next()
+        .expect("matrix must close the SEC04-A public-endpoint marker");
+    block
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with("<!--"))
+        .map(|line| {
+            let (method, path) = line
+                .split_once(' ')
+                .unwrap_or_else(|| panic!("malformed whitelist entry: {line}"));
+            (method.to_string(), path.to_string())
+        })
+        .collect()
+}
+
+/// The public endpoints in the matrix must be exactly the liveness probe and
+/// the two credential-minting auth endpoints, each really registered in
+/// `routes.rs` with the matching method and with NO authentication layer.
+/// Every other contract is `Local 放行 / 未来需认证`: a Local Mode boundary,
+/// never a claim that authentication is implemented.
+#[test]
+fn sec04_a_public_whitelist_matches_unauthenticated_routes() {
+    let mut documented = documented_public_endpoints();
+    documented.sort();
+    let mut expected = vec![
+        ("GET".to_string(), "/health".to_string()),
+        ("POST".to_string(), "/api/auth/register".to_string()),
+        ("POST".to_string(), "/api/auth/login".to_string()),
+    ];
+    expected.sort();
+    assert_eq!(documented, expected, "matrix whitelist drifted");
+
+    for (method, path) in &expected {
+        let registration = format!(".route(\"{path}\", {}(", method.to_lowercase());
+        assert!(
+            SEC04_A_ROUTES.contains(&registration),
+            "whitelisted endpoint {method} {path} is not registered as {registration}"
+        );
+    }
+
+    // The only two layers in the router are HTTP parity middlewares. If an
+    // authentication layer is added by SEC-04-B/C, this test intentionally
+    // fails until the matrix and this whitelist are updated with it.
+    assert_eq!(
+        SEC04_A_ROUTES
+            .matches(".layer(middleware::from_fn(")
+            .count(),
+        2,
+        "routes.rs has an unexpected middleware layer"
+    );
+    assert!(SEC04_A_ROUTES.contains("http_parity::reject_head"));
+    assert!(SEC04_A_ROUTES.contains("http_parity::redirect_trailing_slash"));
+    assert!(
+        !SEC04_A_ROUTES.contains("auth_layer")
+            && !SEC04_A_ROUTES.contains("require_auth")
+            && !SEC04_A_ROUTES.contains("jwt_middleware"),
+        "this build must not claim an HTTP authentication gate"
+    );
+
+    // The document must state the release rule, and the startup code must
+    // still be honest about the missing multi-user authentication.
+    assert!(SEC04_A_MATRIX.contains("SEC-04 完成前禁止远程暴露"));
+    assert!(SEC04_A_MATRIX.contains("docs/architecture/remote-exposure-gate.md"));
+    assert!(SEC04_A_SERVER_MAIN.contains("NETWORK_AUTHENTICATION_READY: bool = false"));
+    assert!(SEC04_A_SERVER_MAIN.contains("多用户认证尚未实现，不能启用远程模式"));
+    assert!(SEC04_A_SERVER_MAIN.contains("ICA_AUTH_REQUIRED"));
+}
+
+/// The matrix's new policy column is derived from the whitelist above: the two
+/// anonymous contract rows are public, the other 66 are Local-only for now.
+#[test]
+fn sec04_a_matrix_policy_column_matches_whitelist() {
+    let public: Vec<String> = documented_public_endpoints()
+        .into_iter()
+        .map(|(_method, path)| path)
+        .filter(|path| path != "/health")
+        .collect();
+    let mut ids = Vec::new();
+    for line in SEC04_A_MATRIX.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('|') {
+            continue;
+        }
+        let cells: Vec<&str> = trimmed
+            .trim_matches('|')
+            .split('|')
+            .map(str::trim)
+            .collect();
+        if cells.len() < 7 || cells[0].parse::<u32>().is_err() {
+            continue;
+        }
+        ids.push(cells[0].parse::<u32>().unwrap());
+        let path = cells[2].trim_matches('`');
+        let full_path = format!("/api{path}");
+        let policy = cells[6];
+        if public.iter().any(|public_path| public_path == &full_path) {
+            assert_eq!(
+                policy, "公开端点白名单",
+                "contract {} ({path}) must be public",
+                cells[0]
+            );
+        } else {
+            assert_eq!(
+                policy, "Local 放行 / 未来需认证",
+                "contract {} ({path}) must not be public",
+                cells[0]
+            );
+        }
+    }
+    assert_eq!(ids.len(), 68, "matrix must have exactly 68 contract rows");
+    for (index, id) in ids.iter().enumerate() {
+        assert_eq!(*id, index as u32 + 1, "contract ids must be 1..68");
+    }
+    assert_eq!(public.len(), 2, "only register/login are public contracts");
+}
