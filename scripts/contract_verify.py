@@ -7,7 +7,9 @@ opened: the service runs from a throwaway copy in /tmp, and its database is a
 copy of the seed too.
 
 Usage:
-    scripts/contract_verify.py
+    scripts/contract_verify.py --help
+    scripts/contract_verify.py --dry-run
+    scripts/contract_verify.py --force        # authorises scratch deletion
 
 Exit code 0 means `contract_diff.py` reported 0 failures. The captures are
 written to docs/contract-baseline/ so a reviewer can read the raw evidence.
@@ -16,7 +18,13 @@ This is the Python successor of ``scripts/contract_verify.sh``; the shell file
 is kept as a one-line wrapper so existing invocations keep working.
 
 Environment overrides (same names as the shell version):
-    WORK             scratch directory (default /tmp/ica-contract)
+    WORK             scratch directory (default /tmp/ica-contract); must resolve
+                     under /tmp/ica-contract or <repo>/.work/ica-contract, or
+                     under ICA_CONTRACT_WORK_ROOT
+    ICA_CONTRACT_WORK_ROOT  extra absolute deletion-whitelist root
+    ICA_COMMAND_TIMEOUT  per-command timeout in seconds (default 600)
+    PY_BASELINE_REPO     baseline git checkout for the untouched check
+                     (default /mnt/o/ica)
     PY_BASELINE      the Python baseline tree (default /mnt/o/ica/backend)
     PY_VENV_PYTHON   the baseline interpreter (default <PY_BASELINE>/.venv/bin/python)
     PY_PORT          port for the Python baseline (default 8010)
@@ -26,11 +34,14 @@ Environment overrides (same names as the shell version):
 
 from __future__ import annotations
 
+import argparse
+import logging
 import os
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -56,6 +67,79 @@ BASELINE_DB_PATTERNS = ("ica.db", "ica.db-wal", "ica.db-shm")
 
 HEALTH_ATTEMPTS = 60
 HEALTH_INTERVAL = 0.5
+COMMAND_TIMEOUT = int(os.environ.get("ICA_COMMAND_TIMEOUT", "600"))
+PY_BASELINE_REPO = Path(os.environ.get("PY_BASELINE_REPO", "/mnt/o/ica"))
+# SPE-BAS-004 §8.1/§5.6: destructive cleanup is only permitted inside these
+# roots. Extend via ICA_CONTRACT_WORK_ROOT (a real path, not a glob).
+EXTRA_WORK_ROOT = os.environ.get("ICA_CONTRACT_WORK_ROOT", "")
+FORCE = False
+DRY_RUN = False
+LOG = logging.getLogger("contract_verify")
+
+
+def allowed_work_roots() -> list[Path]:
+    """Resolved roots in which this harness may delete scratch state."""
+    roots = [
+        Path("/tmp/ica-contract").resolve(),
+        Path("/tmp/ica-py-baseline").resolve(),
+        (Path(tempfile.gettempdir()) / "ica-contract").resolve(),
+        (Path(tempfile.gettempdir()) / "ica-py-baseline").resolve(),
+        (REPO_ROOT / ".work" / "ica-contract").resolve(),
+    ]
+    if EXTRA_WORK_ROOT:
+        roots.append(Path(EXTRA_WORK_ROOT).expanduser().resolve())
+    return roots
+
+
+def assert_deletable(path: Path, label: str) -> Path:
+    """Fail closed unless `path` is inside a whitelisted scratch root (exit 7)."""
+    target = path.expanduser().resolve()
+    if not any(target.is_relative_to(root) for root in allowed_work_roots()):
+        LOG.error(
+            "%s %s is outside the deletion whitelist %s",
+            label,
+            target,
+            [str(root) for root in allowed_work_roots()],
+        )
+        raise SystemExit(7)
+    if target == Path(target.anchor):
+        LOG.error("refusing to delete a filesystem root: %s", target)
+        raise SystemExit(7)
+    return target
+
+
+def remove_tree(path: Path, label: str) -> None:
+    """Print, validate and (with --force) delete a scratch tree; --dry-run previews."""
+    if not path.exists():
+        LOG.info("%s does not exist, nothing to delete: %s", label, path)
+        return
+    target = assert_deletable(path, label)
+    LOG.info("DELETE TARGET [%s]: %s", label, target)
+    if DRY_RUN:
+        LOG.info("[DRY-RUN] no files were modified")
+        return
+    if not FORCE:
+        LOG.error("refusing to delete %s without --force", target)
+        raise SystemExit(6)
+    shutil.rmtree(target)
+    if target.exists():
+        LOG.error("deletion failed: %s still exists", target)
+        raise SystemExit(5)
+
+
+def run_command(argv: list[str], *, cwd: Path | None = None, env=None,
+                capture: bool = False) -> subprocess.CompletedProcess:
+    """subprocess.run with a mandatory timeout; timeout maps to exit 9."""
+    try:
+        return subprocess.run(
+            argv, cwd=cwd, env=env, check=False, shell=False,
+            capture_output=capture, text=capture, timeout=COMMAND_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired as exc:
+        LOG.error("command timed out after %ss: %s", COMMAND_TIMEOUT, argv[0])
+        if exc.stdout:
+            sys.stderr.write(str(exc.stdout))
+        raise SystemExit(9) from exc
 
 
 def clean_env() -> dict[str, str]:
@@ -136,10 +220,12 @@ def copy_baseline(destination: Path) -> None:
         raise SystemExit("rsync is required to copy the baseline tree")
     excludes = [f"--exclude={name}" for name in EXCLUDED_FROM_BASELINE]
     excludes += [f"--exclude={pattern}" for pattern in BASELINE_DB_PATTERNS]
-    subprocess.run(
-        ["rsync", "-a", *excludes, f"{PY_BASELINE}/", f"{destination}/"],
-        check=True,
+    result = run_command(
+        ["rsync", "-a", *excludes, f"{PY_BASELINE}/", f"{destination}/"]
     )
+    if result.returncode != 0:
+        LOG.error("rsync failed with exit %s", result.returncode)
+        raise SystemExit(result.returncode or 1)
 
 
 def reset_shared_secrets() -> None:
@@ -153,7 +239,7 @@ def reset_shared_secrets() -> None:
     are per-side state that must start equal; the file fallback (the Linux
     dev store) made that stale-state window observable.
     """
-    shutil.rmtree(WORK / "python-data" / "secrets", ignore_errors=True)
+    remove_tree(WORK / "python-data" / "secrets", "shared credential slots")
 
 
 def start_python_baseline() -> subprocess.Popen:
@@ -164,10 +250,9 @@ def start_python_baseline() -> subprocess.Popen:
         )
         raise SystemExit(1)
 
-    tree = Path("/tmp/ica-py-baseline")
-    if tree.exists():
-        shutil.rmtree(tree)
-    tree.mkdir(parents=True)
+    tree = assert_deletable(Path("/tmp/ica-py-baseline"), "baseline copy")
+    remove_tree(tree, "baseline copy")
+    tree.mkdir(parents=True, exist_ok=True)
     copy_baseline(tree)
 
     reset_shared_secrets()
@@ -215,12 +300,11 @@ def cargo_target_dir() -> str:
     The workspace pins `target-dir` to ext4, so ask cargo instead of assuming
     `./target`.
     """
-    result = subprocess.run(
+    result = run_command(
         ["cargo", "metadata", "--format-version", "1", "--no-deps"],
         cwd=REPO_ROOT,
         env=clean_env(),
-        capture_output=True,
-        text=True,
+        capture=True,
     )
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
@@ -232,7 +316,7 @@ def cargo_target_dir() -> str:
 
 def start_rust_port() -> subprocess.Popen:
     """Build and start the Rust port on its own copy of the seeded database."""
-    build = subprocess.run(
+    build = run_command(
         ["cargo", "build", "-p", "ica-server", "--quiet"],
         cwd=REPO_ROOT,
         env=clean_env(),
@@ -299,42 +383,92 @@ def run_script(name: str, *arguments: str, extra_env: dict[str, str] | None = No
     """Run one of the repository's own Python scripts."""
     env = clean_env()
     env.update(extra_env or {})
-    return subprocess.run(
-        [sys.executable, str(SCRIPTS / name), *arguments],
-        cwd=REPO_ROOT,
-        env=env,
-    ).returncode
+    command = [sys.executable, str(SCRIPTS / name), *arguments]
+    if name == "seed_contract_db.py" and FORCE:
+        command.append("--force")
+    if name == "seed_contract_db.py" and DRY_RUN:
+        command.append("--dry-run")
+    return run_command(command, cwd=REPO_ROOT, env=env).returncode
 
 
 def report_baseline_untouched() -> int:
     """Check that the read-only baseline was not modified."""
     say("")
     say("== baseline untouched? ==")
-    status = subprocess.run(
-        ["git", "-C", "/mnt/o/ica", "status", "--porcelain", "-uall"],
-        capture_output=True,
-        text=True,
+    status = run_command(
+        ["git", "-C", str(PY_BASELINE_REPO), "status", "--porcelain", "-uall"],
+        capture=True,
     )
     if status.stdout.strip():
         say("git status: DIRTY")
         return 1
     say("git status: clean")
-    head = subprocess.run(
-        ["git", "-C", "/mnt/o/ica", "rev-parse", "--short", "HEAD"],
-        capture_output=True,
-        text=True,
+    head = run_command(
+        ["git", "-C", str(PY_BASELINE_REPO), "rev-parse", "--short", "HEAD"],
+        capture=True,
     )
     say(f"HEAD: {head.stdout.strip()}")
-    digest = subprocess.run(
-        ["sha256sum", "/mnt/o/ica/backend/ica.db"], capture_output=True, text=True
+    digest = run_command(
+        ["sha256sum", str(PY_BASELINE / "ica.db")], capture=True
     )
     say(f"ica.db sha256: {digest.stdout.split()[0]}")
     return 0
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Seed, boot both services, capture and diff the contract."
+    )
+    parser.add_argument(
+        "--force", action="store_true",
+        help="authorise deletion of whitelisted scratch directories (L4)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="validate paths and preview deletions without changing anything",
+    )
+    parser.add_argument(
+        "--work", type=Path, default=WORK,
+        help="scratch directory (must be inside the deletion whitelist)",
+    )
+    parser.add_argument(
+        "--baseline", type=Path, default=PY_BASELINE,
+        help="Python baseline tree (default PY_BASELINE or /mnt/o/ica/backend)",
+    )
+    parser.add_argument(
+        "--out-dir", type=Path, default=OUT_DIR,
+        help="where capture JSON is written",
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=COMMAND_TIMEOUT,
+        help="timeout in seconds for each external command (default 600)",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    global WORK, PY_BASELINE, PY_VENV_PYTHON, OUT_DIR, COMMAND_TIMEOUT
+    global FORCE, DRY_RUN
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    args = parse_args()
+    if args.timeout <= 0:
+        LOG.error("--timeout must be positive")
+        return 2
+    COMMAND_TIMEOUT = args.timeout
+    FORCE, DRY_RUN = args.force, args.dry_run
+    WORK = args.work.expanduser()
+    PY_BASELINE = args.baseline.expanduser()
+    PY_VENV_PYTHON = os.environ.get(
+        "PY_VENV_PYTHON", str(PY_BASELINE / ".venv" / "bin" / "python")
+    )
+    OUT_DIR = args.out_dir.expanduser()
+    assert_deletable(WORK, "work directory")
     say("== 1/5 seed two independent copies of the shared database ==")
-    shutil.rmtree(WORK, ignore_errors=True)
+    remove_tree(WORK, "work directory")
+    if DRY_RUN:
+        remove_tree(WORK / "python-data" / "secrets", "credential slots")
+        LOG.info("[DRY-RUN] no services started, no files written")
+        return 0
     WORK.mkdir(parents=True, exist_ok=True)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     if run_script("seed_contract_db.py", "--out", str(WORK / "seed.db")) != 0:

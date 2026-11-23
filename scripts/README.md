@@ -9,8 +9,23 @@
 - 依赖 Python 基线 venv 的脚本(标注 ⚠️)需先激活 `O:\ica\backend\.venv`
   (WSL:`/mnt/o/ica/backend/.venv`),其余脚本不依赖任何 Python 环境。
 - Bash 脚本为薄包装,实现均在同名 `.py` 中,保持既有调用方式不变。
-- 统一退出码约定:`0` 成功;`1` 通用失败;`2` 参数错误;`5` 文件/数据错误;
-  `10` 验证失败(对拍不一致/清单不符)。各脚本内如无特殊说明,遵循本约定。
+- 统一退出码约定(SPE-BAS-004 §7.2):`0` 成功;`1` 通用失败;`2` 参数错误(含互斥参数);
+  `3` 环境/依赖缺失(如 gate 的 security_scan 缺 cargo-audit,默认 FAIL);
+  `5` 文件/数据错误(删除/写入失败);`6` 未授权的外部命令/破坏性操作(缺 `--force`);
+  `9` 子进程超时(由 ICA_COMMAND_TIMEOUT / `--timeout` 控制);
+  `10` 验证失败(对拍不一致/清单不符);`124` 外部包装器/流水线超时;
+  `127` 命令未找到;`130` 用户中断(Ctrl-C)。另:`4` 配置错误;`7` 权限/路径白名单拒绝;
+  `8` 资源冲突/状态不满足。各脚本内如无特殊说明,遵循本约定。
+- 破坏性操作(L4):`contract_verify.py` / `seed_contract_db.py` 的删除须 `--force`;
+  `--dry-run` 只打印 `DELETE TARGET` 并不落盘。删除目标必须在
+  `/tmp/ica-contract`、`<repo>/.work/ica-contract` 或 `ICA_CONTRACT_WORK_ROOT` 白名单内,
+  否则退出 7。`frontend/scripts/rewrite-backend-imports.py` 默认只读预览,`--force` 才写入
+  且先生成 `.bak`;发现残留 endpoints/api import 退出 1。
+- 个人路径可覆盖:`check_scope.py` 用 `MAIN_BACKEND` 或 `--main-backend`,
+  `check_endpoint_map.py` 用 `ICA_BACKEND` 或 `--backend`,两者保留旧默认值但不再唯一;
+  `contract_verify.py` 用 `PY_BASELINE` / `--baseline` 与 `PY_BASELINE_REPO`。
+- `gate.py` 默认强制依赖审计:cargo-audit 缺失即 security_scan=FAIL、gate exit 1;
+  仅本地诊断可用 `--skip-security`(CI 禁止使用)。Windows/Tauri 仍为 BLOCKED。
 
 ## 质量门禁(check 系列,L1 只读检查)
 
@@ -49,7 +64,7 @@
 
 ## 约定
 
-1. 所有脚本默认只读或写入明确指定的输出;破坏性操作不存在(GOV/004 §8)。
+1. 所有脚本默认只读或写入明确指定的输出;破坏性操作需 `--force` + 路径白名单 + 目标打印(GOV/004 §8.1)。
 2. 脚本不自动执行 `git commit/push/merge`(SPE-BAS-004 §8.4)。
 3. 新增脚本必须:标准文件头 + `main()->int` 入口 + argparse + pathlib + 本清单登记。
 4. `__pycache__/` 为运行产物,不入库(.gitignore 已覆盖)。

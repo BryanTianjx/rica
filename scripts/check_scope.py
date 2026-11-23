@@ -8,7 +8,9 @@ Python baseline venv, while check.py must stay runnable on a machine that has
 no Python environment at all.
 
 Usage:
-    scripts/check_scope.py
+    scripts/check_scope.py --help
+    scripts/check_scope.py --baseline /path/to/frozen/backend \
+        --main-backend /path/to/main/backend
 
 Exit code 0 means: endpoint map in scope, schema objects in scope, and both
 self-tests pass. The main checkout (which carries the browser subsystem) is
@@ -19,6 +21,7 @@ only touched read-only; set MAIN_BACKEND to point somewhere else.
 
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess
 import sys
@@ -31,7 +34,10 @@ PY_BASELINE = Path(os.environ.get("PY_BASELINE", "/mnt/o/ica/backend"))
 PY_BASELINE_VENV = os.environ.get(
     "PY_VENV_PYTHON", str(PY_BASELINE / ".venv" / "bin" / "python")
 )
+# Legacy local default kept for compatibility only: MAIN_BACKEND / --main-backend
+# is the documented primary source (SPE-BAS-004 §5.6/§9.1).
 MAIN_BACKEND = Path(os.environ.get("MAIN_BACKEND", "/home/bryan/ica/backend"))
+COMMAND_TIMEOUT = int(os.environ.get("ICA_COMMAND_TIMEOUT", "900"))
 MAIN_VENV_PYTHON = os.environ.get(
     "MAIN_VENV_PYTHON", str(MAIN_BACKEND / ".venv" / "bin" / "python")
 )
@@ -47,15 +53,53 @@ def clean_env() -> dict[str, str]:
 
 
 def run_baseline(*arguments: str) -> int:
-    """Run a script with the frozen baseline's interpreter."""
-    return subprocess.run(
-        [PY_BASELINE_VENV, *arguments],
-        cwd=REPO_ROOT,
-        env=clean_env(),
-    ).returncode
+    """Run a script with the frozen baseline's interpreter (timeout -> 9)."""
+    try:
+        return subprocess.run(
+            [PY_BASELINE_VENV, *arguments],
+            cwd=REPO_ROOT,
+            env=clean_env(),
+            timeout=COMMAND_TIMEOUT,
+        ).returncode
+    except subprocess.TimeoutExpired:
+        sys.stderr.write(f"baseline command timed out after {COMMAND_TIMEOUT}s\n")
+        return 9
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--baseline", type=Path, default=PY_BASELINE,
+        help="frozen Python baseline tree (env PY_BASELINE; default /mnt/o/ica/backend)",
+    )
+    parser.add_argument(
+        "--main-backend", type=Path, default=MAIN_BACKEND,
+        help="main checkout for the informational probe (env MAIN_BACKEND; "
+             "legacy default /home/bryan/ica/backend)",
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=COMMAND_TIMEOUT,
+        help="per-command timeout in seconds (default 900; 9 on expiry)",
+    )
+    return parser.parse_args()
 
 
 def main() -> int:
+    global PY_BASELINE, PY_BASELINE_VENV, MAIN_BACKEND, MAIN_VENV_PYTHON
+    global COMMAND_TIMEOUT
+    args = parse_args()
+    if args.timeout <= 0:
+        print("--timeout must be positive")
+        return 2
+    COMMAND_TIMEOUT = args.timeout
+    PY_BASELINE = args.baseline.expanduser()
+    PY_BASELINE_VENV = os.environ.get(
+        "PY_VENV_PYTHON", str(PY_BASELINE / ".venv" / "bin" / "python")
+    )
+    MAIN_BACKEND = args.main_backend.expanduser()
+    MAIN_VENV_PYTHON = os.environ.get(
+        "MAIN_VENV_PYTHON", str(MAIN_BACKEND / ".venv" / "bin" / "python")
+    )
     print(
         "== 1/4 endpoint map: frozen baseline "
         "(expect live 68 / excluded 0 / documented 68) =="
@@ -73,16 +117,21 @@ def main() -> int:
     # confirm-candidate outside the exclusion prefix — see
     # docs/rust-migration-scope-20261118.md §5 before "fixing" it.
     if os.access(MAIN_VENV_PYTHON, os.X_OK):
-        probe = subprocess.run(
-            [
-                MAIN_VENV_PYTHON,
-                str(SCRIPTS / "check_endpoint_map.py"),
-                "--backend",
-                str(MAIN_BACKEND),
-            ],
-            cwd=REPO_ROOT,
-            env=clean_env(),
-        )
+        try:
+            probe = subprocess.run(
+                [
+                    MAIN_VENV_PYTHON,
+                    str(SCRIPTS / "check_endpoint_map.py"),
+                    "--backend",
+                    str(MAIN_BACKEND),
+                ],
+                cwd=REPO_ROOT,
+                env=clean_env(),
+                timeout=COMMAND_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired:
+            print(f"   main checkout probe timed out ({COMMAND_TIMEOUT}s)")
+            return 9
         if probe.returncode == 0:
             print("   main checkout: in-scope comparison matched")
         else:
