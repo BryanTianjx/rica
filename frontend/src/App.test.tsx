@@ -41,4 +41,12 @@ describe('App — 启动路由', () => {
     expect(await screen.findByRole('heading', { name: '工作台' })).toBeInTheDocument();
     expect(backend.dashboard.get).toHaveBeenCalled();
   });
+  it('unknown path renders the 404 fallback', async () => {
+    render(
+      <MemoryRouter initialEntries={['/this-route-does-not-exist']}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('heading', { name: '页面不存在' })).toBeInTheDocument();
+  });
 });

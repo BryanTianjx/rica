@@ -1,0 +1,10 @@
+/* UI 2.0 radius scale (方案 §5.5). Keep the legacy --radius-* variables intact
+ * for existing components; these are the migration targets. */
+:root {
+  --ds-radius-button: 8px;
+  --ds-radius-input: 8px;
+  --ds-radius-card: 12px;
+  --ds-radius-dialog: 14px;
+  --ds-radius-dropdown: 8px;
+  --ds-radius-badge: 999px;
+}

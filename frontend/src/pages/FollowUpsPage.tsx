@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
+import { PartialNotice } from '../shared/components/PartialNotice';
 import { backend } from '../services/backend';
 import { EmptyState, ErrorBox, Loading, LocalTime, StatusBadge } from '../components/ui';
 import type { FollowUpTaskStatus, ResultType } from '../types';
@@ -237,6 +238,9 @@ export function FollowUpsPage() {
         </select>
       </div>
 
+      <PartialNotice
+        sources={[{ name: '跟进策略', error: policy.error, retry: policy.reload }]}
+      />
       {tasks.loading && <Loading />}
       {tasks.error && <ErrorBox message={tasks.error} />}
       {tasks.data && tasks.data.items.length === 0 && (
