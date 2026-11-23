@@ -37,6 +37,21 @@ fn init_tracing() {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
+/// Only loopback hosts may be bound until network authentication exists.
+///
+/// The Python baseline and the desktop shell both use a local sidecar; there
+/// is no auth middleware in this build (that work belongs to the SEC card).
+/// Binding anything else would expose the whole HTTP surface unauthenticated.
+fn validate_bind_host(host: &str) -> Result<(), String> {
+    let trimmed = host.trim();
+    if trimmed.eq_ignore_ascii_case("localhost") || trimmed == "127.0.0.1" || trimmed == "::1" {
+        return Ok(());
+    }
+    Err(format!(
+        "refusing to bind to non-loopback host '{host}': this build has no network authentication; set HOST=127.0.0.1 (or localhost) to start"
+    ))
+}
+
 /// Read an environment variable, falling back to `default` when it is unset.
 fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
@@ -51,6 +66,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(|key| !key.trim().is_empty())
         .unwrap_or(false);
     let host = env_or("HOST", "127.0.0.1");
+    // SPE-BAS-002 §13.1: this build has no network authentication middleware.
+    // A non-loopback bind would expose the local-only HTTP surface unauthenticated,
+    // so reject it before touching the database, not after the listener is up.
+    validate_bind_host(&host)?;
     let data_dir = env_or("ICA_DATA_DIR", "./data");
     let ai_daily_budget_cents: i64 = env_or("AI_DAILY_BUDGET_CENTS", "0")
         .parse()
@@ -381,5 +400,45 @@ async fn shutdown_signal() {
         _ = ctrl_c => tracing::info!("received Ctrl-C, shutting down"),
         _ = terminate => tracing::info!("received SIGTERM, shutting down"),
         _ = stdin_eof => tracing::info!("shutting down on stdin EOF"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bas002_loopback_hosts_are_accepted() {
+        for host in ["127.0.0.1", "localhost", "::1", " LOCALHOST "] {
+            assert!(validate_bind_host(host).is_ok(), "{host} must be allowed");
+        }
+    }
+
+    #[test]
+    fn bas002_non_loopback_hosts_are_rejected() {
+        for host in [
+            "0.0.0.0",
+            "::",
+            "192.168.1.10",
+            "example.com",
+            "",
+            "127.0.0.2",
+        ] {
+            let error = validate_bind_host(host).unwrap_err();
+            assert!(
+                error.contains("refusing to bind to non-loopback host"),
+                "{error}"
+            );
+            assert!(error.contains("no network authentication"), "{error}");
+            assert!(error.contains(host), "{error}");
+        }
+    }
+
+    #[tokio::test]
+    async fn bas002_loopback_host_can_actually_bind() {
+        validate_bind_host("127.0.0.1").unwrap();
+        let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        assert!(listener.local_addr().unwrap().ip().is_loopback());
     }
 }

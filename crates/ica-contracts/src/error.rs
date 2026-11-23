@@ -345,6 +345,9 @@ impl From<ApplicationError> for ContractError {
                 ContractError::ProviderUnavailable { message, details }
             }
             ApplicationError::Unavailable { message } => ContractError::Internal { message },
+            // `#[from]` bridge introduced by the thiserror migration: render
+            // exactly as the old explicit `application_error()` mapping did.
+            ApplicationError::Persistence(source) => Self::from(source.application_error()),
         }
     }
 }

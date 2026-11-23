@@ -11,6 +11,7 @@ use ica_domain::{
     FollowUpTaskStatus, GeneratedDraft, Message, Position, SendRecord,
 };
 use serde_json::Value;
+use thiserror::Error;
 
 use crate::error::ApplicationError;
 use crate::payload::{
@@ -41,9 +42,13 @@ pub struct PositionFilter {
 /// map that are *contract text*, so they are modelled separately: turning one
 /// into a 500 would tell the client "the server crashed" for what is
 /// actually "you asked for something the rules forbid".
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[error("{message}")]
 pub struct RepositoryError {
     message: String,
+    /// The classification is also the error source: it carries why the
+    /// operation failed (§10.1 `#[source]`), without changing Display text.
+    #[source]
     kind: RepositoryErrorKind,
 }
 
@@ -54,13 +59,16 @@ pub struct RepositoryError {
 /// 409, `ValidationError` a 422. Storing them as separate data (instead of "a
 /// details map means 409") is what lets a 404 and a 422 both carry details and
 /// still be told apart.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum RepositoryErrorKind {
     /// A persistence failure: 500, message not echoed.
+    #[error("persistence failure")]
     Unavailable,
     /// The row does not exist: 404.
+    #[error("entity not found")]
     NotFound,
     /// A business-rule refusal: 409 with `details`.
+    #[error("business rule violation")]
     Conflict(BTreeMap<String, String>),
     /// A validation refusal: 422 with `details` and a caller-chosen code.
     ///
@@ -70,6 +78,7 @@ pub enum RepositoryErrorKind {
     /// is an ARRAY of row problems on the wire (the baseline's
     /// `details={"errors": problems}`), not a stringified list — a client
     /// parses it, it does not `json.loads` it.
+    #[error("validation failure: {code}")]
     Invalid { code: &'static str, details: Value },
 }
 
@@ -133,6 +142,27 @@ impl RepositoryError {
         &self.message
     }
 
+    /// Wire `code` of the [`ApplicationError`] this failure maps to.
+    /// Kept allocation-free so the `#[from]` bridge can use `&'static str`.
+    pub fn application_code(&self) -> &'static str {
+        match &self.kind {
+            RepositoryErrorKind::NotFound => "not_found",
+            RepositoryErrorKind::Conflict(_) => "business_rule_violation",
+            RepositoryErrorKind::Invalid { code, .. } => code,
+            RepositoryErrorKind::Unavailable => "internal_error",
+        }
+    }
+
+    /// HTTP status of the [`ApplicationError`] this failure maps to.
+    pub fn application_status(&self) -> u16 {
+        match &self.kind {
+            RepositoryErrorKind::NotFound => 404,
+            RepositoryErrorKind::Conflict(_) => 409,
+            RepositoryErrorKind::Invalid { .. } => 422,
+            RepositoryErrorKind::Unavailable => 500,
+        }
+    }
+
     /// The business-rule details, when this is a 409 rather than a 500.
     pub fn conflict_details(&self) -> Option<&BTreeMap<String, String>> {
         match &self.kind {
@@ -177,14 +207,6 @@ impl RepositoryError {
         }
     }
 }
-
-impl std::fmt::Display for RepositoryError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(&self.message)
-    }
-}
-
-impl std::error::Error for RepositoryError {}
 
 /// Read and write access to positions.
 #[async_trait]
