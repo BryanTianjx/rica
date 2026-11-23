@@ -16,10 +16,16 @@ honest environment/limitation marker; it is NEVER promoted to PASS. The gate
 NEVER self-signs "Verified": independent security verification and Windows
 release acceptance remain manual and are reported as PENDING.
 
+SPE-BAS-002 AC3 / SPE-BAS-004 §7.2: a MISSING dependency audit is a FAIL, not a
+BLOCKED marker — the gate turns red until cargo-audit actually runs. Windows /
+Tauri host limitations stay BLOCKED (accepted by the user). --skip-security is
+an explicit local-only opt-out; CI never passes it.
+
 Usage:
     python3 scripts/gate.py
     python3 scripts/gate.py --ci --out /tmp/gate-run.json
     python3 scripts/gate.py --only rust_gate,frontend_test
+    python3 scripts/gate.py --skip-security   # local diagnosis only; CI must not
     ICA_GATE_RUN_CONTRACT=1 python3 scripts/gate.py     # opt into full contract comparison
 
 Exit code 0 = no stage FAILED (PASS or PASS_WITH_LIMITATIONS).
@@ -63,7 +69,8 @@ def now() -> str:
 
 def git_head() -> str:
     result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True
+        ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True,
+        timeout=60,
     )
     return result.stdout.strip() if result.returncode == 0 else "<unknown>"
 
@@ -85,7 +92,12 @@ def executable(name: str) -> bool:
 def has_system_lib(pkg: str) -> bool:
     if not executable("pkg-config"):
         return False
-    return subprocess.run(["pkg-config", "--exists", pkg]).returncode == 0
+    try:
+        return subprocess.run(
+            ["pkg-config", "--exists", pkg], timeout=60
+        ).returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
 
 
 def run_stage(
@@ -153,6 +165,22 @@ def skip_stage(name: str, reason: str, *, blocked: bool = False) -> dict:
         "command": [],
         "exit_code": None,
         "seconds": 0,
+        "started_at": now(),
+        "detail": reason,
+        "output_tail": "",
+    }
+
+
+def fail_stage(name: str, reason: str, *, exit_code: int = 3) -> dict:
+    """SPE-BAS-004 §7.2: a missing mandatory check is a FAIL, not a BLOCKED."""
+    print(f"\n{'=' * 72}\n== STAGE {name} ==\nFAIL: {reason}", flush=True)
+    return {
+        "name": name,
+        "status": "FAIL",
+        "command": [],
+        "exit_code": exit_code,
+        "seconds": 0,
+        "started_at": now(),
         "detail": reason,
         "output_tail": "",
     }
@@ -372,9 +400,24 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
 
     # ---- Security: never self-sign -------------------------------------
     if wanted("security_scan"):
-        if executable("cargo") and subprocess.run(
-            ["cargo", "audit", "--version"], capture_output=True
-        ).returncode == 0:
+        audit_available = False
+        if executable("cargo"):
+            try:
+                audit_available = subprocess.run(
+                    ["cargo", "audit", "--version"], capture_output=True, timeout=60
+                ).returncode == 0
+            except subprocess.TimeoutExpired:
+                audit_available = False
+        if args.skip_security:
+            stages.append(
+                skip_stage(
+                    "security_scan",
+                    "LOCAL OPT-OUT (--skip-security): cargo-audit availability "
+                    "and advisory result were NOT checked; CI must not use this flag.",
+                    blocked=True,
+                )
+            )
+        elif audit_available:
             stages.append(
                 run_stage(
                     "security_scan",
@@ -386,13 +429,13 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
             )
         else:
             stages.append(
-                skip_stage(
+                fail_stage(
                     "security_scan",
-                    "TOOL LIMITATION: cargo-audit is not installed. "
-                    "INDEPENDENT SECURITY VERIFICATION IS PENDING (manual) — "
-                    "this gate does not self-sign Verified. Existing advisory "
-                    "evidence: docs/testing/sec09-audit-r1.log (DEF-007/008).",
-                    blocked=True,
+                    "DEPENDENCY AUDIT MISSING: cargo-audit is not installed, so "
+                    "the advisory scan did NOT run (SPE-BAS-002 AC3). Install "
+                    "cargo-audit and rerun; --skip-security is local-only. "
+                    "Independent manual verification remains PENDING.",
+                    exit_code=3,
                 )
             )
 
@@ -431,6 +474,11 @@ def main() -> int:
     parser.add_argument("--only", help="comma-separated stage names to run")
     parser.add_argument("--skip-stage", help="comma-separated stage names to omit")
     parser.add_argument("--ci", action="store_true", help="CI mode: force npm ci")
+    parser.add_argument(
+        "--skip-security", action="store_true",
+        help="LOCAL DIAGNOSTICS ONLY: downgrade a missing cargo-audit to BLOCKED; "
+             "CI must never use this flag (default: FAIL)",
+    )
     args = parser.parse_args()
 
     env = base_env()

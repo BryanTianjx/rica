@@ -27,6 +27,7 @@ parses the metadata.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -54,6 +55,8 @@ GUARDED_CRATES = {"ica-domain", "ica-application", "ica-contracts"}
 # `cargo test` prints one line per test target:
 #   test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 TEST_RESULT = re.compile(r"test result:\s+\w+\.\s+(\d+)\s+passed;\s+(\d+)\s+failed")
+# SPE-BAS-004 §5.9: every subprocess gets a timeout; expiry maps to exit 9.
+COMMAND_TIMEOUT = int(os.environ.get("ICA_COMMAND_TIMEOUT", "900"))
 
 
 def clean_env() -> dict[str, str]:
@@ -81,13 +84,18 @@ def clean_env() -> dict[str, str]:
 
 def cargo_metadata() -> dict:
     """`cargo metadata` as a dict, or exit 1 with cargo's own message."""
-    result = subprocess.run(
-        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
-        cwd=REPO_ROOT,
-        env=clean_env(),
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+            cwd=REPO_ROOT,
+            env=clean_env(),
+            capture_output=True,
+            text=True,
+            timeout=COMMAND_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired as exc:
+        sys.stderr.write(f"cargo metadata timed out after {COMMAND_TIMEOUT}s\n")
+        raise SystemExit(9) from exc
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         raise SystemExit(1)
@@ -108,8 +116,14 @@ def layering_violations() -> list[tuple[str, list[str]]]:
 
 
 def run(command: list[str], env: dict[str, str]) -> int:
-    """Run a gate command with its output on the terminal."""
-    return subprocess.run(command, cwd=REPO_ROOT, env=env).returncode
+    """Run a gate command with its output on the terminal (timeout -> 9)."""
+    try:
+        return subprocess.run(
+            command, cwd=REPO_ROOT, env=env, timeout=COMMAND_TIMEOUT
+        ).returncode
+    except subprocess.TimeoutExpired:
+        sys.stderr.write(f"{command[0]} timed out after {COMMAND_TIMEOUT}s\n")
+        return 9
 
 
 def run_capture(command: list[str], env: dict[str, str]) -> tuple[int, str]:
@@ -121,18 +135,35 @@ def run_capture(command: list[str], env: dict[str, str]) -> tuple[int, str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1,
     )
-    assert process.stdout is not None
-    collected: list[str] = []
-    for line in process.stdout:
-        sys.stdout.write(line)
-        collected.append(line)
-    process.wait()
-    return process.returncode, "".join(collected)
+    try:
+        collected, _ = process.communicate(timeout=COMMAND_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        collected, _ = process.communicate()
+        sys.stderr.write(f"{command[0]} timed out after {COMMAND_TIMEOUT}s\n")
+        return 9, collected or ""
+    sys.stdout.write(collected)
+    return process.returncode, collected
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="One-command Rust quality gate (layering/fmt/clippy/test)."
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=COMMAND_TIMEOUT,
+        help="per-command timeout in seconds (default 900; 9 on expiry)",
+    )
+    return parser.parse_args()
 
 
 def main() -> int:
+    global COMMAND_TIMEOUT
+    COMMAND_TIMEOUT = parse_args().timeout
+    if COMMAND_TIMEOUT <= 0:
+        print("--timeout must be positive")
+        return 2
     env = clean_env()
 
     print(
@@ -191,13 +222,18 @@ def main() -> int:
     # table disagree, or when the generated matrix is stale.
     # Captured, NOT echoed: the JSON payload is machine data, and the gate
     # prints its own one-line summary.
-    result = subprocess.run(
-        [sys.executable, "scripts/endpoint_reconciliation.py", "--json"],
-        cwd=REPO_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "scripts/endpoint_reconciliation.py", "--json"],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=COMMAND_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"   FAILED: endpoint reconciliation timed out ({COMMAND_TIMEOUT}s)")
+        return 9
     output = result.stdout
     if result.returncode != 0:
         print("   FAILED: the endpoint reconciliation script did not run")

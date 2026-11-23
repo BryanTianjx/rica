@@ -23,13 +23,55 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
+import os
 import re
 import sqlite3
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = REPO_ROOT / "crates" / "ica-infra" / "schema" / "ica-baseline.sql"
+LOG = logging.getLogger("seed_contract_db")
+
+
+def assert_deletable(path: Path) -> Path:
+    """SPE-BAS-004 §8.1: only scratch/inside-repo outputs may be unlinked."""
+    target = path.expanduser().resolve()
+    roots = [
+        Path("/tmp").resolve(),
+        Path(tempfile.gettempdir()).resolve(),
+        REPO_ROOT.resolve(),
+    ]
+    extra = os.environ.get("ICA_CONTRACT_WORK_ROOT", "")
+    if extra:
+        roots.append(Path(extra).expanduser().resolve())
+    if not any(target.is_relative_to(root) for root in roots):
+        LOG.error("output %s is outside the deletion whitelist %s", target, roots)
+        raise SystemExit(7)
+    return target
+
+
+def remove_output(path: Path, *, force: bool, dry_run: bool) -> None:
+    """Print each deletion target; enforce --force; never silently ignore errors."""
+    if not path.exists():
+        return
+    target = assert_deletable(path)
+    LOG.info("DELETE TARGET: %s", target)
+    if dry_run:
+        return
+    if not force:
+        LOG.error("refusing to replace %s without --force", target)
+        raise SystemExit(6)
+    try:
+        target.unlink()
+    except OSError as exc:
+        LOG.error("failed to delete %s: %s", target, exc)
+        raise SystemExit(5) from exc
+    if target.exists():
+        LOG.error("deletion failed: %s still exists", target)
+        raise SystemExit(5)
 
 # (id, name, description, location, status, archived, created_at, updated_at,
 #  salary_min, salary_max, skill_requirements, notes)
@@ -452,14 +494,29 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="/tmp/ica-contract/seed.db")
     parser.add_argument("--schema", default=str(SCHEMA_PATH))
+    parser.add_argument(
+        "--force", action="store_true",
+        help="authorise replacing an existing output database (L4)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="validate the output path and preview deletions only",
+    )
     args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    out = Path(args.out)
+    out = Path(args.out).expanduser()
+    assert_deletable(out)
+    if args.dry_run:
+        for candidate in (out, Path(f"{out}-wal"), Path(f"{out}-shm")):
+            if candidate.exists():
+                LOG.info("[DRY-RUN] DELETE TARGET: %s", assert_deletable(candidate))
+        LOG.info("[DRY-RUN] no files were modified")
+        return 0
+    assert_deletable(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    if out.exists():
-        out.unlink()
-    for sidecar in (f"{out}-wal", f"{out}-shm"):
-        Path(sidecar).unlink(missing_ok=True)
+    for candidate in (out, Path(f"{out}-wal"), Path(f"{out}-shm")):
+        remove_output(candidate, force=args.force, dry_run=False)
 
     connection = sqlite3.connect(str(out))
     try:

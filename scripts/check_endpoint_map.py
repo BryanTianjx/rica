@@ -25,6 +25,9 @@ Run it with the baseline interpreter, from anywhere:
 
 Exit code 0 means the table and the in-scope API agree. ``--self-test`` runs
 the comparison logic against synthetic data and needs no checkout.
+
+The backend checkout comes from ``--backend`` first, then ``ICA_BACKEND``, then
+the documented frozen-mirror default ``/mnt/o/ica/backend``.
 """
 
 from __future__ import annotations
@@ -35,7 +38,9 @@ import re
 import sys
 from pathlib import Path
 
-DEFAULT_BACKEND = "/mnt/o/ica/backend"
+# Primary source is --backend / ICA_BACKEND; the frozen mirror path below is a
+# documented local default only (SPE-BAS-004 §5.6/§9.1), never the sole option.
+DEFAULT_BACKEND = os.environ.get("ICA_BACKEND", "/mnt/o/ica/backend")
 DEFAULT_DOC = Path(__file__).resolve().parent.parent / "docs" / "rust-migration-contract.md"
 #: The browser subsystem is a separate vertical slice, excluded from this
 #: migration by ICA's own architecture documents (see

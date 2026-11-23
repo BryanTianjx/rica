@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -149,7 +150,16 @@ def main() -> int:
     args = parser.parse_args()
 
     created_temp = args.work_dir is None
-    work = args.work_dir or Path(tempfile.mkdtemp(prefix="arch-p6-drill-"))
+    work = (args.work_dir or Path(tempfile.mkdtemp(prefix="arch-p6-drill-"))).expanduser()
+    # SPE-BAS-004 §5.6/§8.1: cleanup is only allowed under a scratch root.
+    work = work.resolve()
+    allowed_roots = [Path(tempfile.gettempdir()).resolve(), REPO.resolve()]
+    extra_root = os.environ.get("ICA_CONTRACT_WORK_ROOT", "")
+    if extra_root:
+        allowed_roots.append(Path(extra_root).expanduser().resolve())
+    if not any(work.is_relative_to(root) for root in allowed_roots):
+        print(f"[ERROR] work dir {work} is outside the scratch whitelist")
+        return 7
     work.mkdir(parents=True, exist_ok=True)
     backups = work / "backups"
     backups.mkdir(parents=True, exist_ok=True)
@@ -175,12 +185,20 @@ def main() -> int:
             "(replays crates/ica-infra/schema/ica-baseline.sql)",
             command=f"{sys.executable} scripts/seed_contract_db.py --out {baseline}",
         )
-        seeded = subprocess.run(
-            [sys.executable, str(SEED), "--out", str(baseline)],
-            cwd=REPO,
-            capture_output=True,
-            text=True,
-        )
+        seed_command = [sys.executable, str(SEED), "--out", str(baseline)]
+        if baseline.exists():
+            seed_command.append("--force")
+        try:
+            seeded = subprocess.run(
+                seed_command,
+                cwd=REPO,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            print("[ERROR] seed_contract_db.py timed out after 300s")
+            return 9
         print(seeded.stdout.strip()[-800:], flush=True)
         check(
             "seed script produced a baseline database",
@@ -304,7 +322,10 @@ def main() -> int:
         )
     finally:
         if created_temp and not args.keep:
-            shutil.rmtree(work, ignore_errors=True)
+            print(f"[INFO] cleaning scratch dir: {work}")
+            shutil.rmtree(work)
+            if work.exists():
+                print(f"[ERROR] failed to remove scratch dir: {work}")
 
     all_ok = bool(assertions) and all(item["passed"] for item in assertions)
     record = {
@@ -313,7 +334,8 @@ def main() -> int:
         "ac": "ARCH-P6-AC4",
         "mechanism": "SQLite online-backup API (sqlite3_backup), same as rusqlite backup adapter",
         "head": subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True
+            ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True,
+            timeout=60,
         ).stdout.strip(),
         "started_at": now(),
         "duration_seconds": round(time.monotonic() - started, 2),
