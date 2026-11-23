@@ -6,6 +6,7 @@
 //! shared with the desktop adapter, so no contract logic is duplicated per
 //! transport (Tauri-audit R0.1 §4.3, option C).
 
+pub mod auth;
 pub mod error;
 pub mod extract;
 pub mod http_parity;
@@ -20,5 +21,5 @@ pub use error::ApiError;
 pub use ica_application::AiBudgetSettings;
 pub use ica_application::AI_KEY_SLOT;
 pub use ica_contracts::error::ValidationIssue;
-pub use routes::router;
+pub use routes::{router, router_with_mode};
 pub use state::{AppConfig, AppState};

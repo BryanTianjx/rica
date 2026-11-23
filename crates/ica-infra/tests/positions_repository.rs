@@ -16,6 +16,7 @@ fn filter(include_archived: bool, search: Option<&str>) -> PositionFilter {
     PositionFilter {
         include_archived,
         search: search.map(str::to_string),
+        scope: None,
     }
 }
 

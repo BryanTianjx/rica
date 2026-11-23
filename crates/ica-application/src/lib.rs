@@ -92,9 +92,11 @@ pub use ports::{
     RepositoryError, RestoreOutcome, SecretStore, SendRecordRepository, SnapshotOutcome,
 };
 pub use positions::{
-    create_position, delete_position, get_position, list_positions, update_position, ListPositions,
+    create_position, create_position_scoped, delete_position, delete_position_scoped, get_position,
+    get_position_scoped, list_positions, list_positions_scoped, update_position,
+    update_position_scoped, ListPositions,
 };
-pub use request_context::{authorize, Permission, RequestContext};
+pub use request_context::{authorize, Permission, RequestContext, Scope};
 pub use runtime::{AppRuntime, RuntimeConfig, RuntimeLifecycle, RuntimePhase};
 pub use send_records::{list_send_records, record_send, ListSendRecords};
 pub use settings::{

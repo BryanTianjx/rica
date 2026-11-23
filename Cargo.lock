@@ -1116,6 +1116,7 @@ dependencies = [
  "ica-desktop",
  "ica-domain",
  "ica-infra",
+ "jsonwebtoken",
  "serde",
  "serde_json",
  "serde_urlencoded",
