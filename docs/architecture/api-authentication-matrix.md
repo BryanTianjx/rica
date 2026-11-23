@@ -153,13 +153,20 @@ SEC04-A-PUBLIC-ENDPOINTS-END -->
 
 `router()` 全文件只有两个 `.layer(...)`：`http_parity::reject_head` 与
 `http_parity::redirect_trailing_slash`，均为 HTTP 奇偶中间件，**不是认证**；
-其余路由（含 `/api/auth/refresh`、`/api/auth/logout` 等）虽不在公开白名单，
+其余路由（含 `/api/auth/refresh`、`/api/auth/logout` 等）不在 SEC-04-A 的 3 项公开白名单内，
 其凭据校验发生在 use case 而非 HTTP 门禁，仍属于 `Local 放行 / 未来需认证`。
+口径提示：SEC-04-B/C 落地后 `/api/auth/refresh`、`/api/auth/logout` 已加入
+`crates/ica-api/src/auth.rs::PUBLIC_PATHS`（见下方 B/C 实施映射），由 refresh token 完成
+凭据轮换/吊销的自身语义，不再需要 access token；A 卡的历史白名单（2 契约 + `/health`）与
+B/C 卡实际 `PUBLIC_PATHS`（5 项）口径不同，不可混用。
 
 ### 源码断言测试
 
 - `crates/ica-api/src/routes.rs` 的 `sec04_a_route_manifest_tests`：证明矩阵 68 行的 Path 全部
   对应 `ROUTE_PATTERNS` 中真实注册的路由，白名单 3 项全部在清单内。
+- `crates/ica-api/tests/sec04_authorization_http.rs` 的
+  `sec04_bc_public_paths_match_auth_public_paths`（B/C 新增）：解析下方 B/C 机器可读块的 5 项与 `auth::PUBLIC_PATHS` 双向逐项相等，
+  堵住此前「只比对 A 卡 markers 与 routes.rs、未与 PUBLIC_PATHS 比对」的漂移漏洞。
 - `crates/ica-api/tests/sec04_authorization_http.rs` 的
   `sec04_a_public_whitelist_matches_unauthenticated_routes`：证明上表中的白名单与本文件
   markers 块一致、与 `routes.rs` 注册一致、`router()` 中不存在认证中间件，并证明矩阵
@@ -200,11 +207,25 @@ MultiUser 模式的实际门禁由下表定义（Local 模式仍保持原行为�
 
 | 层 | 实施点 | 68 契约映射 |
 | --- | --- | --- |
-| 认证 | `crates/ica-api/src/auth.rs::authenticate` + `PUBLIC_PATHS` | 2 条公开 + 非契约 `/health` 无凭据；其余 66 条必须有合法 HS256 access token |
+| 认证 | `crates/ica-api/src/auth.rs::authenticate` + `PUBLIC_PATHS` | `PUBLIC_PATHS` 实际 5 项：`/health`（非契约）+ `/auth/register`、`/auth/login`（首注册/登录入口）+ `/auth/refresh`、`/auth/logout`（bootstrap 链，用 refresh token 完成凭据轮换/吊销的自身语义，不要求 access token）；其余 64 条业务契约必须有合法 HS256 access token |
 | 身份 | `RequestContext` 注入 request extensions | `/auth/me` 与 shares 端点从 JWT claims 取真实 actor/tenant/role，不再合成 Local 身份 |
 | 权限 | `ica_application::authorize(ctx, Permission)` | 角色门槛（admin/member）与资源归属分离；`forbidden` 403 与 `unauthorized` 401 分列 |
 | 资源 | `Scope::from_context` + `PositionFilter.scope` | positions 的 list/get/create/update/delete 强制 tenant 过滤，member 限 owner；跨租户返回 404 |
 | 模式 | `ICA_AUTH_MODE=local\|multiuser` | Local 保持单用户边界；MultiUser 拒绝匿名/伪造 token |
+
+### SEC-04-B/C 机器可读的公开端点（源码断言读取此块，与 `auth::PUBLIC_PATHS` 双向一致）
+
+<!-- SEC04-BC-PUBLIC-PATHS-BEGIN
+/health
+/api/auth/register
+/api/auth/login
+/api/auth/refresh
+/api/auth/logout
+SEC04-BC-PUBLIC-PATHS-END -->
+
+`/api/auth/refresh` 与 `/api/auth/logout` 在 MultiUser 下无需 access bearer 即可到达：
+前者以请求体的 refresh token 完成单次轮换，后者以 refresh token 幂等吊销；
+二者属于 bootstrap 凭据链，不是「需 access token」的业务契约。
 
 三向追溯（契约 → 授权点 → 用例）由
 `crates/ica-api/tests/sec04_bc_authorization_http.rs` 的
