@@ -4,7 +4,12 @@
  * file upgrades the visual system on top of them: surface layers, a real type
  * scale, spaced rhythm, soft-filled badges, tactile controls. Utilities at the
  * bottom replace the old inline `style={{ marginTop: N }}` patches.
+ *
+ * UI 2.0 tokens are additive (`--ds-*` only); existing selectors keep their
+ * current values until each page is migrated in a later batch.
  */
+@import "./shared/design-system/tokens/index.css";
+
 :root {
   /* surfaces: base < subtle < raised < hover */
   --bg: #0c0e12;
@@ -1104,4 +1109,114 @@ ul.plain li {
 /* Tabular figures for count columns so digits align. */
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* ── UI 2.0 Phase 1: App Shell / navigation groups / feedback ─────────────
+ * Additive rules only; existing selectors and values above are untouched. */
+.nav-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-group-label {
+  padding: 4px 10px 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.shell-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 28px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.breadcrumb a {
+  color: var(--accent);
+}
+
+.breadcrumb-sep {
+  margin: 0 6px;
+  opacity: 0.6;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast-viewport {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-pop);
+}
+
+.toast-ok { border-left: 3px solid var(--success); }
+.toast-bad { border-left: 3px solid var(--danger); }
+
+.render-failure {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.partial-notice {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--warning, #d97706);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+
+.partial-notice ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.partial-notice li {
+  margin: 4px 0;
 }

@@ -1,0 +1,11 @@
+/* UI 2.0 type scale (方案 §5.3). Values are CSS variables only; no selector
+ * overrides, so current pages/tests are unaffected. */
+:root {
+  --ds-font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  --ds-font-title: 26px;
+  --ds-font-section: 18px;
+  --ds-font-card: 16px;
+  --ds-font-body: 14px;
+  --ds-font-secondary: 13px;
+  --ds-font-caption: 12px;
+}

@@ -9,6 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
+    "check:ui-reuse": "node scripts/check-ui-reuse.mjs",
+    "check:ui-reuse:regression": "node scripts/check-ui-reuse.mjs --baseline ui-reuse-baseline-r1-20261123.json --fail-on-regression",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

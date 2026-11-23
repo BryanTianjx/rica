@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { backend, describeApiError } from '../services/backend';
 import { ConfirmBar } from '../components/ConfirmBar';
+import { PartialNotice } from '../shared/components/PartialNotice';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Candidate, CandidateStatus } from '../types';
 
@@ -166,6 +167,10 @@ export function CandidatesPage() {
           候选人已创建。
         </div>
       )}
+
+      <PartialNotice
+        sources={[{ name: '岗位列表', error: positions.error, retry: positions.reload }]}
+      />
 
       {rowError && <ErrorBox message={rowError} />}
 
