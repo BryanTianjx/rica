@@ -1232,3 +1232,5 @@ ul.plain li {
 }
 .settings-nav-link { display: block; padding: 6px 10px; border-radius: var(--radius-s); color: var(--text-muted); }
 .settings-nav-link.active { color: var(--accent); background: var(--bg-raised); }
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }

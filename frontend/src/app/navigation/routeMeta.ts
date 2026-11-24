@@ -16,6 +16,7 @@ const META: Record<string, Crumb[]> = {
   '/positions': [{ label: '工作台', to: '/' }, { label: '岗位管理' }],
   '/conversations': [{ label: '工作台', to: '/' }, { label: '沟通记录' }],
   '/follow-ups': [{ label: '工作台', to: '/' }, { label: '跟进任务' }],
+  '/ai-workspace': [{ label: '工作台', to: '/' }, { label: 'AI 工作空间' }],
   '/drafts': [{ label: '工作台', to: '/' }, { label: 'AI 草稿审核' }],
   '/browser': [{ label: '工作台', to: '/' }, { label: '浏览器自动化' }],
   '/settings': [{ label: '工作台', to: '/' }, { label: '系统设置' }],
