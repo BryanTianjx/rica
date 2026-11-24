@@ -5,21 +5,12 @@ import { useAsync } from '../hooks/useAsync';
 import { backend, describeApiError } from '../services/backend';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { PartialNotice } from '../shared/components/PartialNotice';
+import { CANDIDATE_STATUSES as STATUSES } from '../shared/statusVocabulary';
 import { useToast } from '../shared/components/ToastViewport';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Candidate, CandidateStatus } from '../types';
 
-const STATUSES = [
-  'New',
-  'Contacted',
-  'ReadNoReply',
-  'Replied',
-  'Active',
-  'Interview',
-  'Rejected',
-  'Withdrawn',
-  'Closed',
-];
+
 
 type EditingRow = {
   id: string;

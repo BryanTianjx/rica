@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "check:ui-reuse": "node scripts/check-ui-reuse.mjs",
-    "check:ui-reuse:regression": "node scripts/check-ui-reuse.mjs --baseline ui-reuse-baseline-r2-20261124.json --fail-on-regression",
+    "check:ui-reuse:regression": "node scripts/check-ui-reuse.mjs --baseline ui-reuse-baseline-r3-20261124.json --fail-on-regression",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

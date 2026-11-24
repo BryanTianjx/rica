@@ -3,34 +3,18 @@ import { PageHeader } from '../app/layout/PageHeader';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { PartialNotice } from '../shared/components/PartialNotice';
+import {
+  FOLLOW_UP_STATUSES as TASK_STATUSES,
+  FOLLOW_UP_TERMINAL_STATUSES as TERMINAL_STATUSES,
+  RESULT_OPTIONS,
+} from '../shared/statusVocabulary';
 import { backend } from '../services/backend';
 import { EmptyState, ErrorBox, Loading, LocalTime, StatusBadge } from '../components/ui';
 import type { FollowUpTaskStatus, ResultType } from '../types';
 
-const TASK_STATUSES: FollowUpTaskStatus[] = [
-  'Pending',
-  'Eligible',
-  'Drafting',
-  'Reviewing',
-  'Rejected',
-  'Approved',
-  'Copied',
-  'AwaitingResult',
-  'Completed',
-  'Cancelled',
-  'Expired',
-  'Blocked',
-];
 
-const RESULT_OPTIONS: { value: ResultType; label: string }[] = [
-  { value: 'sent', label: '已发送' },
-  { value: 'not_sent', label: '未发送' },
-  { value: 'candidate_replied', label: '候选人已回复' },
-  { value: 'candidate_no_reply', label: '候选人未回复' },
-  { value: 'candidate_declined', label: '候选人拒绝' },
-  { value: 'interview', label: '进入面试' },
-  { value: 'other', label: '其他' },
-];
+
+
 
 /**
  * 「推进」按钮的目标状态。
@@ -86,7 +70,7 @@ const CANCELLABLE_STATUSES: FollowUpTaskStatus[] = [
 ];
 
 /** 终态任务（完成/取消/过期）已关闭，不再提供目标编辑。 */
-const TERMINAL_STATUSES: FollowUpTaskStatus[] = ['Completed', 'Cancelled', 'Expired'];
+
 
 /** 每个状态在界面上的一句说明，告诉用户现在该做什么。 */
 const STATUS_NOTES: Record<FollowUpTaskStatus, string> = {

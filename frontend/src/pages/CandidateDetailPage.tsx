@@ -5,19 +5,10 @@ import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime, StatusBadge } from '../components/ui';
 import { redactionLabel } from '../privacyLabels';
+import { CANDIDATE_STATUSES as STATUSES } from '../shared/statusVocabulary';
 import type { CandidateStatus, MessageType, Tone } from '../types';
 
-const STATUSES = [
-  'New',
-  'Contacted',
-  'ReadNoReply',
-  'Replied',
-  'Active',
-  'Interview',
-  'Rejected',
-  'Withdrawn',
-  'Closed',
-];
+
 
 export function CandidateDetailPage() {
   const { id } = useParams<{ id: string }>();
