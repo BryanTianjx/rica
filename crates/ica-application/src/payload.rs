@@ -157,12 +157,19 @@ pub struct CandidateFilter {
     pub search: Option<String>,
     pub status: Option<CandidateStatus>,
     pub position_id: Option<String>,
+    /// SEC-04 remediation: when present, the SQLite adapter MUST restrict rows
+    /// to this tenant and (for a non-admin actor) to rows they own. `None`
+    /// preserves the documented single-user Local mode.
+    pub scope: Option<crate::Scope>,
 }
 
 /// Filter for `GET /api/conversations`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ConversationFilter {
     pub candidate_id: Option<String>,
+    /// SEC-04: when present, the SQLite adapter restricts rows to this tenant
+    /// (and, for a member, to rows they own). `None` is Local mode.
+    pub scope: Option<crate::Scope>,
 }
 
 /// Filter for `GET /api/messages`.
@@ -170,6 +177,8 @@ pub struct ConversationFilter {
 pub struct MessageFilter {
     pub candidate_id: Option<String>,
     pub conversation_id: Option<String>,
+    /// SEC-04: repository-level tenant/owner predicate. `None` is Local mode.
+    pub scope: Option<crate::Scope>,
 }
 
 /// Filter for `GET /api/send-records`.
@@ -179,6 +188,8 @@ pub struct SendRecordFilter {
     pub task_id: Option<String>,
     pub draft_id: Option<String>,
     pub status: Option<ResultType>,
+    /// SEC-04: repository-level tenant/owner predicate. `None` is Local mode.
+    pub scope: Option<crate::Scope>,
 }
 
 // ── Follow-ups (W2) ────────────────────────────────────────────────────────

@@ -35,11 +35,21 @@ pub async fn list_send_records(
     repository: &dyn SendRecordRepository,
     query: ListSendRecords,
 ) -> Result<Page<SendRecord>, ApplicationError> {
+    list_send_records_scoped(repository, query, None).await
+}
+
+/// SEC-04: list with the authenticated tenant/owner predicate in SQL.
+pub async fn list_send_records_scoped(
+    repository: &dyn SendRecordRepository,
+    query: ListSendRecords,
+    scope: Option<&crate::Scope>,
+) -> Result<Page<SendRecord>, ApplicationError> {
     let filter = SendRecordFilter {
         candidate_id: query.candidate_id,
         task_id: query.task_id,
         draft_id: query.draft_id,
         status: query.status,
+        scope: scope.cloned(),
     };
     let (items, total) = repository
         .list(filter, query.offset, query.limit)
@@ -64,14 +74,27 @@ pub async fn record_send(
     repository: &dyn SendRecordRepository,
     new: NewSendRecord,
 ) -> Result<SendRecord, ApplicationError> {
-    let candidate = crate::candidates::get_candidate(candidates, &new.candidate_id).await?;
+    record_send_scoped(candidates, repository, new, None).await
+}
+
+/// SEC-04: the candidate anchor and both optional children (task, draft) are
+/// resolved inside the caller's scope, so a foreign id is reported as missing.
+pub async fn record_send_scoped(
+    candidates: &dyn CandidateRepository,
+    repository: &dyn SendRecordRepository,
+    new: NewSendRecord,
+    scope: Option<&crate::Scope>,
+) -> Result<SendRecord, ApplicationError> {
+    let candidate =
+        crate::candidates::get_candidate_scoped(candidates, &new.candidate_id, scope).await?;
 
     if let Some(task_id) = new.task_id.as_deref() {
-        let owner = repository
-            .follow_up_candidate(task_id)
-            .await
-            .map_err(unavailable)?
-            .ok_or_else(|| ApplicationError::not_found("Follow-up task", task_id))?;
+        let owner = match scope {
+            Some(scope) => repository.follow_up_candidate_scoped(task_id, scope).await,
+            None => repository.follow_up_candidate(task_id).await,
+        }
+        .map_err(unavailable)?
+        .ok_or_else(|| ApplicationError::not_found("Follow-up task", task_id))?;
         if owner != candidate.id {
             let mut details = BTreeMap::new();
             details.insert("task_id".to_string(), task_id.to_string());
@@ -84,11 +107,17 @@ pub async fn record_send(
     }
 
     if let Some(draft_id) = new.draft_id.as_deref() {
-        let (owner, status) = repository
-            .draft_candidate_status(draft_id)
-            .await
-            .map_err(unavailable)?
-            .ok_or_else(|| ApplicationError::not_found("Draft", draft_id))?;
+        let found = match scope {
+            Some(scope) => {
+                repository
+                    .draft_candidate_status_scoped(draft_id, scope)
+                    .await
+            }
+            None => repository.draft_candidate_status(draft_id).await,
+        }
+        .map_err(unavailable)?;
+        let (owner, status) =
+            found.ok_or_else(|| ApplicationError::not_found("Draft", draft_id))?;
         if owner != candidate.id {
             let mut details = BTreeMap::new();
             details.insert("draft_id".to_string(), draft_id.to_string());
@@ -109,5 +138,9 @@ pub async fn record_send(
         }
     }
 
-    repository.create(new).await.map_err(unavailable)
+    match scope {
+        Some(scope) => repository.create_scoped(new, scope).await,
+        None => repository.create(new).await,
+    }
+    .map_err(unavailable)
 }

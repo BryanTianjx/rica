@@ -13,9 +13,10 @@ use sqlx::FromRow;
 
 use crate::audit::{insert_audit, AuditEntry};
 use crate::store::{
-    offset_bind, repo_error, to_sql_timestamp, where_clause, SqliteStore, DEFAULT_TENANT_ID,
-    LOCAL_ACTOR, LOCAL_OWNER_ID,
+    offset_bind, ownership, repo_error, scope_predicates, to_sql_timestamp, where_clause,
+    SqliteStore, LOCAL_ACTOR,
 };
+use ica_application::Scope;
 
 const SELECT_COLUMNS: &str = concat!(
     "SELECT id, candidate_id, task_id, draft_id, channel, target, content_summary, status,",
@@ -81,28 +82,31 @@ impl SendRecordRepository for SqliteStore {
         offset: usize,
         limit: usize,
     ) -> Result<(Vec<SendRecord>, usize), RepositoryError> {
-        let mut conditions: Vec<&str> = Vec::new();
-        let mut binds: Vec<String> = Vec::new();
+        let mut conditions: Vec<String> = Vec::new();
+        let (scoped, scoped_binds) = scope_predicates(filter.scope.as_ref(), "send_records");
+        conditions.extend(scoped);
+        let mut binds = scoped_binds;
         if let Some(value) = filter.candidate_id.as_deref() {
-            conditions.push("candidate_id = ?");
+            conditions.push("candidate_id = ?".to_string());
             binds.push(value.to_string());
         }
         if let Some(value) = filter.task_id.as_deref() {
-            conditions.push("task_id = ?");
+            conditions.push("task_id = ?".to_string());
             binds.push(value.to_string());
         }
         if let Some(value) = filter.draft_id.as_deref() {
-            conditions.push("draft_id = ?");
+            conditions.push("draft_id = ?".to_string());
             binds.push(value.to_string());
         }
         if let Some(status) = filter.status {
-            conditions.push("status = ?");
+            conditions.push("status = ?".to_string());
             binds.push(status.as_str().to_string());
         }
         let where_sql = where_clause(&conditions);
 
         let count_sql = format!("SELECT COUNT(*) FROM send_records{where_sql}");
-        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        let mut count_query =
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql.to_owned()));
         for value in &binds {
             count_query = count_query.bind(value.clone());
         }
@@ -112,7 +116,7 @@ impl SendRecordRepository for SqliteStore {
             .map_err(repo_error)?;
 
         let sql = format!("{SELECT_COLUMNS}{where_sql}{ORDER_BY} LIMIT ? OFFSET ?");
-        let mut query = sqlx::query_as::<_, SendRecordRow>(&sql);
+        let mut query = sqlx::query_as::<_, SendRecordRow>(sqlx::AssertSqlSafe(sql.to_owned()));
         for value in &binds {
             query = query.bind(value.clone());
         }
@@ -131,6 +135,98 @@ impl SendRecordRepository for SqliteStore {
     }
 
     async fn create(&self, new: NewSendRecord) -> Result<SendRecord, RepositoryError> {
+        self.insert_record(new, None).await
+    }
+
+    /// SEC-04: stamp the authenticated actor/tenant on the new send record.
+    async fn create_scoped(
+        &self,
+        new: NewSendRecord,
+        scope: &Scope,
+    ) -> Result<SendRecord, RepositoryError> {
+        self.insert_record(new, Some(scope)).await
+    }
+
+    async fn follow_up_candidate(&self, task_id: &str) -> Result<Option<String>, RepositoryError> {
+        let mut connection: sqlx::pool::PoolConnection<sqlx::Sqlite> =
+            self.pool().acquire().await.map_err(repo_error)?;
+        let row: Option<String> =
+            sqlx::query_scalar("SELECT candidate_id FROM follow_up_tasks WHERE id = ?")
+                .bind(task_id)
+                .fetch_optional(&mut *connection)
+                .await
+                .map_err(repo_error)?;
+        Ok(row)
+    }
+
+    /// SEC-04: the task lookup with the tenant/owner predicate in SQL.
+    async fn follow_up_candidate_scoped(
+        &self,
+        task_id: &str,
+        scope: &Scope,
+    ) -> Result<Option<String>, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(Some(scope), "follow_up_tasks");
+        let sql = format!(
+            "SELECT candidate_id FROM follow_up_tasks WHERE id = ? AND {}",
+            predicates.join(" AND ")
+        );
+        let mut query = sqlx::query_scalar::<_, String>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(task_id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        Ok(query
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(repo_error)?)
+    }
+
+    async fn draft_candidate_status(
+        &self,
+        draft_id: &str,
+    ) -> Result<Option<(String, String)>, RepositoryError> {
+        let mut connection: sqlx::pool::PoolConnection<sqlx::Sqlite> =
+            self.pool().acquire().await.map_err(repo_error)?;
+        let row: Option<(String, String)> =
+            sqlx::query_as("SELECT candidate_id, status FROM generated_drafts WHERE id = ?")
+                .bind(draft_id)
+                .fetch_optional(&mut *connection)
+                .await
+                .map_err(repo_error)?;
+        Ok(row)
+    }
+
+    /// SEC-04: the draft lookup with the tenant/owner predicate in SQL.
+    async fn draft_candidate_status_scoped(
+        &self,
+        draft_id: &str,
+        scope: &Scope,
+    ) -> Result<Option<(String, String)>, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(Some(scope), "generated_drafts");
+        let sql = format!(
+            "SELECT candidate_id, status FROM generated_drafts WHERE id = ? AND {}",
+            predicates.join(" AND ")
+        );
+        let mut query = sqlx::query_as::<_, (String, String)>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(draft_id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        Ok(query
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(repo_error)?)
+    }
+}
+
+impl SqliteStore {
+    async fn insert_record(
+        &self,
+        new: NewSendRecord,
+        scope: Option<&Scope>,
+    ) -> Result<SendRecord, RepositoryError> {
         let now = to_sql_timestamp(&Utc::now());
         let id = crate::store::new_uuid();
         let sent_at = new
@@ -138,9 +234,10 @@ impl SendRecordRepository for SqliteStore {
             .map(|value| to_sql_timestamp(&value))
             .unwrap_or_else(|| now.clone());
         let status = new.status.as_str();
+        let (owner_id, tenant_id) = ownership(scope);
 
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
-        insert_send_record(&mut tx, &id, &new, &sent_at, &now)
+        insert_send_record(&mut tx, &id, &new, &sent_at, &now, owner_id, tenant_id)
             .await
             .map_err(repo_error)?;
         insert_audit(
@@ -181,33 +278,6 @@ impl SendRecordRepository for SqliteStore {
                 .map_err(RepositoryError::unavailable)?,
         })
     }
-
-    async fn follow_up_candidate(&self, task_id: &str) -> Result<Option<String>, RepositoryError> {
-        let mut connection: sqlx::pool::PoolConnection<sqlx::Sqlite> =
-            self.pool().acquire().await.map_err(repo_error)?;
-        let row: Option<String> =
-            sqlx::query_scalar("SELECT candidate_id FROM follow_up_tasks WHERE id = ?")
-                .bind(task_id)
-                .fetch_optional(&mut *connection)
-                .await
-                .map_err(repo_error)?;
-        Ok(row)
-    }
-
-    async fn draft_candidate_status(
-        &self,
-        draft_id: &str,
-    ) -> Result<Option<(String, String)>, RepositoryError> {
-        let mut connection: sqlx::pool::PoolConnection<sqlx::Sqlite> =
-            self.pool().acquire().await.map_err(repo_error)?;
-        let row: Option<(String, String)> =
-            sqlx::query_as("SELECT candidate_id, status FROM generated_drafts WHERE id = ?")
-                .bind(draft_id)
-                .fetch_optional(&mut *connection)
-                .await
-                .map_err(repo_error)?;
-        Ok(row)
-    }
 }
 
 /// The one send-record insert, shared by `SendRecordRepository::create` and the
@@ -223,6 +293,8 @@ pub(crate) async fn insert_send_record(
     new: &NewSendRecord,
     sent_at: &str,
     created_at: &str,
+    owner_id: &str,
+    tenant_id: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(concat!(
         "INSERT INTO send_records (id, candidate_id, task_id, draft_id, channel, target,",
@@ -242,8 +314,8 @@ pub(crate) async fn insert_send_record(
     .bind(LOCAL_ACTOR)
     .bind(created_at)
     .bind(created_at)
-    .bind(LOCAL_OWNER_ID)
-    .bind(DEFAULT_TENANT_ID)
+    .bind(owner_id)
+    .bind(tenant_id)
     .execute(tx)
     .await?;
     Ok(())

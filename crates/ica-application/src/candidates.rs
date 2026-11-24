@@ -34,6 +34,7 @@ pub async fn list_candidates(
         search: query.search,
         status: query.status,
         position_id: query.position_id,
+        scope: None,
     };
     let (items, total) = repository
         .list(filter, query.offset, query.limit)
@@ -126,6 +127,131 @@ pub async fn delete_candidate(
     id: &str,
 ) -> Result<(), ApplicationError> {
     match repository.delete(id).await {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(ApplicationError::not_found("Candidate", id)),
+        Err(error) => Err(unavailable(error)),
+    }
+}
+
+// ── SEC-04 remediation: authenticated, tenant/owner-scoped variants ────────
+//
+// `None` scope keeps the documented Local-mode behaviour; `Some` forces the
+// repository adapter to filter by tenant (and owner for non-admin actors).
+// Out-of-scope rows are reported as 404 so the endpoint cannot be used as an
+// IDOR oracle.
+
+/// List candidates with an authenticated scope.
+pub async fn list_candidates_scoped(
+    repository: &dyn CandidateRepository,
+    query: ListCandidates,
+    scope: Option<crate::Scope>,
+) -> Result<Page<Candidate>, ApplicationError> {
+    let filter = CandidateFilter {
+        include_archived: query.include_archived,
+        search: query.search,
+        status: query.status,
+        position_id: query.position_id,
+        scope,
+    };
+    let (items, total) = repository
+        .list(filter, query.offset, query.limit)
+        .await
+        .map_err(unavailable)?;
+    Ok(Page {
+        items,
+        total,
+        offset: query.offset,
+        limit: query.limit,
+    })
+}
+
+/// Fetch one candidate, invisible outside the caller's scope.
+pub async fn get_candidate_scoped(
+    repository: &dyn CandidateRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<Candidate, ApplicationError> {
+    let found = match scope {
+        Some(scope) => repository.find_scoped(id, scope).await,
+        None => repository.find(id).await,
+    };
+    match found {
+        Ok(Some(candidate)) => Ok(candidate),
+        Ok(None) => Err(ApplicationError::not_found("Candidate", id)),
+        Err(error) => Err(unavailable(error)),
+    }
+}
+
+/// Detail projection with the same scope guard as the single-row read.
+pub async fn get_candidate_detail_scoped(
+    repository: &dyn CandidateRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<CandidateDetail, ApplicationError> {
+    let candidate = get_candidate_scoped(repository, id, scope).await?;
+    let position = repository
+        .position_of(&candidate.id)
+        .await
+        .map_err(unavailable)?;
+    Ok(CandidateDetail {
+        candidate,
+        position,
+    })
+}
+
+/// Create a candidate with the authenticated actor's ownership. The linked
+/// position is resolved with the same scope so a foreign ID cannot be attached.
+pub async fn create_candidate_scoped(
+    positions: &dyn PositionRepository,
+    repository: &dyn CandidateRepository,
+    new: NewCandidate,
+    scope: Option<&crate::Scope>,
+) -> Result<Candidate, ApplicationError> {
+    if let Some(position_id) = new.position_id.as_deref() {
+        crate::positions::get_position_scoped(positions, position_id, scope).await?;
+    }
+    match scope {
+        Some(scope) => repository.create_scoped(new, scope).await,
+        None => repository.create(new).await,
+    }
+    .map_err(unavailable)
+}
+
+/// Patch only a candidate inside the caller's scope, validating any new
+/// position link against that same scope.
+pub async fn update_candidate_scoped(
+    positions: &dyn PositionRepository,
+    repository: &dyn CandidateRepository,
+    id: &str,
+    patch: CandidatePatch,
+    scope: Option<&crate::Scope>,
+) -> Result<Candidate, ApplicationError> {
+    get_candidate_scoped(repository, id, scope).await?;
+    if let Field::Value(position_id) = &patch.position_id {
+        crate::positions::get_position_scoped(positions, position_id, scope).await?;
+    }
+    let updated = match scope {
+        Some(scope) => repository.update_scoped(id, patch, scope).await,
+        None => repository.update(id, patch).await,
+    };
+    match updated {
+        Ok(Some(candidate)) => Ok(candidate),
+        Ok(None) => Err(ApplicationError::not_found("Candidate", id)),
+        Err(error) => Err(unavailable(error)),
+    }
+}
+
+/// Delete only a candidate inside the caller's scope.
+pub async fn delete_candidate_scoped(
+    repository: &dyn CandidateRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<(), ApplicationError> {
+    let deleted = match scope {
+        Some(scope) => repository.delete_scoped(id, scope).await,
+        None => repository.delete(id).await,
+    };
+    match deleted {
         Ok(true) => Ok(()),
         Ok(false) => Err(ApplicationError::not_found("Candidate", id)),
         Err(error) => Err(unavailable(error)),

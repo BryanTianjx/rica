@@ -56,22 +56,29 @@ pub use candidates::{
     update_candidate, CandidateDetail, ListCandidates,
 };
 pub use conversations::{
-    candidate_timeline, create_conversation, create_message, list_conversations, list_messages,
-    ListConversations, ListMessages,
+    candidate_timeline, candidate_timeline_scoped, create_conversation, create_conversation_scoped,
+    create_message, create_message_scoped, list_conversations, list_conversations_scoped,
+    list_messages, list_messages_scoped, ListConversations, ListMessages,
 };
 pub use dashboard::{dashboard, DashboardSnapshot};
 pub use drafts::{
-    approve_draft, copy_draft, generate, get_draft, get_draft_group, list_drafts, preview_context,
-    reject_draft, select_draft_from_group, update_draft,
+    approve_draft, approve_draft_scoped, copy_draft, copy_draft_scoped, generate, generate_scoped,
+    get_draft, get_draft_group, get_draft_group_scoped, get_draft_scoped, list_drafts,
+    list_drafts_scoped, preview_context, preview_context_scoped, reject_draft, reject_draft_scoped,
+    select_draft_from_group, select_draft_from_group_scoped, update_draft, update_draft_scoped,
 };
 pub use error::ApplicationError;
-pub use extractions::confirm_candidate;
+pub use extractions::{confirm_candidate, confirm_candidate_scoped};
 pub use follow_ups::{
-    cancel_task, complete_task, create_task, ensure_default_policy, evaluate, get_task, list_tasks,
-    record_result, update_policy, update_task,
+    cancel_task, cancel_task_scoped, complete_task, complete_task_scoped, create_task,
+    create_task_scoped, ensure_default_policy, evaluate, evaluate_scoped, get_task,
+    get_task_scoped, list_tasks, list_tasks_scoped, record_result, record_result_scoped,
+    update_policy, update_task, update_task_scoped,
 };
 pub use imports::{
-    confirm_import, get_import, ocr_screenshot, preview_import, reject_import, OcrOutcome,
+    confirm_import, confirm_import_scoped, get_import, get_import_scoped, ocr_screenshot,
+    ocr_screenshot_scoped, preview_import, preview_import_scoped, reject_import,
+    reject_import_scoped, OcrOutcome,
 };
 pub use payload::{
     CandidateFilter, CandidatePatch, ConversationFilter, DraftCopyOutcome, DraftFilter, DraftPatch,
@@ -98,7 +105,9 @@ pub use positions::{
 };
 pub use request_context::{authorize, Permission, RequestContext, Scope};
 pub use runtime::{AppRuntime, RuntimeConfig, RuntimeLifecycle, RuntimePhase};
-pub use send_records::{list_send_records, record_send, ListSendRecords};
+pub use send_records::{
+    list_send_records, list_send_records_scoped, record_send, record_send_scoped, ListSendRecords,
+};
 pub use settings::{
     read_egress_disclosure, write_egress_consent, EgressDisclosure, SettingsConfigView,
     SettingsSnapshot, AI_EGRESS_CONSENT_KEY, EGRESS_GRANTED_EVENT, EGRESS_NOTICE,

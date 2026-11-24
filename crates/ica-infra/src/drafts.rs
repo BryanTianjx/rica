@@ -5,14 +5,14 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use ica_application::{
     ApplicationError, DraftFilter, DraftGeneration, DraftGenerator, DraftRepository,
-    RepositoryError,
+    RepositoryError, Scope,
 };
 use ica_domain::{GeneratedDraft, Message};
 use serde_json::json;
 use sqlx::{FromRow, SqliteConnection};
 
 use crate::audit::{insert_audit, AuditEntry};
-use crate::store::{repo_error, to_sql_timestamp, SqliteStore};
+use crate::store::{offset_bind, repo_error, scope_predicates, to_sql_timestamp, SqliteStore};
 
 /// The `ai.egress_consent` setting key (`app/application/ai_consent.py`).
 const EGRESS_CONSENT_KEY: &str = "ai.egress_consent";
@@ -192,11 +192,13 @@ async fn fetch_one_draft(
     connection: &mut SqliteConnection,
     id: &str,
 ) -> Result<Option<GeneratedDraft>, RepositoryError> {
-    let row: Option<DraftRow> = sqlx::query_as(&format!("{SELECT_COLUMNS} WHERE id = ?"))
-        .bind(id)
-        .fetch_optional(connection)
-        .await
-        .map_err(repo_error)?;
+    let row: Option<DraftRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{SELECT_COLUMNS} WHERE id = ?"
+    )))
+    .bind(id)
+    .fetch_optional(connection)
+    .await
+    .map_err(repo_error)?;
     row.map(DraftRow::into_draft).transpose()
 }
 
@@ -253,7 +255,8 @@ impl DraftRepository for SqliteStore {
 
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
         let count_sql = format!("SELECT COUNT(*) FROM generated_drafts{where_sql}");
-        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        let mut count_query =
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql.to_owned()));
         for value in &binds {
             count_query = count_query.bind(value);
         }
@@ -264,7 +267,69 @@ impl DraftRepository for SqliteStore {
 
         let list_sql =
             format!("{SELECT_COLUMNS}{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?");
-        let mut list_query = sqlx::query_as::<_, DraftRow>(&list_sql);
+        let mut list_query =
+            sqlx::query_as::<_, DraftRow>(sqlx::AssertSqlSafe(list_sql.to_owned()));
+        for value in &binds {
+            list_query = list_query.bind(value);
+        }
+        list_query = list_query.bind(limit as i64).bind(offset_bind(offset));
+        let rows = list_query
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        let items = rows
+            .into_iter()
+            .map(DraftRow::into_draft)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((items, total as usize))
+    }
+
+    /// SEC-04: the filter predicates carry the caller's tenant/owner scope.
+    async fn list_scoped(
+        &self,
+        filter: DraftFilter,
+        offset: usize,
+        limit: usize,
+        scope: &Scope,
+    ) -> Result<(Vec<GeneratedDraft>, usize), RepositoryError> {
+        let mut clauses: Vec<String> = Vec::new();
+        let (scoped, scoped_binds) = scope_predicates(Some(scope), "generated_drafts");
+        clauses.extend(scoped);
+        let mut binds = scoped_binds;
+        if let Some(candidate_id) = &filter.candidate_id {
+            clauses.push("candidate_id = ?".to_string());
+            binds.push(candidate_id.clone());
+        }
+        if let Some(task_id) = &filter.task_id {
+            clauses.push("task_id = ?".to_string());
+            binds.push(task_id.clone());
+        }
+        if let Some(status) = filter.status {
+            clauses.push("status = ?".to_string());
+            binds.push(status.as_str().to_string());
+        }
+        let where_sql = if clauses.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", clauses.join(" AND "))
+        };
+
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let count_sql = format!("SELECT COUNT(*) FROM generated_drafts{where_sql}");
+        let mut count_query =
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql.to_owned()));
+        for value in &binds {
+            count_query = count_query.bind(value);
+        }
+        let total: i64 = count_query
+            .fetch_one(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+
+        let list_sql =
+            format!("{SELECT_COLUMNS}{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        let mut list_query =
+            sqlx::query_as::<_, DraftRow>(sqlx::AssertSqlSafe(list_sql.to_owned()));
         for value in &binds {
             list_query = list_query.bind(value);
         }
@@ -285,14 +350,63 @@ impl DraftRepository for SqliteStore {
         fetch_one_draft(&mut connection, id).await
     }
 
+    /// SEC-04: out-of-scope drafts are indistinguishable from missing ones.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        scope: &Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(Some(scope), "generated_drafts");
+        let sql = format!(
+            "{SELECT_COLUMNS} WHERE id = ? AND {}",
+            predicates.join(" AND ")
+        );
+        let mut query =
+            sqlx::query_as::<_, DraftRow>(sqlx::AssertSqlSafe(sql.to_owned())).bind(id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let row = query
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        row.map(DraftRow::into_draft).transpose()
+    }
+
     async fn find_group(&self, group_id: &str) -> Result<Vec<GeneratedDraft>, RepositoryError> {
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let rows: Vec<DraftRow> =
-            sqlx::query_as(&format!("{SELECT_COLUMNS} WHERE draft_group_id = ?"))
-                .bind(group_id)
-                .fetch_all(&mut *connection)
-                .await
-                .map_err(repo_error)?;
+        let rows: Vec<DraftRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "{SELECT_COLUMNS} WHERE draft_group_id = ?"
+        )))
+        .bind(group_id)
+        .fetch_all(&mut *connection)
+        .await
+        .map_err(repo_error)?;
+        rows.into_iter().map(DraftRow::into_draft).collect()
+    }
+
+    /// SEC-04: a foreign group id is indistinguishable from a missing one.
+    async fn find_group_scoped(
+        &self,
+        group_id: &str,
+        scope: &Scope,
+    ) -> Result<Vec<GeneratedDraft>, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(Some(scope), "generated_drafts");
+        let sql = format!(
+            "{SELECT_COLUMNS} WHERE draft_group_id = ? AND {}",
+            predicates.join(" AND ")
+        );
+        let mut query = sqlx::query_as::<_, DraftRow>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(group_id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let rows = query
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(repo_error)?;
         rows.into_iter().map(DraftRow::into_draft).collect()
     }
 
@@ -523,13 +637,82 @@ impl DraftRepository for SqliteStore {
         tx.commit().await.map_err(repo_error)?;
 
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let rows: Vec<DraftRow> =
-            sqlx::query_as(&format!("{SELECT_COLUMNS} WHERE draft_group_id = ?"))
-                .bind(group_id)
-                .fetch_all(&mut *connection)
-                .await
-                .map_err(repo_error)?;
+        let rows: Vec<DraftRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "{SELECT_COLUMNS} WHERE draft_group_id = ?"
+        )))
+        .bind(group_id)
+        .fetch_all(&mut *connection)
+        .await
+        .map_err(repo_error)?;
         rows.into_iter().map(DraftRow::into_draft).collect()
+    }
+
+    // SEC-04: every write is guarded by a scoped lookup so an out-of-scope id
+    // reports "missing" and never mutates another tenant's draft.
+
+    async fn update_scoped(
+        &self,
+        id: &str,
+        message_text: Option<String>,
+        objective: Option<String>,
+        scope: &Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.update(id, message_text, objective).await
+    }
+
+    async fn approve_scoped(
+        &self,
+        id: &str,
+        approved_at: DateTime<Utc>,
+        note: Option<String>,
+        scope: &Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.approve(id, approved_at, note).await
+    }
+
+    async fn reject_scoped(
+        &self,
+        id: &str,
+        rejected_at: DateTime<Utc>,
+        scope: &Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.reject(id, rejected_at).await
+    }
+
+    async fn copy_scoped(
+        &self,
+        id: &str,
+        copied_at: DateTime<Utc>,
+        scope: &Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.copy(id, copied_at).await
+    }
+
+    async fn supersede_others_scoped(
+        &self,
+        group_id: &str,
+        selected_id: &str,
+        rejected_at: DateTime<Utc>,
+        scope: &Scope,
+    ) -> Result<Vec<GeneratedDraft>, RepositoryError> {
+        let group = self.find_group_scoped(group_id, scope).await?;
+        if !group.iter().any(|draft| draft.id == selected_id) {
+            return Ok(Vec::new());
+        }
+        self.supersede_others(group_id, selected_id, rejected_at)
+            .await
     }
 }
 
@@ -589,6 +772,3 @@ impl MessageRow {
         })
     }
 }
-
-/// The imports the adapter shares with the other SQLite adapters.
-use crate::store::offset_bind;

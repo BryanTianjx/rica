@@ -89,7 +89,7 @@ impl DataSnapshotRepository for SqliteStore {
         for spec in BUSINESS_TABLES {
             let columns: Vec<&str> = spec.columns.iter().map(|(name, _)| *name).collect();
             let sql = format!("SELECT {} FROM {}", columns.join(", "), spec.name);
-            let rows = sqlx::query(&sql)
+            let rows = sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()))
                 .fetch_all(pool)
                 .await
                 .map_err(repo_error)?;
@@ -162,9 +162,8 @@ impl DataSnapshotRepository for SqliteStore {
                 };
                 let id = id_owned.as_str();
 
-                let existing_updated_at: Option<String> = sqlx::query_scalar(&format!(
-                    "SELECT updated_at FROM {} WHERE id = ?",
-                    spec.name
+                let existing_updated_at: Option<String> = sqlx::query_scalar(sqlx::AssertSqlSafe(
+                    format!("SELECT updated_at FROM {} WHERE id = ?", spec.name),
                 ))
                 .bind(id)
                 .fetch_optional(&mut *tx)
@@ -360,7 +359,7 @@ async fn business_data_differs(
         columns.join(", "),
         spec.name
     );
-    let row = sqlx::query(&sql)
+    let row = sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()))
         .bind(id)
         .fetch_optional(&mut *tx)
         .await
@@ -712,7 +711,7 @@ async fn insert_row(
         columns.join(", "),
         placeholders.join(", ")
     );
-    let mut query = sqlx::query(&sql);
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()));
     for value in &values {
         query = bind_json(query, value);
     }
@@ -755,7 +754,7 @@ async fn update_row(
         spec.name,
         assignments.join(", ")
     );
-    let mut query = sqlx::query(&sql);
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()));
     for value in &values {
         query = bind_json(query, value);
     }
@@ -785,9 +784,9 @@ fn coerce_for_write(value: Value, kind: ColKind) -> Value {
 }
 
 fn bind_json<'a>(
-    query: sqlx::query::Query<'a, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'a>>,
+    query: sqlx::query::Query<'a, sqlx::Sqlite, sqlx::sqlite::SqliteArguments>,
     value: &Value,
-) -> sqlx::query::Query<'a, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'a>> {
+) -> sqlx::query::Query<'a, sqlx::Sqlite, sqlx::sqlite::SqliteArguments> {
     match value {
         Value::Null => query.bind(None::<String>),
         Value::Bool(flag) => query.bind(if *flag { 1i64 } else { 0i64 }),

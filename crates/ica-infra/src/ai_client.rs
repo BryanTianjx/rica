@@ -12,7 +12,7 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use ica_application::ai_context::{build_context, render_context, GenerateDraftRequest};
+use ica_application::ai_context::{build_context_scoped, render_context, GenerateDraftRequest};
 use ica_application::ai_key::resolve_model_api_key;
 use ica_application::ai_registry::{
     estimate_cost_cents, get_model, select_model, AiBudgetSettings, AiSettingsView, RoutingDecision,
@@ -27,16 +27,11 @@ use ica_domain::{Candidate, GeneratedDraft, Position};
 
 use crate::audit::{insert_audit, AuditEntry};
 use crate::json_fmt::python_json;
-use crate::store::{new_uuid, to_sql_timestamp, SqliteStore};
+use crate::store::{new_uuid, ownership, to_sql_timestamp, SqliteStore};
 
 fn unavailable(error: ica_application::ports::RepositoryError) -> ApplicationError {
     error.application_error()
 }
-
-/// The synthetic local identity (`app/application/recruiting._owner_tenant`
-/// on the local path — the same constants the other adapters stamp).
-const LOCAL_OWNER_ID: &str = "00000000-0000-0000-0000-000000000001";
-const LOCAL_TENANT_ID: &str = "00000000-0000-0000-0000-000000000000";
 
 /// The OpenAI-compatible generator. One instance per backend: it borrows the
 /// store for registry reads and persistence, the OS credential store for key
@@ -287,9 +282,15 @@ impl AiDraftGenerator {
         // Persist draft + usage + both audits in one transaction (the
         // baseline's flush-then-commit). Usage is keyed by the CONFIG model
         // id (`guard.record_usage(config.model_id, …)`), not the echo.
-        self.persist(&model.model_id, &draft, &egress_audit, &generated_audit)
-            .await
-            .map_err(unavailable)?;
+        self.persist(
+            &model.model_id,
+            &draft,
+            &egress_audit,
+            &generated_audit,
+            request.scope.as_ref(),
+        )
+        .await
+        .map_err(unavailable)?;
 
         Ok(draft)
     }
@@ -302,6 +303,7 @@ impl AiDraftGenerator {
         draft: &GeneratedDraft,
         egress_audit: &AuditEntry<'_>,
         generated_audit: &AuditEntry<'_>,
+        scope: Option<&ica_application::Scope>,
     ) -> Result<(), ica_application::ports::RepositoryError> {
         let mut tx = self
             .store
@@ -349,8 +351,8 @@ impl AiDraftGenerator {
         .bind(draft.cost_cents)
         .bind(draft.prompt_tokens)
         .bind(draft.completion_tokens)
-        .bind(LOCAL_OWNER_ID)
-        .bind(LOCAL_TENANT_ID)
+        .bind(ownership(scope).0)
+        .bind(ownership(scope).1)
         .bind(to_sql_timestamp(&draft.created_at))
         .bind(to_sql_timestamp(&draft.updated_at))
         .execute(&mut *tx)
@@ -658,8 +660,14 @@ impl DraftGenerator for AiDraftGenerator {
     ) -> Result<DraftGeneration, ApplicationError> {
         // The shared context is built ONCE for both paths (one context per
         // comparison group). V1.0 semantics: no token truncation.
-        let context =
-            build_context(&self.store, &self.store, &self.store, &request.candidate_id).await?;
+        let context = build_context_scoped(
+            &self.store,
+            &self.store,
+            &self.store,
+            &request.candidate_id,
+            request.scope.as_ref(),
+        )
+        .await?;
         let context_text = render_context(&context);
 
         // The rows the validator re-reads (candidate status / position state).

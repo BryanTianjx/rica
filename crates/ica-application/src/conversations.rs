@@ -39,8 +39,19 @@ pub async fn list_conversations(
     repository: &dyn ConversationRepository,
     query: ListConversations,
 ) -> Result<Page<ica_domain::Conversation>, ApplicationError> {
+    list_conversations_scoped(repository, query, None).await
+}
+
+/// SEC-04: list with the authenticated tenant/owner scope. `None` keeps Local
+/// mode; `Some` puts the predicate in the repository's SQL.
+pub async fn list_conversations_scoped(
+    repository: &dyn ConversationRepository,
+    query: ListConversations,
+    scope: Option<&crate::Scope>,
+) -> Result<Page<ica_domain::Conversation>, ApplicationError> {
     let filter = ConversationFilter {
         candidate_id: query.candidate_id,
+        scope: scope.cloned(),
     };
     let (items, total) = repository
         .list(filter, query.offset, query.limit)
@@ -60,8 +71,23 @@ pub async fn create_conversation(
     repository: &dyn ConversationRepository,
     new: NewConversation,
 ) -> Result<ica_domain::Conversation, ApplicationError> {
-    crate::candidates::get_candidate(candidates, &new.candidate_id).await?;
-    repository.create(new).await.map_err(unavailable)
+    create_conversation_scoped(candidates, repository, new, None).await
+}
+
+/// SEC-04: the parent candidate is resolved through the same scope, so a
+/// foreign `candidate_id` cannot be used to open a conversation.
+pub async fn create_conversation_scoped(
+    candidates: &dyn CandidateRepository,
+    repository: &dyn ConversationRepository,
+    new: NewConversation,
+    scope: Option<&crate::Scope>,
+) -> Result<ica_domain::Conversation, ApplicationError> {
+    crate::candidates::get_candidate_scoped(candidates, &new.candidate_id, scope).await?;
+    match scope {
+        Some(scope) => repository.create_scoped(new, scope).await,
+        None => repository.create(new).await,
+    }
+    .map_err(unavailable)
 }
 
 /// Messages in time order (`message_time ASC NULLS LAST, created_at ASC`).
@@ -72,9 +98,19 @@ pub async fn list_messages(
     repository: &dyn MessageRepository,
     query: ListMessages,
 ) -> Result<Page<Message>, ApplicationError> {
+    list_messages_scoped(repository, query, None).await
+}
+
+/// SEC-04: list messages with the caller's scope in the repository SQL.
+pub async fn list_messages_scoped(
+    repository: &dyn MessageRepository,
+    query: ListMessages,
+    scope: Option<&crate::Scope>,
+) -> Result<Page<Message>, ApplicationError> {
     let filter = MessageFilter {
         candidate_id: query.candidate_id,
         conversation_id: query.conversation_id,
+        scope: scope.cloned(),
     };
     let (items, total) = repository
         .list(filter, query.offset, query.limit)
@@ -104,14 +140,34 @@ pub async fn create_message(
     messages: &dyn MessageRepository,
     new: NewMessage,
 ) -> Result<Message, ApplicationError> {
-    let candidate = crate::candidates::get_candidate(candidates, &new.candidate_id).await?;
+    create_message_scoped(candidates, conversations, messages, new, None).await
+}
+
+/// SEC-04: candidate AND conversation are resolved inside the caller's scope,
+/// so a foreign parent id is indistinguishable from a missing one.
+pub async fn create_message_scoped(
+    candidates: &dyn CandidateRepository,
+    conversations: &dyn ConversationRepository,
+    messages: &dyn MessageRepository,
+    new: NewMessage,
+    scope: Option<&crate::Scope>,
+) -> Result<Message, ApplicationError> {
+    let candidate =
+        crate::candidates::get_candidate_scoped(candidates, &new.candidate_id, scope).await?;
 
     let conversation_id = match new.conversation_id.clone() {
         Some(conversation_id) => {
-            let conversation = conversations
-                .find(&conversation_id)
-                .await
-                .map_err(unavailable)?
+            let found = match scope {
+                Some(scope) => conversations
+                    .find_scoped(&conversation_id, scope)
+                    .await
+                    .map_err(unavailable)?,
+                None => conversations
+                    .find(&conversation_id)
+                    .await
+                    .map_err(unavailable)?,
+            };
+            let conversation = found
                 .ok_or_else(|| ApplicationError::not_found("Conversation", &conversation_id))?;
             if conversation.candidate_id != candidate.id {
                 let mut details = BTreeMap::new();
@@ -124,26 +180,41 @@ pub async fn create_message(
             }
             conversation.id
         }
-        None => match conversations
-            .find_active_for_candidate(&candidate.id)
-            .await
-            .map_err(unavailable)?
-        {
-            Some(conversation) => conversation.id,
-            None => {
-                conversations
-                    .create_implicit(&candidate.id, "boss")
+        None => {
+            let active = match scope {
+                Some(scope) => conversations
+                    .find_active_for_candidate_scoped(&candidate.id, scope)
                     .await
-                    .map_err(unavailable)?
-                    .id
+                    .map_err(unavailable)?,
+                None => conversations
+                    .find_active_for_candidate(&candidate.id)
+                    .await
+                    .map_err(unavailable)?,
+            };
+            match active {
+                Some(conversation) => conversation.id,
+                None => {
+                    let created = match scope {
+                        Some(scope) => conversations
+                            .create_implicit_scoped(&candidate.id, "boss", scope)
+                            .await
+                            .map_err(unavailable)?,
+                        None => conversations
+                            .create_implicit(&candidate.id, "boss")
+                            .await
+                            .map_err(unavailable)?,
+                    };
+                    created.id
+                }
             }
-        },
+        }
     };
 
-    messages
-        .create(new, &conversation_id)
-        .await
-        .map_err(unavailable)
+    match scope {
+        Some(scope) => messages.create_scoped(new, &conversation_id, scope).await,
+        None => messages.create(new, &conversation_id).await,
+    }
+    .map_err(unavailable)
 }
 
 /// The candidate's message timeline.
@@ -156,10 +227,23 @@ pub async fn candidate_timeline(
     candidate_id: &str,
     limit: usize,
 ) -> Result<Vec<TimelineEntry>, ApplicationError> {
-    crate::candidates::get_candidate(candidates, candidate_id).await?;
+    candidate_timeline_scoped(candidates, messages, candidate_id, limit, None).await
+}
+
+/// SEC-04: the timeline is only served for a candidate inside the caller's
+/// scope, and the message query carries the same predicate.
+pub async fn candidate_timeline_scoped(
+    candidates: &dyn CandidateRepository,
+    messages: &dyn MessageRepository,
+    candidate_id: &str,
+    limit: usize,
+    scope: Option<&crate::Scope>,
+) -> Result<Vec<TimelineEntry>, ApplicationError> {
+    crate::candidates::get_candidate_scoped(candidates, candidate_id, scope).await?;
     let filter = MessageFilter {
         candidate_id: Some(candidate_id.to_string()),
         conversation_id: None,
+        scope: scope.cloned(),
     };
     let (rows, _total) = messages.list(filter, 0, limit).await.map_err(unavailable)?;
     Ok(rows

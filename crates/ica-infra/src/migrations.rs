@@ -104,9 +104,9 @@ async fn applied_versions(connection: &mut SqliteConnection) -> Result<Vec<i64>,
     if exists.is_none() {
         return Ok(Vec::new());
     }
-    let rows: Vec<(i64,)> = sqlx::query_as(&format!(
+    let rows: Vec<(i64,)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT version FROM {HISTORY_TABLE} ORDER BY version"
-    ))
+    )))
     .fetch_all(&mut *connection)
     .await?;
     Ok(rows.into_iter().map(|(version,)| version).collect())
@@ -118,19 +118,19 @@ async fn applied_versions(connection: &mut SqliteConnection) -> Result<Vec<i64>,
 /// stays untouched.
 async fn stamp_baseline(connection: &mut SqliteConnection) -> Result<(), sqlx::Error> {
     let mut transaction = connection.begin().await?;
-    sqlx::query(&format!(
+    sqlx::query(sqlx::AssertSqlSafe(format!(
         "CREATE TABLE IF NOT EXISTS {HISTORY_TABLE} (\
              version INTEGER PRIMARY KEY, \
              description TEXT NOT NULL, \
              applied_at TEXT NOT NULL)"
-    ))
+    )))
     .execute(&mut *transaction)
     .await?;
-    sqlx::query(&format!(
+    sqlx::query(sqlx::AssertSqlSafe(format!(
         "INSERT OR IGNORE INTO {HISTORY_TABLE} (version, description, applied_at) \
          VALUES (0, 'baseline snapshot (ica-baseline.sql)', '{}')",
         crate::store::to_sql_timestamp(&chrono::Utc::now())
-    ))
+    )))
     .execute(&mut *transaction)
     .await?;
     transaction.commit().await
@@ -227,9 +227,9 @@ pub async fn apply_migrations(
                 description: migration.description,
                 source,
             })?;
-        sqlx::query(&format!(
+        sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO {HISTORY_TABLE} (version, description, applied_at) VALUES (?, ?, ?)"
-        ))
+        )))
         .bind(migration.version)
         .bind(migration.description)
         .bind(crate::store::to_sql_timestamp(&chrono::Utc::now()))

@@ -76,7 +76,9 @@ regex = "1"
 # ── persistence ───────────────────────────────────────────────────────────
 # Runtime queries only (D7): no compile-time DATABASE_URL, no `sqlx::query!`
 # macro, so `cargo build` never needs a database.
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "derive"] }
+# sqlx 0.9.1's SQLite driver accepts libsqlite3-sys <0.41, so it can share the
+# patched 0.40.x required by rusqlite 0.43 (RUSTSEC-2026-0459).
+sqlx = { version = "0.9.1", default-features = false, features = ["runtime-tokio", "sqlite", "derive"] }
 # Primary keys are UUID4 strings, exactly like the Python `new_uuid()`.
 uuid = { version = "1", features = ["v4"] }
 

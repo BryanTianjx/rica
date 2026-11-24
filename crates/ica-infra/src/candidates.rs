@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use ica_application::{
     CandidateFilter, CandidatePatch, CandidateRepository, Field, NewCandidate, RepositoryError,
+    Scope,
 };
 use ica_domain::{Candidate, CandidateStatus, Position};
 use sqlx::{FromRow, SqliteConnection};
@@ -109,33 +110,50 @@ impl CandidateRow {
 
 /// `WHERE` fragment plus text binds for the candidate filter.
 fn filter_sql(filter: &CandidateFilter) -> (String, Vec<String>) {
-    let mut conditions: Vec<&str> = Vec::new();
+    let mut conditions: Vec<String> = Vec::new();
     let mut binds: Vec<String> = Vec::new();
 
     if !filter.include_archived {
-        conditions.push("c.archived = 0");
+        conditions.push("c.archived = 0".to_string());
     }
+
+    // SEC-04 remediation: an authenticated identity must never read another
+    // tenant's candidates. Admins see every row in their tenant; members only
+    // rows they own. `None` is the documented Local mode and adds no predicate.
+    if let Some(scope) = &filter.scope {
+        conditions.push("c.tenant_id = ?".to_string());
+        binds.push(scope.tenant_id.clone());
+        if !scope.is_admin {
+            conditions.push("c.owner_id = ?".to_string());
+            binds.push(scope.actor_id.clone());
+        }
+    }
+
     if let Some(status) = filter.status {
-        conditions.push("c.status = ?");
+        conditions.push("c.status = ?".to_string());
         binds.push(status.as_str().to_string());
     }
     if let Some(position_id) = filter.position_id.as_deref() {
-        conditions.push("c.position_id = ?");
+        conditions.push("c.position_id = ?".to_string());
         binds.push(position_id.to_string());
     }
     if let Some(search) = filter.search.as_deref() {
         let pattern = format!("%{search}%");
-        conditions.push(concat!(
-            "(LOWER(c.name) LIKE LOWER(?)",
-            " OR LOWER(c.skill_summary) LIKE LOWER(?)",
-            " OR LOWER(c.expected_location) LIKE LOWER(?))"
-        ));
+        conditions.push(
+            concat!(
+                "(LOWER(c.name) LIKE LOWER(?)",
+                " OR LOWER(c.skill_summary) LIKE LOWER(?)",
+                " OR LOWER(c.expected_location) LIKE LOWER(?))"
+            )
+            .to_string(),
+        );
         binds.push(pattern.clone());
         binds.push(pattern.clone());
         binds.push(pattern);
     }
 
-    (where_clause(&conditions), binds)
+    let refs: Vec<&str> = conditions.iter().map(String::as_str).collect();
+    (where_clause(&refs), binds)
 }
 
 async fn fetch_candidates(
@@ -144,7 +162,7 @@ async fn fetch_candidates(
     binds: &[String],
     limit: Option<(usize, usize)>,
 ) -> Result<Vec<Candidate>, RepositoryError> {
-    let mut query = sqlx::query_as::<_, CandidateRow>(sql);
+    let mut query = sqlx::query_as::<_, CandidateRow>(sqlx::AssertSqlSafe(sql.to_owned()));
     for value in binds {
         query = query.bind(value.clone());
     }
@@ -169,7 +187,8 @@ impl CandidateRepository for SqliteStore {
         let (where_sql, binds) = filter_sql(&filter);
 
         let count_sql = format!("SELECT COUNT(*) FROM candidates c{where_sql}");
-        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        let mut count_query =
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql.to_owned()));
         for value in &binds {
             count_query = count_query.bind(value.clone());
         }
@@ -192,6 +211,26 @@ impl CandidateRepository for SqliteStore {
         Ok(rows.pop())
     }
 
+    /// SEC-04 remediation: out-of-scope rows are indistinguishable from missing
+    /// ones, so an ID cannot be probed across tenants or owners.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        scope: &Scope,
+    ) -> Result<Option<Candidate>, RepositoryError> {
+        let mut sql = format!("{SELECT_COLUMNS} WHERE c.id = ? AND c.tenant_id = ?");
+        if !scope.is_admin {
+            sql.push_str(" AND c.owner_id = ?");
+        }
+        let mut binds = vec![id.to_string(), scope.tenant_id.clone()];
+        if !scope.is_admin {
+            binds.push(scope.actor_id.clone());
+        }
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let mut rows = fetch_candidates(&mut connection, &sql, &binds, None).await?;
+        Ok(rows.pop())
+    }
+
     async fn position_of(&self, candidate_id: &str) -> Result<Option<Position>, RepositoryError> {
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
         let position_id: Option<Option<String>> =
@@ -207,46 +246,19 @@ impl CandidateRepository for SqliteStore {
     }
 
     async fn create(&self, new: NewCandidate) -> Result<Candidate, RepositoryError> {
-        let now = to_sql_timestamp(&Utc::now());
-        let id = crate::store::new_uuid();
+        self.insert_candidate(new, LOCAL_OWNER_ID, DEFAULT_TENANT_ID, None)
+            .await
+    }
 
-        let mut tx = self.pool().begin().await.map_err(repo_error)?;
-        sqlx::query(concat!(
-            "INSERT INTO candidates (id, name, source, position_id, experience_summary,",
-            " skill_summary, expected_salary, expected_location, job_intention, status, notes,",
-            " archived, created_at, updated_at, owner_id, tenant_id)",
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)"
-        ))
-        .bind(&id)
-        .bind(&new.name)
-        .bind(&new.source)
-        .bind(&new.position_id)
-        .bind(&new.experience_summary)
-        .bind(&new.skill_summary)
-        .bind(&new.expected_salary)
-        .bind(&new.expected_location)
-        .bind(&new.job_intention)
-        .bind(new.status.as_str())
-        .bind(&new.notes)
-        .bind(&now)
-        .bind(&now)
-        .bind(LOCAL_OWNER_ID)
-        .bind(DEFAULT_TENANT_ID)
-        .execute(&mut *tx)
-        .await
-        .map_err(repo_error)?;
-
-        insert_audit(
-            &mut tx,
-            AuditEntry::new("candidate.created", "candidate", &id, "Created candidate"),
-        )
-        .await
-        .map_err(repo_error)?;
-        tx.commit().await.map_err(repo_error)?;
-
-        self.find(&id)
-            .await?
-            .ok_or_else(|| RepositoryError::unavailable("inserted candidate disappeared"))
+    /// SEC-04 remediation: stamp the authenticated actor/tenant on the row so
+    /// subsequent scoped reads can isolate it.
+    async fn create_scoped(
+        &self,
+        new: NewCandidate,
+        scope: &Scope,
+    ) -> Result<Candidate, RepositoryError> {
+        self.insert_candidate(new, &scope.actor_id, &scope.tenant_id, Some(scope))
+            .await
     }
 
     async fn update(
@@ -255,12 +267,13 @@ impl CandidateRepository for SqliteStore {
         patch: CandidatePatch,
     ) -> Result<Option<Candidate>, RepositoryError> {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
-        let existing =
-            sqlx::query_as::<_, CandidateRow>(&format!("{SELECT_COLUMNS} WHERE c.id = ?"))
-                .bind(id)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(repo_error)?;
+        let existing = sqlx::query_as::<_, CandidateRow>(sqlx::AssertSqlSafe(format!(
+            "{SELECT_COLUMNS} WHERE c.id = ?"
+        )))
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(repo_error)?;
         let Some(row) = existing else {
             tx.rollback().await.map_err(repo_error)?;
             return Ok(None);
@@ -369,5 +382,84 @@ impl CandidateRepository for SqliteStore {
         .map_err(repo_error)?;
         tx.commit().await.map_err(repo_error)?;
         Ok(true)
+    }
+
+    /// SEC-04 remediation: validate the row is in scope before delegating to
+    /// the shared update. The guard and the write are in one adapter call from
+    /// the use case's point of view; a concurrent re-assignment is not a
+    /// supported Local-mode workflow.
+    async fn update_scoped(
+        &self,
+        id: &str,
+        patch: CandidatePatch,
+        scope: &Scope,
+    ) -> Result<Option<Candidate>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.update(id, patch).await
+    }
+
+    /// SEC-04 remediation: delete only a row inside the caller's scope.
+    async fn delete_scoped(&self, id: &str, scope: &Scope) -> Result<bool, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(false);
+        }
+        self.delete(id).await
+    }
+}
+
+impl SqliteStore {
+    /// Shared insert for Local mode and authenticated mode; only the ownership
+    /// stamps and the post-insert lookup differ.
+    async fn insert_candidate(
+        &self,
+        new: NewCandidate,
+        owner_id: &str,
+        tenant_id: &str,
+        scope: Option<&Scope>,
+    ) -> Result<Candidate, RepositoryError> {
+        let now = to_sql_timestamp(&Utc::now());
+        let id = crate::store::new_uuid();
+
+        let mut tx = self.pool().begin().await.map_err(repo_error)?;
+        sqlx::query(concat!(
+            "INSERT INTO candidates (id, name, source, position_id, experience_summary,",
+            " skill_summary, expected_salary, expected_location, job_intention, status, notes,",
+            " archived, created_at, updated_at, owner_id, tenant_id)",
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)"
+        ))
+        .bind(&id)
+        .bind(&new.name)
+        .bind(&new.source)
+        .bind(&new.position_id)
+        .bind(&new.experience_summary)
+        .bind(&new.skill_summary)
+        .bind(&new.expected_salary)
+        .bind(&new.expected_location)
+        .bind(&new.job_intention)
+        .bind(new.status.as_str())
+        .bind(&new.notes)
+        .bind(&now)
+        .bind(&now)
+        .bind(owner_id)
+        .bind(tenant_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(repo_error)?;
+
+        insert_audit(
+            &mut tx,
+            AuditEntry::new("candidate.created", "candidate", &id, "Created candidate"),
+        )
+        .await
+        .map_err(repo_error)?;
+        tx.commit().await.map_err(repo_error)?;
+
+        match scope {
+            Some(scope) => self.find_scoped(&id, scope).await?,
+            None => self.find(&id).await?,
+        }
+        .ok_or_else(|| RepositoryError::unavailable("inserted candidate disappeared"))
     }
 }

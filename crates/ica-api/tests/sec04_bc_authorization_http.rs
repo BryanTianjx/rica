@@ -408,3 +408,198 @@ fn contract_authorization_trace_is_complete() {
         "the matrix public whitelist must equal auth::PUBLIC_PATHS in both directions"
     );
 }
+
+/// SEC-04 remediation: admin-only operations must reject a valid member token
+/// with the uniform 403 `forbidden` envelope. The role gate runs in the HTTP
+/// adapter before any use case touches secrets, backups or exported data.
+#[tokio::test]
+async fn admin_operations_reject_member_role() {
+    let (app, _dir) = multiuser_app().await;
+    let member = access_token(USER_A_MEMBER, TENANT_A, "member");
+    let admin = access_token(USER_A_ADMIN, TENANT_A, "admin");
+    let member_header = auth(&member);
+    let headers = [("authorization", member_header.as_str())];
+    let budget_body = json!({"daily_budget_cents": 100, "warning_threshold": 50}).to_string();
+
+    let cases: Vec<(&str, TestResponse)> = vec![
+        (
+            "PATCH /api/ai/budget",
+            support::patch_with_headers(app.clone(), "/api/ai/budget", &budget_body, &headers)
+                .await,
+        ),
+        (
+            "POST /api/backups",
+            support::post_with_headers(app.clone(), "/api/backups", "{}", &headers).await,
+        ),
+        (
+            "DELETE /api/settings/ai-key",
+            support::delete_with_headers(app.clone(), "/api/settings/ai-key", &headers).await,
+        ),
+        (
+            "POST /api/import",
+            support::post_with_headers(app.clone(), "/api/import", "{}", &headers).await,
+        ),
+    ];
+    for (name, response) in cases {
+        assert_eq!(response.status, 403, "{name}: {}", response.body);
+        assert_eq!(code(&response), "forbidden", "{name}: {}", response.body);
+    }
+
+    // The same role gate must let a real admin through (a business error is
+    // fine here; a 403 is not — this fixture has no AI key or backups).
+    let admin_header = auth(&admin);
+    let allowed = support::patch_with_headers(
+        app,
+        "/api/ai/budget",
+        &budget_body,
+        &[("authorization", admin_header.as_str())],
+    )
+    .await;
+    assert_ne!(
+        allowed.status, 403,
+        "admin must pass the role gate: {}",
+        allowed.body
+    );
+}
+
+/// SEC-04 remediation: candidate reads, lists, patches and deletes obey the
+/// same tenant/owner boundary as positions. A member cannot see an admin-owned
+/// row in their own tenant, and another tenant sees nothing at all.
+#[tokio::test]
+async fn candidate_rows_are_isolated_by_tenant_and_owner() {
+    let (app, _dir) = multiuser_app().await;
+    let a_admin = access_token(USER_A_ADMIN, TENANT_A, "admin");
+    let a_member = access_token(USER_A_MEMBER, TENANT_A, "member");
+    let b_admin = access_token(USER_B_ADMIN, TENANT_B, "admin");
+    let a_header = auth(&a_admin);
+    let member_header = auth(&a_member);
+    let b_header = auth(&b_admin);
+
+    let created = support::post_with_headers(
+        app.clone(),
+        "/api/candidates",
+        &json!({"name": "Tenant A secret candidate"}).to_string(),
+        &[("authorization", a_header.as_str())],
+    )
+    .await;
+    assert_eq!(created.status, 201, "{}", created.body);
+    let id = created.body["id"].as_str().unwrap().to_string();
+
+    let owner_read = get_with_headers(
+        app.clone(),
+        &format!("/api/candidates/{id}"),
+        &[("authorization", a_header.as_str())],
+    )
+    .await;
+    assert_eq!(owner_read.status, 200, "owner must see its row");
+
+    for (name, token) in [
+        ("other tenant admin", b_header.as_str()),
+        ("same tenant member", member_header.as_str()),
+    ] {
+        let response = get_with_headers(
+            app.clone(),
+            &format!("/api/candidates/{id}"),
+            &[("authorization", token)],
+        )
+        .await;
+        assert_eq!(
+            response.status, 404,
+            "{name} must not read the row: {}",
+            response.body
+        );
+    }
+
+    let other_list = get_with_headers(
+        app.clone(),
+        "/api/candidates?search=Tenant%20A%20secret",
+        &[("authorization", b_header.as_str())],
+    )
+    .await;
+    assert_eq!(other_list.status, 200);
+    assert_eq!(
+        other_list.body["total"], 0,
+        "scoped list must exclude other tenants"
+    );
+
+    let patch = support::patch_with_headers(
+        app.clone(),
+        &format!("/api/candidates/{id}"),
+        &json!({"notes": "hijacked"}).to_string(),
+        &[("authorization", b_header.as_str())],
+    )
+    .await;
+    assert_eq!(patch.status, 404, "out-of-scope patch must be a 404");
+
+    let delete = support::delete_with_headers(
+        app,
+        &format!("/api/candidates/{id}"),
+        &[("authorization", b_header.as_str())],
+    )
+    .await;
+    assert_eq!(delete.status, 404, "out-of-scope delete must be a 404");
+}
+
+/// Remaining entities: conversations/messages created by a tenant-A admin are
+/// invisible to another tenant and to a same-tenant non-owner member.
+#[tokio::test]
+async fn conversation_and_message_rows_are_tenant_and_owner_scoped() {
+    let (app, _dir) = multiuser_app().await;
+    let a_admin = access_token(USER_A_ADMIN, TENANT_A, "admin");
+    let a_member = access_token(USER_A_MEMBER, TENANT_A, "member");
+    let b_admin = access_token(USER_B_ADMIN, TENANT_B, "admin");
+    let a_header = auth(&a_admin);
+    let member_header = auth(&a_member);
+    let b_header = auth(&b_admin);
+
+    let candidate = support::post_with_headers(
+        app.clone(),
+        "/api/candidates",
+        &json!({"name": "Scoped child candidate"}).to_string(),
+        &[("authorization", a_header.as_str())],
+    )
+    .await;
+    assert_eq!(candidate.status, 201, "{}", candidate.body);
+    let candidate_id = candidate.body["id"].as_str().unwrap().to_string();
+
+    let conversation = support::post_with_headers(
+        app.clone(),
+        "/api/conversations",
+        &json!({"candidate_id": candidate_id, "channel": "boss"}).to_string(),
+        &[("authorization", a_header.as_str())],
+    )
+    .await;
+    assert_eq!(conversation.status, 201, "{}", conversation.body);
+
+    let message = support::post_with_headers(
+        app.clone(),
+        "/api/messages",
+        &json!({"candidate_id": candidate_id, "content": "tenant A only", "channel": "boss"})
+            .to_string(),
+        &[("authorization", a_header.as_str())],
+    )
+    .await;
+    assert_eq!(message.status, 201, "{}", message.body);
+
+    for (name, token) in [
+        ("another tenant", b_header.as_str()),
+        ("same tenant member", member_header.as_str()),
+    ] {
+        for path in ["/api/conversations", "/api/messages"] {
+            let response = get_with_headers(app.clone(), path, &[("authorization", token)]).await;
+            assert_eq!(response.status, 200, "{name} {path}: {}", response.body);
+            assert_eq!(
+                response.body["total"], 0,
+                "{name} must not see rows from {path}"
+            );
+        }
+    }
+
+    let owner = get_with_headers(
+        app,
+        "/api/conversations",
+        &[("authorization", a_header.as_str())],
+    )
+    .await;
+    assert_eq!(owner.body["total"], 1, "owner must still see its own row");
+}

@@ -192,7 +192,7 @@ impl AuditTrailRepository for SqliteStore {
         }
         sql.push_str(" ORDER BY created_at DESC LIMIT ?");
 
-        let mut query = sqlx::query_as::<_, AuditEventRow>(&sql);
+        let mut query = sqlx::query_as::<_, AuditEventRow>(sqlx::AssertSqlSafe(sql.to_owned()));
         for value in &binds {
             query = query.bind(value.clone());
         }

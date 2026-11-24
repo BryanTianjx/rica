@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use ica_application::{
     ImportConfirmOutcome, ImportRecordCorrection, ImportRepository, NewImportSessionRow,
-    RepositoryError,
+    RepositoryError, Scope,
 };
 use ica_domain::{content_hash, ImportRecord, ImportSession, ImportStatus, RecordStatus};
 use serde_json::json;
@@ -22,7 +22,7 @@ use sqlx::{FromRow, SqliteConnection};
 
 use crate::audit::{insert_audit, AuditEntry};
 use crate::store::{
-    new_uuid, repo_error, to_sql_timestamp, SqliteStore, DEFAULT_TENANT_ID, LOCAL_OWNER_ID,
+    new_uuid, ownership, repo_error, scope_predicates, to_sql_timestamp, SqliteStore,
 };
 
 #[derive(Debug, FromRow)]
@@ -96,20 +96,32 @@ fn into_session(row: SessionRow, records: Vec<RecordRow>) -> ImportSession {
 async fn fetch_session(
     connection: &mut SqliteConnection,
     id: &str,
+    scope: Option<&Scope>,
 ) -> Result<Option<ImportSession>, RepositoryError> {
-    let row: Option<SessionRow> = sqlx::query_as(&format!(
-        "SELECT {SESSION_COLUMNS} FROM import_sessions WHERE id = ?"
-    ))
-    .bind(id)
-    .fetch_optional(&mut *connection)
-    .await
-    .map_err(repo_error)?;
+    let (predicates, scoped_binds) = scope_predicates(scope, "import_sessions");
+    let sql = format!(
+        "SELECT {SESSION_COLUMNS} FROM import_sessions WHERE id = ?{}",
+        if predicates.is_empty() {
+            String::new()
+        } else {
+            format!(" AND {}", predicates.join(" AND "))
+        }
+    );
+    let mut query =
+        sqlx::query_as::<_, SessionRow>(sqlx::AssertSqlSafe(sql.to_owned())).bind(id.to_string());
+    for value in scoped_binds {
+        query = query.bind(value);
+    }
+    let row: Option<SessionRow> = query
+        .fetch_optional(&mut *connection)
+        .await
+        .map_err(repo_error)?;
 
     let Some(row) = row else { return Ok(None) };
 
-    let records: Vec<RecordRow> = sqlx::query_as(&format!(
+    let records: Vec<RecordRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {RECORD_COLUMNS} FROM import_records WHERE session_id = ? ORDER BY sequence ASC"
-    ))
+    )))
     .bind(id)
     .fetch_all(&mut *connection)
     .await
@@ -125,14 +137,26 @@ async fn ensure_conversation(
     connection: &mut SqliteConnection,
     candidate_id: &str,
     conversation_id: Option<&str>,
+    scope: Option<&Scope>,
 ) -> Result<(String, String), RepositoryError> {
+    let (predicates, scoped_binds) = scope_predicates(scope, "conversations");
+    let scoped_and = if predicates.is_empty() {
+        String::new()
+    } else {
+        format!(" AND {}", predicates.join(" AND "))
+    };
     if let Some(id) = conversation_id {
-        let found: Option<(String, String)> =
-            sqlx::query_as("SELECT candidate_id, channel FROM conversations WHERE id = ?")
-                .bind(id)
-                .fetch_optional(&mut *connection)
-                .await
-                .map_err(repo_error)?;
+        let sql =
+            format!("SELECT candidate_id, channel FROM conversations WHERE id = ?{scoped_and}");
+        let mut query = sqlx::query_as::<_, (String, String)>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(id.to_string());
+        for value in &scoped_binds {
+            query = query.bind(value.clone());
+        }
+        let found: Option<(String, String)> = query
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(repo_error)?;
         match found {
             None => {
                 // A missing conversation is a 404: the baseline resolves it
@@ -159,20 +183,26 @@ async fn ensure_conversation(
         }
     }
 
-    let existing: Option<(String, String)> = sqlx::query_as(
+    let sql = format!(
         "SELECT id, channel FROM conversations WHERE candidate_id = ? AND is_active = 1 \
-         ORDER BY last_message_at IS NULL, last_message_at DESC LIMIT 1",
-    )
-    .bind(candidate_id)
-    .fetch_optional(&mut *connection)
-    .await
-    .map_err(repo_error)?;
+         {scoped_and} ORDER BY last_message_at IS NULL, last_message_at DESC LIMIT 1"
+    );
+    let mut query = sqlx::query_as::<_, (String, String)>(sqlx::AssertSqlSafe(sql.to_owned()))
+        .bind(candidate_id.to_string());
+    for value in &scoped_binds {
+        query = query.bind(value.clone());
+    }
+    let existing: Option<(String, String)> = query
+        .fetch_optional(&mut *connection)
+        .await
+        .map_err(repo_error)?;
     if let Some((id, channel)) = existing {
         return Ok((id, channel));
     }
 
     let id = new_uuid();
     let now = to_sql_timestamp(&Utc::now());
+    let (owner_id, tenant_id) = ownership(scope);
     sqlx::query(
         "INSERT INTO conversations (id, candidate_id, channel, title, is_active, \
          last_message_at, created_at, updated_at, owner_id, tenant_id) \
@@ -182,8 +212,8 @@ async fn ensure_conversation(
     .bind(candidate_id)
     .bind(&now)
     .bind(&now)
-    .bind(LOCAL_OWNER_ID)
-    .bind(DEFAULT_TENANT_ID)
+    .bind(owner_id)
+    .bind(tenant_id)
     .execute(&mut *connection)
     .await
     .map_err(repo_error)?;
@@ -195,8 +225,38 @@ async fn ensure_conversation(
 #[async_trait]
 impl ImportRepository for SqliteStore {
     async fn candidate_exists(&self, id: &str) -> Result<bool, RepositoryError> {
-        let found: Option<String> = sqlx::query_scalar("SELECT id FROM candidates WHERE id = ?")
-            .bind(id)
+        self.candidate_exists_scoped_impl(id, None).await
+    }
+
+    /// SEC-04: existence is tenant/owner scoped.
+    async fn candidate_exists_scoped(
+        &self,
+        id: &str,
+        scope: &Scope,
+    ) -> Result<bool, RepositoryError> {
+        self.candidate_exists_scoped_impl(id, Some(scope)).await
+    }
+
+    async fn candidate_exists_scoped_impl(
+        &self,
+        id: &str,
+        scope: Option<&Scope>,
+    ) -> Result<bool, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(scope, "candidates");
+        let sql = format!(
+            "SELECT id FROM candidates WHERE id = ?{}",
+            if predicates.is_empty() {
+                String::new()
+            } else {
+                format!(" AND {}", predicates.join(" AND "))
+            }
+        );
+        let mut query = sqlx::query_scalar::<_, String>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
+        let found = query
             .fetch_optional(self.pool())
             .await
             .map_err(repo_error)?;
@@ -222,9 +282,27 @@ impl ImportRepository for SqliteStore {
         &self,
         new: NewImportSessionRow,
     ) -> Result<ImportSession, RepositoryError> {
+        self.create_preview_with_scope(new, None).await
+    }
+
+    /// SEC-04: stamp the authenticated actor/tenant on the preview session.
+    async fn create_preview_scoped(
+        &self,
+        new: NewImportSessionRow,
+        scope: &Scope,
+    ) -> Result<ImportSession, RepositoryError> {
+        self.create_preview_with_scope(new, Some(scope)).await
+    }
+
+    async fn create_preview_with_scope(
+        &self,
+        new: NewImportSessionRow,
+        scope: Option<&Scope>,
+    ) -> Result<ImportSession, RepositoryError> {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
         let session_id = new_uuid();
         let now = to_sql_timestamp(&Utc::now());
+        let (owner_id, tenant_id) = ownership(scope);
 
         sqlx::query(
             "INSERT INTO import_sessions (id, candidate_id, source, raw_text, status, \
@@ -240,8 +318,8 @@ impl ImportRepository for SqliteStore {
         .bind(&new.error_message)
         .bind(&now)
         .bind(&now)
-        .bind(LOCAL_OWNER_ID)
-        .bind(DEFAULT_TENANT_ID)
+        .bind(owner_id)
+        .bind(tenant_id)
         .execute(&mut *tx)
         .await
         .map_err(repo_error)?;
@@ -265,8 +343,8 @@ impl ImportRepository for SqliteStore {
             .bind(&record.validation_messages)
             .bind(&now)
             .bind(&now)
-            .bind(LOCAL_OWNER_ID)
-            .bind(DEFAULT_TENANT_ID)
+            .bind(owner_id)
+            .bind(tenant_id)
             .execute(&mut *tx)
             .await
             .map_err(repo_error)?;
@@ -294,14 +372,24 @@ impl ImportRepository for SqliteStore {
         tx.commit().await.map_err(repo_error)?;
 
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        fetch_session(&mut connection, &session_id)
+        fetch_session(&mut connection, &session_id, scope)
             .await?
             .ok_or_else(|| RepositoryError::unavailable("preview vanished after insert"))
     }
 
     async fn find(&self, id: &str) -> Result<Option<ImportSession>, RepositoryError> {
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        fetch_session(&mut connection, id).await
+        fetch_session(&mut connection, id, None).await
+    }
+
+    /// SEC-04: out-of-scope sessions are indistinguishable from missing ones.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        scope: &Scope,
+    ) -> Result<Option<ImportSession>, RepositoryError> {
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        fetch_session(&mut connection, id, Some(scope)).await
     }
 
     async fn confirm(
@@ -311,16 +399,67 @@ impl ImportRepository for SqliteStore {
         conversation_id: Option<String>,
         corrections: Vec<ImportRecordCorrection>,
     ) -> Result<ImportConfirmOutcome, RepositoryError> {
+        self.confirm_with_scope(session_id, candidate_id, conversation_id, corrections, None)
+            .await
+    }
+
+    /// SEC-04: confirm only a scoped session into a scoped candidate.
+    async fn confirm_scoped(
+        &self,
+        session_id: &str,
+        candidate_id: &str,
+        conversation_id: Option<String>,
+        corrections: Vec<ImportRecordCorrection>,
+        scope: &Scope,
+    ) -> Result<ImportConfirmOutcome, RepositoryError> {
+        if self.find_scoped(session_id, scope).await?.is_none()
+            || !self.candidate_exists_scoped(candidate_id, scope).await?
+        {
+            return Err(RepositoryError::not_found(
+                "Import session or candidate".to_string(),
+            ));
+        }
+        self.confirm_with_scope(
+            session_id,
+            candidate_id,
+            conversation_id,
+            corrections,
+            Some(scope),
+        )
+        .await
+    }
+
+    async fn confirm_with_scope(
+        &self,
+        session_id: &str,
+        candidate_id: &str,
+        conversation_id: Option<String>,
+        corrections: Vec<ImportRecordCorrection>,
+        scope: Option<&Scope>,
+    ) -> Result<ImportConfirmOutcome, RepositoryError> {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
 
         // The candidate must exist; the baseline's get_candidate_accessible
         // raises NotFound first.
-        let candidate: Option<String> =
-            sqlx::query_scalar("SELECT id FROM candidates WHERE id = ?")
-                .bind(candidate_id)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(repo_error)?;
+        let (predicates, scoped_binds) = scope_predicates(scope, "candidates");
+        let candidate_sql = format!(
+            "SELECT id FROM candidates WHERE id = ?{}",
+            if predicates.is_empty() {
+                String::new()
+            } else {
+                format!(" AND {}", predicates.join(" AND "))
+            }
+        );
+        let mut candidate_query =
+            sqlx::query_scalar::<_, String>(sqlx::AssertSqlSafe(candidate_sql.to_owned()))
+                .bind(candidate_id.to_string());
+        for value in scoped_binds {
+            candidate_query = candidate_query.bind(value);
+        }
+        let candidate: Option<String> = candidate_query
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(repo_error)?;
         if candidate.is_none() {
             // The baseline calls `get_candidate_accessible`, which raises
             // `NotFoundError` — a 404 with this exact message. A conflict
@@ -341,13 +480,14 @@ impl ImportRepository for SqliteStore {
                 .map_err(repo_error)?;
 
         let (conversation, channel) =
-            ensure_conversation(&mut tx, candidate_id, conversation_id.as_deref()).await?;
+            ensure_conversation(&mut tx, candidate_id, conversation_id.as_deref(), scope).await?;
         let source = session_source.unwrap_or_else(|| "paste_import".to_string());
+        let (owner_id, tenant_id) = ownership(scope);
 
-        let rows: Vec<RecordRow> = sqlx::query_as(&format!(
+        let rows: Vec<RecordRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
             "SELECT {RECORD_COLUMNS} FROM import_records WHERE session_id = ? \
              ORDER BY sequence ASC"
-        ))
+        )))
         .bind(session_id)
         .fetch_all(&mut *tx)
         .await
@@ -422,8 +562,8 @@ impl ImportRepository for SqliteStore {
             .bind(&row.id)
             .bind(&now)
             .bind(&now)
-            .bind(LOCAL_OWNER_ID)
-            .bind(DEFAULT_TENANT_ID)
+            .bind(owner_id)
+            .bind(tenant_id)
             .execute(&mut *tx)
             .await
             .map_err(repo_error)?;
@@ -500,6 +640,23 @@ impl ImportRepository for SqliteStore {
     }
 
     async fn reject(&self, id: &str) -> Result<Option<ImportSession>, RepositoryError> {
+        self.reject_with_scope(id, None).await
+    }
+
+    /// SEC-04: reject only a session inside the caller's scope.
+    async fn reject_scoped(
+        &self,
+        id: &str,
+        scope: &Scope,
+    ) -> Result<Option<ImportSession>, RepositoryError> {
+        self.reject_with_scope(id, Some(scope)).await
+    }
+
+    async fn reject_with_scope(
+        &self,
+        id: &str,
+        scope: Option<&Scope>,
+    ) -> Result<Option<ImportSession>, RepositoryError> {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
         let now = to_sql_timestamp(&Utc::now());
         // Rejecting clears the raw text: nothing will ever be parsed from this
@@ -581,6 +738,6 @@ impl ImportRepository for SqliteStore {
         tx.commit().await.map_err(repo_error)?;
 
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        fetch_session(&mut connection, id).await
+        fetch_session(&mut connection, id, scope).await
     }
 }

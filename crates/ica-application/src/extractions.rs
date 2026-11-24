@@ -62,12 +62,26 @@ pub async fn confirm_candidate(
     session_id: &str,
     request: CandidateConfirm,
 ) -> Result<CandidateConfirmOutcome, ApplicationError> {
+    confirm_candidate_scoped(imports, extractions, session_id, request, None).await
+}
+
+/// SEC-04: the staged session and its reviewed draft are resolved inside the
+/// caller's scope before the write into `candidates` is committed.
+pub async fn confirm_candidate_scoped(
+    imports: &dyn ImportRepository,
+    extractions: &dyn BrowserExtractionRepository,
+    session_id: &str,
+    request: CandidateConfirm,
+    scope: Option<&crate::Scope>,
+) -> Result<CandidateConfirmOutcome, ApplicationError> {
     // The route resolves the session first: an unknown session is the import
     // 404, and a session that is not a browser draft is `wrong_import_type`
     // (409) — the message-shaped confirm body does not apply to it.
-    let session = imports
-        .find(session_id)
-        .await
+    let found = match scope {
+        Some(scope) => imports.find_scoped(session_id, scope).await,
+        None => imports.find(session_id).await,
+    };
+    let session = found
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Import session", session_id))?;
 
@@ -82,17 +96,21 @@ pub async fn confirm_candidate(
         ));
     }
 
-    let draft = extractions
-        .find_by_import_session(session_id)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| {
-            browser_error(
-                "extraction_not_found",
-                "This import session is not a browser extraction draft",
-                json!({ "session_id": session_id }),
-            )
-        })?;
+    let found_draft = match scope {
+        Some(scope) => {
+            extractions
+                .find_by_import_session_scoped(session_id, scope)
+                .await
+        }
+        None => extractions.find_by_import_session(session_id).await,
+    };
+    let draft = found_draft.map_err(unavailable)?.ok_or_else(|| {
+        browser_error(
+            "extraction_not_found",
+            "This import session is not a browser extraction draft",
+            json!({ "session_id": session_id }),
+        )
+    })?;
 
     if draft.status == "confirmed" {
         return Err(browser_error(
@@ -156,8 +174,17 @@ pub async fn confirm_candidate(
         ));
     }
 
-    extractions
-        .confirm_candidate(session_id, &draft, request)
-        .await
-        .map_err(unavailable)
+    match scope {
+        Some(scope) => {
+            extractions
+                .confirm_candidate_scoped(session_id, &draft, request, scope)
+                .await
+        }
+        None => {
+            extractions
+                .confirm_candidate(session_id, &draft, request)
+                .await
+        }
+    }
+    .map_err(unavailable)
 }

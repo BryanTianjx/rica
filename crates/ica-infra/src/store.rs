@@ -75,10 +75,49 @@ pub(crate) fn repo_error(error: sqlx::Error) -> ica_application::RepositoryError
 }
 
 /// Run `SELECT COUNT(*)`-style queries over an optional `WHERE` clause.
-pub(crate) fn where_clause(conditions: &[&str]) -> String {
+pub(crate) fn where_clause<S: AsRef<str>>(conditions: &[S]) -> String {
     if conditions.is_empty() {
         String::new()
     } else {
-        format!(" WHERE {}", conditions.join(" AND "))
+        format!(
+            " WHERE {}",
+            conditions
+                .iter()
+                .map(|condition| condition.as_ref())
+                .collect::<Vec<_>>()
+                .join(" AND ")
+        )
+    }
+}
+
+/// SEC-04 remediation: the `WHERE` predicates a repository must add for an
+/// authenticated scope, with their binds in the same order.
+///
+/// `None` is Local mode and contributes nothing. `Some` always restricts the
+/// tenant; a non-admin additionally sees only rows it owns. Predicates are
+/// built here so every adapter uses the exact same tenant/owner rule, and the
+/// binds never become part of SQL text.
+pub(crate) fn scope_predicates(
+    scope: Option<&ica_application::Scope>,
+    alias: &str,
+) -> (Vec<String>, Vec<String>) {
+    let Some(scope) = scope else {
+        return (Vec::new(), Vec::new());
+    };
+    let mut predicates = vec![format!("{alias}.tenant_id = ?")];
+    let mut binds = vec![scope.tenant_id.clone()];
+    if !scope.is_admin {
+        predicates.push(format!("{alias}.owner_id = ?"));
+        binds.push(scope.actor_id.clone());
+    }
+    (predicates, binds)
+}
+
+/// Which ownership stamps a newly inserted row receives: the Local-mode
+/// defaults for `None`, otherwise the authenticated actor's identity.
+pub(crate) fn ownership(scope: Option<&ica_application::Scope>) -> (&str, &str) {
+    match scope {
+        Some(scope) => (&scope.actor_id, &scope.tenant_id),
+        None => (LOCAL_OWNER_ID, DEFAULT_TENANT_ID),
     }
 }

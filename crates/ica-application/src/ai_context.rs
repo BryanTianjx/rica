@@ -61,6 +61,9 @@ pub struct GenerateDraftRequest {
     /// A/B comparison models. When non-empty this wins over `model_id`, and
     /// every id is resolved in order (`app/ai/service.py`).
     pub comparison_models: Vec<String>,
+    /// SEC-04: authenticated ownership for the generated draft(s). `None` is
+    /// Local mode; the generator passes it to the repository's scoped insert.
+    pub scope: Option<crate::Scope>,
 }
 
 /// Build the AI context for exactly one candidate.
@@ -74,11 +77,20 @@ pub async fn build_context(
     messages: &dyn MessageRepository,
     candidate_id: &str,
 ) -> Result<AiContext, ApplicationError> {
-    let candidate = candidates
-        .find(candidate_id)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Candidate", candidate_id))?;
+    build_context_scoped(candidates, positions, messages, candidate_id, None).await
+}
+
+/// SEC-04: the candidate and its conversation context are read only inside
+/// the caller's tenant/ownership scope.
+pub async fn build_context_scoped(
+    candidates: &dyn CandidateRepository,
+    positions: &dyn PositionRepository,
+    messages: &dyn MessageRepository,
+    candidate_id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<AiContext, ApplicationError> {
+    let candidate =
+        crate::candidates::get_candidate_scoped(candidates, candidate_id, scope).await?;
 
     let mut unknowns: Vec<String> = Vec::new();
     let mut conflicts: Vec<String> = Vec::new();
@@ -124,7 +136,9 @@ pub async fn build_context(
 
     // ── Position ───────────────────────────────────────────────────────────
     let position = match &candidate.position_id {
-        Some(position_id) => positions.find(position_id).await.map_err(unavailable)?,
+        Some(position_id) => {
+            Some(crate::positions::get_position_scoped(positions, position_id, scope).await?)
+        }
         None => None,
     };
     let position_summary = position.as_ref().map(|position| {
@@ -156,10 +170,15 @@ pub async fn build_context(
     }
 
     // ── Messages (strictly candidate-scoped, oldest first) ─────────────────
-    let context_messages = messages
-        .context_messages(&candidate.id, 30)
-        .await
-        .map_err(unavailable)?;
+    let context_messages = match scope {
+        Some(scope) => {
+            messages
+                .context_messages_scoped(&candidate.id, 30, scope)
+                .await
+        }
+        None => messages.context_messages(&candidate.id, 30).await,
+    }
+    .map_err(unavailable)?;
     let mut rendered_messages: Vec<Value> = Vec::new();
     for message in &context_messages {
         let (masked, categories) = redact_for_ai(&message.content, &names);

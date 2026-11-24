@@ -115,6 +115,12 @@ pub fn router(state: AppState) -> Router {
 
 /// Build the router with an explicit SEC-04-B auth mode. Tests use this to
 /// exercise MultiUser mode without mutating process-wide environment variables.
+///
+/// SEC-04 remaining gap: `/api/browser/v1/*` is routed to the Python sidecar
+/// (`ica-desktop::routing::route_backend`), so this Rust router never sees
+/// those requests and cannot put `Scope::from_context` predicates in their SQL.
+/// Do not add a fake scope check here: browser/session/permission/extraction
+/// rows must be scoped inside the sidecar, which is outside this crate.
 pub fn router_with_mode(state: AppState, mode: AuthMode) -> Router {
     let patterns: RoutePatterns = Arc::from(ROUTE_PATTERNS);
     let head_patterns = patterns.clone();
@@ -357,34 +363,49 @@ async fn delete_position(
 /// `GET /api/candidates` — one page, `updated_at DESC`, with the real total.
 async fn list_candidates(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<RawListCandidatesQuery>,
 ) -> Result<Json<PageResponse<CandidateRead>>, ApiError> {
     let query = query::validate_candidates(raw)?;
-    let page = ica_application::candidates::list_candidates(state.candidates(), query).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let page =
+        ica_application::candidates::list_candidates_scoped(state.candidates(), query, scope)
+            .await?;
     Ok(Json(PageResponse::from_page(page, CandidateRead::from)))
 }
 
 /// `POST /api/candidates` — create one; a missing position is a 404.
 async fn create_candidate(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<CandidateRead>), ApiError> {
     let raw: body::RawCandidateCreate = body::parse(&body)?;
     let new = body::candidate_create(raw)?;
-    let candidate =
-        ica_application::candidates::create_candidate(state.positions(), state.candidates(), new)
-            .await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let candidate = ica_application::candidates::create_candidate_scoped(
+        state.positions(),
+        state.candidates(),
+        new,
+        scope.as_ref(),
+    )
+    .await?;
     Ok((StatusCode::CREATED, Json(CandidateRead::from(candidate))))
 }
 
 /// `GET /api/candidates/{candidate_id}` — the candidate plus its position.
 async fn get_candidate(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(candidate_id): Path<String>,
 ) -> Result<Json<CandidateDetailRead>, ApiError> {
-    let detail =
-        ica_application::candidates::get_candidate_detail(state.candidates(), &candidate_id)
-            .await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let detail = ica_application::candidates::get_candidate_detail_scoped(
+        state.candidates(),
+        &candidate_id,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(CandidateDetailRead {
         candidate: CandidateRead::from(detail.candidate),
         position: detail.position.map(PositionRead::from),
@@ -394,16 +415,19 @@ async fn get_candidate(
 /// `PATCH /api/candidates/{candidate_id}` — `position_id: null` detaches.
 async fn update_candidate(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(candidate_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<CandidateRead>, ApiError> {
     let raw: body::RawCandidatePatch = body::parse(&body)?;
     let patch = body::candidate_patch(raw)?;
-    let candidate = ica_application::candidates::update_candidate(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let candidate = ica_application::candidates::update_candidate_scoped(
         state.positions(),
         state.candidates(),
         &candidate_id,
         patch,
+        scope.as_ref(),
     )
     .await?;
     Ok(Json(CandidateRead::from(candidate)))
@@ -412,9 +436,16 @@ async fn update_candidate(
 /// `DELETE /api/candidates/{candidate_id}` — 204, FK cascade removes children.
 async fn delete_candidate(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(candidate_id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
-    ica_application::candidates::delete_candidate(state.candidates(), &candidate_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    ica_application::candidates::delete_candidate_scoped(
+        state.candidates(),
+        &candidate_id,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -423,25 +454,34 @@ async fn delete_candidate(
 /// `GET /api/conversations` — `last_message_at DESC NULLS LAST`.
 async fn list_conversations(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<RawListConversationsQuery>,
 ) -> Result<Json<PageResponse<ConversationRead>>, ApiError> {
     let query = query::validate_conversations(raw)?;
-    let page =
-        ica_application::conversations::list_conversations(state.conversations(), query).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let page = ica_application::conversations::list_conversations_scoped(
+        state.conversations(),
+        query,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(PageResponse::from_page(page, ConversationRead::from)))
 }
 
 /// `POST /api/conversations` — open a thread and audit `conversation.created`.
 async fn create_conversation(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<ConversationRead>), ApiError> {
     let raw: body::RawConversationCreate = body::parse(&body)?;
     let new = body::conversation_create(raw)?;
-    let conversation = ica_application::conversations::create_conversation(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let conversation = ica_application::conversations::create_conversation_scoped(
         state.candidates(),
         state.conversations(),
         new,
+        scope.as_ref(),
     )
     .await?;
     Ok((
@@ -453,25 +493,35 @@ async fn create_conversation(
 /// `GET /api/messages` — time order, real `total` (IMP-1).
 async fn list_messages(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<RawListMessagesQuery>,
 ) -> Result<Json<PageResponse<MessageRead>>, ApiError> {
     let query = query::validate_messages(raw)?;
-    let page = ica_application::conversations::list_messages(state.messages(), query).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let page = ica_application::conversations::list_messages_scoped(
+        state.messages(),
+        query,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(PageResponse::from_page(page, MessageRead::from)))
 }
 
 /// `POST /api/messages` — record one, opening or reusing the conversation.
 async fn create_message(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<MessageRead>), ApiError> {
     let raw: body::RawMessageCreate = body::parse(&body)?;
     let new = body::message_create(raw)?;
-    let message = ica_application::conversations::create_message(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let message = ica_application::conversations::create_message_scoped(
         state.candidates(),
         state.conversations(),
         state.messages(),
         new,
+        scope.as_ref(),
     )
     .await?;
     Ok((StatusCode::CREATED, Json(MessageRead::from(message))))
@@ -480,15 +530,18 @@ async fn create_message(
 /// `GET /api/candidates/{candidate_id}/timeline` — an array, not a `Page`.
 async fn candidate_timeline(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(candidate_id): Path<String>,
     ApiQuery(raw): ApiQuery<RawTimelineQuery>,
 ) -> Result<Json<Vec<TimelineEntryRead>>, ApiError> {
     let limit = query::validate_timeline(raw)?;
-    let entries = ica_application::conversations::candidate_timeline(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let entries = ica_application::conversations::candidate_timeline_scoped(
         state.candidates(),
         state.messages(),
         &candidate_id,
         limit,
+        scope.as_ref(),
     )
     .await?;
     Ok(Json(
@@ -501,24 +554,36 @@ async fn candidate_timeline(
 /// `POST /api/send-records` — append one manual send, audited.
 async fn record_send(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<SendRecordRead>), ApiError> {
     let raw: body::RawSendRecordCreate = body::parse(&body)?;
     let new = body::send_record_create(raw)?;
-    let record =
-        ica_application::send_records::record_send(state.candidates(), state.send_records(), new)
-            .await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let record = ica_application::send_records::record_send_scoped(
+        state.candidates(),
+        state.send_records(),
+        new,
+        scope.as_ref(),
+    )
+    .await?;
     Ok((StatusCode::CREATED, Json(SendRecordRead::from(record))))
 }
 
 /// `GET /api/send-records` — newest send first, four filters.
 async fn list_send_records(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<RawListSendRecordsQuery>,
 ) -> Result<Json<PageResponse<SendRecordRead>>, ApiError> {
     let query = query::validate_send_records(raw)?;
-    let page =
-        ica_application::send_records::list_send_records(state.send_records(), query).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let page = ica_application::send_records::list_send_records_scoped(
+        state.send_records(),
+        query,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(PageResponse::from_page(page, SendRecordRead::from)))
 }
 
@@ -535,15 +600,18 @@ async fn unknown_path() -> ApiError {
 /// Not a 201: the endpoint creates nothing (the baseline declares 200).
 async fn follow_up_evaluate(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<FollowUpDecisionRead>, ApiError> {
     let raw: body::RawFollowUpEvaluate = body::parse(&body)?;
     let evaluation = body::follow_up_evaluate(raw)?;
-    let decision = ica_application::evaluate(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let decision = ica_application::evaluate_scoped(
         state.follow_ups(),
         state.candidates(),
         state.positions(),
         evaluation,
+        scope.as_ref(),
     )
     .await?;
     Ok(Json(FollowUpDecisionRead::from(decision)))
@@ -552,6 +620,7 @@ async fn follow_up_evaluate(
 /// `GET /api/follow-ups` — one page of tasks; stale rows are swept first.
 async fn list_follow_ups(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<RawListFollowUpsQuery>,
 ) -> Result<Json<PageResponse<FollowUpTaskRead>>, ApiError> {
     let query = query::validate_follow_ups(raw)?;
@@ -559,8 +628,15 @@ async fn list_follow_ups(
         candidate_id: query.candidate_id,
         status: query.status,
     };
-    let (tasks, total) =
-        ica_application::list_tasks(state.follow_ups(), filter, query.offset, query.limit).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let (tasks, total) = ica_application::list_tasks_scoped(
+        state.follow_ups(),
+        filter,
+        query.offset,
+        query.limit,
+        scope.as_ref(),
+    )
+    .await?;
     let page = ica_domain::Page {
         items: tasks,
         total,
@@ -573,15 +649,18 @@ async fn list_follow_ups(
 /// `POST /api/follow-ups` — create (or reuse) a task, 201 with the row.
 async fn create_follow_up(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<FollowUpTaskRead>), ApiError> {
     let raw: body::RawFollowUpCreate = body::parse(&body)?;
     let new = body::follow_up_create(raw)?;
-    let task = ica_application::create_task(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let task = ica_application::create_task_scoped(
         state.follow_ups(),
         state.candidates(),
         state.positions(),
         new,
+        scope.as_ref(),
     )
     .await?;
     Ok((StatusCode::CREATED, Json(FollowUpTaskRead::from(task))))
@@ -590,9 +669,12 @@ async fn create_follow_up(
 /// `GET /api/follow-ups/{task_id}` — one task.
 async fn get_follow_up(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(task_id): Path<String>,
 ) -> Result<Json<FollowUpTaskRead>, ApiError> {
-    let task = ica_application::get_task(state.follow_ups(), &task_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let task =
+        ica_application::get_task_scoped(state.follow_ups(), &task_id, scope.as_ref()).await?;
     Ok(Json(FollowUpTaskRead::from(task)))
 }
 
@@ -600,12 +682,16 @@ async fn get_follow_up(
 /// validates any status change before the row is written.
 async fn update_follow_up(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(task_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<FollowUpTaskRead>, ApiError> {
     let raw: body::RawFollowUpPatch = body::parse(&body)?;
     let patch = body::follow_up_patch(raw)?;
-    let task = ica_application::update_task(state.follow_ups(), &task_id, patch).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let task =
+        ica_application::update_task_scoped(state.follow_ups(), &task_id, patch, scope.as_ref())
+            .await?;
     Ok(Json(FollowUpTaskRead::from(task)))
 }
 
@@ -613,10 +699,18 @@ async fn update_follow_up(
 /// already-cancelled task, 409 from a closed terminal state.
 async fn cancel_follow_up(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(task_id): Path<String>,
     ApiQuery(raw): ApiQuery<RawFollowUpCancelQuery>,
 ) -> Result<Json<FollowUpTaskRead>, ApiError> {
-    let task = ica_application::cancel_task(state.follow_ups(), &task_id, raw.reason).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let task = ica_application::cancel_task_scoped(
+        state.follow_ups(),
+        &task_id,
+        raw.reason,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(FollowUpTaskRead::from(task)))
 }
 
@@ -624,9 +718,12 @@ async fn cancel_follow_up(
 /// `AwaitingResult` and `Completed` (self), 409 elsewhere.
 async fn complete_follow_up(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(task_id): Path<String>,
 ) -> Result<Json<FollowUpTaskRead>, ApiError> {
-    let task = ica_application::complete_task(state.follow_ups(), &task_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let task =
+        ica_application::complete_task_scoped(state.follow_ups(), &task_id, scope.as_ref()).await?;
     Ok(Json(FollowUpTaskRead::from(task)))
 }
 
@@ -634,19 +731,27 @@ async fn complete_follow_up(
 /// can mark a message as actually sent; appends the send log row.
 async fn record_follow_up_result(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(task_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<FollowUpTaskRead>, ApiError> {
     let raw: body::RawFollowUpResult = body::parse(&body)?;
     let result = body::follow_up_result(raw)?;
-    let task = ica_application::record_result(state.follow_ups(), &task_id, result).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let task =
+        ica_application::record_result_scoped(state.follow_ups(), &task_id, result, scope.as_ref())
+            .await?;
     Ok(Json(FollowUpTaskRead::from(task)))
 }
 
 /// `GET /api/follow-ups/policy/current` — creates the default row on first use.
 async fn get_follow_up_policy(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<FollowUpPolicyRead>, ApiError> {
+    // The policy is one installation-wide config row (the read can create it);
+    // only an operator may read or change it.
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let record = ica_application::ensure_default_policy(state.follow_ups()).await?;
     Ok(Json(FollowUpPolicyRead::from(record)))
 }
@@ -654,8 +759,10 @@ async fn get_follow_up_policy(
 /// `PATCH /api/follow-ups/policy/current` — thresholds with pydantic ranges.
 async fn update_follow_up_policy(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<FollowUpPolicyRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let raw: body::RawFollowUpPolicyPatch = body::parse(&body)?;
     let patch = body::follow_up_policy_patch(raw)?;
     let record = ica_application::update_policy(state.follow_ups(), patch).await?;
@@ -663,7 +770,13 @@ async fn update_follow_up_policy(
 }
 
 /// `GET /api/dashboard` — the aggregated workbench, after the maintenance tick.
-async fn dashboard(State(state): State<AppState>) -> Result<Json<DashboardRead>, ApiError> {
+async fn dashboard(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
+) -> Result<Json<DashboardRead>, ApiError> {
+    // The dashboard is a cross-tenant aggregate (and runs maintenance sweeps),
+    // so it is an operator surface, not a per-row resource.
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     use ica_domain::CandidateStatus;
     let snapshot = ica_application::dashboard(state.dashboard()).await?;
     let mut status_counts: std::collections::BTreeMap<String, i64> =
@@ -719,12 +832,19 @@ async fn dashboard(State(state): State<AppState>) -> Result<Json<DashboardRead>,
 /// centre can render "1-50 of N" without loading the whole table.
 async fn list_drafts(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<RawListDraftsQuery>,
 ) -> Result<Json<PageResponse<DraftRead>>, ApiError> {
     let query = query::validate_drafts(raw)?;
-    let (drafts, total) =
-        ica_application::list_drafts(state.drafts(), query.filter, query.offset, query.limit)
-            .await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let (drafts, total) = ica_application::list_drafts_scoped(
+        state.drafts(),
+        query.filter,
+        query.offset,
+        query.limit,
+        scope.as_ref(),
+    )
+    .await?;
     let page = ica_domain::Page {
         items: drafts,
         total,
@@ -737,9 +857,12 @@ async fn list_drafts(
 /// `GET /api/drafts/{draft_id}` — one draft.
 async fn get_draft(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(draft_id): Path<String>,
 ) -> Result<Json<DraftRead>, ApiError> {
-    let draft = ica_application::get_draft(state.drafts(), &draft_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let draft =
+        ica_application::get_draft_scoped(state.drafts(), &draft_id, scope.as_ref()).await?;
     Ok(Json(DraftRead::from(draft)))
 }
 
@@ -760,17 +883,20 @@ enum GenerateResponse {
 /// `503 ai_provider_error`, which propagates before anything is persisted.
 async fn generate_draft(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<GenerateResponse>), ApiError> {
     let raw: body::RawGenerateRequest = body::parse(&body)?;
     let request = body::generate_request(raw)?;
-    let outcome = ica_application::generate(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let outcome = ica_application::generate_scoped(
         state.drafts(),
         state.follow_ups(),
         state.candidates(),
         state.positions(),
         state.draft_generator(),
         request,
+        scope.as_ref(),
     )
     .await?;
     match outcome {
@@ -790,13 +916,16 @@ async fn generate_draft(
 /// `GET /api/candidates/{candidate_id}/context` — what the model would see.
 async fn preview_context(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(candidate_id): Path<String>,
 ) -> Result<Json<ContextPreviewRead>, ApiError> {
-    let context = ica_application::preview_context(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let context = ica_application::preview_context_scoped(
         state.candidates(),
         state.positions(),
         state.messages(),
         &candidate_id,
+        scope.as_ref(),
     )
     .await?;
     Ok(Json(ContextPreviewRead::from(context)))
@@ -805,70 +934,102 @@ async fn preview_context(
 /// `PATCH /api/drafts/{draft_id}` — edit the wording.
 async fn update_draft(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(draft_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<DraftRead>, ApiError> {
     let raw: body::RawDraftPatch = body::parse(&body)?;
     let patch = body::draft_patch(raw)?;
-    let draft = ica_application::update_draft(state.drafts(), &draft_id, patch).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let draft =
+        ica_application::update_draft_scoped(state.drafts(), &draft_id, patch, scope.as_ref())
+            .await?;
     Ok(Json(DraftRead::from(draft)))
 }
 
 /// `POST /api/drafts/{draft_id}/approve` — approval only, never a send.
 async fn approve_draft(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(draft_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<DraftRead>, ApiError> {
     let raw: body::RawDraftApprove = body::parse(&body)?;
     let note = body::draft_approve(raw)?;
-    let draft =
-        ica_application::approve_draft(state.drafts(), state.follow_ups(), &draft_id, note).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let draft = ica_application::approve_draft_scoped(
+        state.drafts(),
+        state.follow_ups(),
+        &draft_id,
+        note,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(DraftRead::from(draft)))
 }
 
 /// `POST /api/drafts/{draft_id}/reject` — no guard, every state answers 200.
 async fn reject_draft(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(draft_id): Path<String>,
 ) -> Result<Json<DraftRead>, ApiError> {
-    let draft =
-        ica_application::reject_draft(state.drafts(), state.follow_ups(), &draft_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let draft = ica_application::reject_draft_scoped(
+        state.drafts(),
+        state.follow_ups(),
+        &draft_id,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(DraftRead::from(draft)))
 }
 
 /// `POST /api/drafts/{draft_id}/copy` — copy is not a send.
 async fn copy_draft(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(draft_id): Path<String>,
 ) -> Result<Json<DraftCopyResponse>, ApiError> {
-    let outcome =
-        ica_application::copy_draft(state.drafts(), state.follow_ups(), &draft_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let outcome = ica_application::copy_draft_scoped(
+        state.drafts(),
+        state.follow_ups(),
+        &draft_id,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(DraftCopyResponse::from(outcome)))
 }
 
 /// `GET /api/draft-groups/{group_id}` — the group, `created_at ASC`.
 async fn get_draft_group(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(group_id): Path<String>,
 ) -> Result<Json<DraftGroupRead>, ApiError> {
-    let drafts = ica_application::get_draft_group(state.drafts(), &group_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let drafts =
+        ica_application::get_draft_group_scoped(state.drafts(), &group_id, scope.as_ref()).await?;
     Ok(Json(build_draft_group(drafts)))
 }
 
 /// `POST /api/draft-groups/{group_id}/select` — pick one, reject the rest.
 async fn select_draft_from_group(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(group_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<DraftGroupRead>, ApiError> {
     let raw: body::RawDraftGroupSelect = body::parse(&body)?;
     let selection = body::draft_group_select(raw)?;
-    let drafts = ica_application::select_draft_from_group(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let drafts = ica_application::select_draft_from_group_scoped(
         state.drafts(),
         state.follow_ups(),
         &group_id,
         selection,
+        scope.as_ref(),
     )
     .await?;
     Ok(Json(build_draft_group(drafts)))
@@ -897,21 +1058,27 @@ fn build_draft_group(drafts: Vec<ica_domain::GeneratedDraft>) -> DraftGroupRead 
 /// preview is a reading of the page rather than a new addressable resource.
 async fn preview_import(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<ImportSessionRead>, ApiError> {
     let raw: body::RawImportPreview = body::parse(&body)?;
     let request = body::import_preview(raw)?;
-    let session = ica_application::preview_import(state.imports(), request).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let session =
+        ica_application::preview_import_scoped(state.imports(), request, scope.as_ref()).await?;
     Ok(Json(ImportSessionRead::from(session)))
 }
 
 /// `GET /api/imports/{session_id}` — one session with its parsed records.
 async fn get_import(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(session_id): Path<String>,
 ) -> Result<Json<ImportSessionRead>, ApiError> {
     // The 404 and the repository error both come from the shared use case.
-    let session = ica_application::get_import(state.imports(), &session_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let session =
+        ica_application::get_import_scoped(state.imports(), &session_id, scope.as_ref()).await?;
     Ok(Json(ImportSessionRead::from(session)))
 }
 
@@ -919,12 +1086,20 @@ async fn get_import(
 /// candidate's timeline.
 async fn confirm_import(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(session_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<ImportConfirmResult>, ApiError> {
     let raw: body::RawImportConfirm = body::parse(&body)?;
     let request = body::import_confirm(raw)?;
-    let outcome = ica_application::confirm_import(state.imports(), &session_id, request).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let outcome = ica_application::confirm_import_scoped(
+        state.imports(),
+        &session_id,
+        request,
+        scope.as_ref(),
+    )
+    .await?;
     Ok(Json(ImportConfirmResult {
         session_id: outcome.session_id,
         saved_message_ids: outcome.saved_message_ids,
@@ -941,12 +1116,14 @@ async fn confirm_import(
 /// existing candidate without an explicit override (AC-04-4).
 async fn confirm_candidate_import(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(session_id): Path<String>,
     body: Bytes,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let raw: body::RawCandidateConfirm = body::parse(&body)?;
     let request = body::candidate_confirm(raw)?;
-    let outcome = ica_application::confirm_candidate(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let outcome = ica_application::confirm_candidate_scoped(
         state.imports(),
         state.extractions(),
         &session_id,
@@ -956,6 +1133,7 @@ async fn confirm_candidate_import(
             confirm_duplicate: request.confirm_duplicate,
             note: request.note,
         },
+        scope.as_ref(),
     )
     .await?;
     Ok(Json(serde_json::json!({
@@ -971,9 +1149,12 @@ async fn confirm_candidate_import(
 /// `POST /api/imports/{session_id}/reject` — close a session without importing.
 async fn reject_import(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(session_id): Path<String>,
 ) -> Result<Json<ImportSessionRead>, ApiError> {
-    let session = ica_application::reject_import(state.imports(), &session_id).await?;
+    let scope = ica_application::Scope::from_context(&ctx);
+    let session =
+        ica_application::reject_import_scoped(state.imports(), &session_id, scope.as_ref()).await?;
     Ok(Json(ImportSessionRead::from(session)))
 }
 
@@ -985,8 +1166,10 @@ async fn reject_import(
 /// sealing succeeds.
 async fn export_data(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let key = headers
         .get("x-encrypt-aes-key")
         .and_then(|value| value.to_str().ok())
@@ -1031,8 +1214,10 @@ async fn export_data(
 /// `POST /api/import` — merge a snapshot, last-write-wins per row.
 async fn import_data(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<ImportResult>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let raw: body::RawImportPayload = body::parse(&body)?;
     let data = body::import_payload(raw)?;
     let outcome = ica_application::import_data(state.snapshots(), data).await?;
@@ -1050,16 +1235,19 @@ async fn import_data(
 /// refused without disclosing whether the file exists.
 async fn ocr_import(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<ImportOcrResult>, ApiError> {
     let raw: body::RawImportOcr = body::parse(&body)?;
     let request = body::import_ocr(raw)?;
     let candidate_id = request.candidate_id.clone();
-    let outcome = ica_application::ocr_screenshot(
+    let scope = ica_application::Scope::from_context(&ctx);
+    let outcome = ica_application::ocr_screenshot_scoped(
         state.imports(),
         state.ocr(),
         request,
         &state.config().ocr_upload_dir,
+        scope.as_ref(),
     )
     .await?;
     Ok(Json(ImportOcrResult {
@@ -1082,8 +1270,11 @@ async fn ocr_import(
 /// stored — never chat bodies, keys or tokens.
 async fn audit_events(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<query::RawListAuditEventsQuery>,
 ) -> Result<Json<Vec<AuditEventRead>>, ApiError> {
+    // The trail spans every tenant's rows; it is an operator-only read.
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let list = query::validate_audit_events(raw)?;
     let events = ica_application::recent_audit_events(state.audit_trail(), list.into()).await?;
     Ok(Json(events.into_iter().map(AuditEventRead::from).collect()))
@@ -1093,9 +1284,13 @@ async fn audit_events(
 
 /// `GET /settings` — the effective configuration, minus any secret
 /// (the baseline's `read_settings`).
-async fn read_settings(State(state): State<AppState>) -> Json<SettingsRead> {
+async fn read_settings(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
+) -> Result<Json<SettingsRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let snapshot = state.settings_config_view().settings_snapshot();
-    Json(SettingsRead {
+    Ok(Json(SettingsRead {
         app_name: snapshot.app_name,
         ai_enabled: snapshot.ai_enabled,
         ai_provider: snapshot.ai_provider,
@@ -1105,12 +1300,16 @@ async fn read_settings(State(state): State<AppState>) -> Json<SettingsRead> {
         backup_dir: snapshot.backup_dir,
         backup_keep_count: snapshot.backup_keep_count,
         data_retention_days: snapshot.data_retention_days,
-    })
+    }))
 }
 
 /// `GET /settings/ai-egress` — where AI context would go and what is masked
 /// before it leaves (`PRIV-07`). Read-only, never carries a key.
-async fn read_ai_egress(State(state): State<AppState>) -> Result<Json<AIEgressRead>, ApiError> {
+async fn read_ai_egress(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
+) -> Result<Json<AIEgressRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let disclosure =
         ica_application::read_egress_disclosure(state.settings(), &state.settings_config_view())
             .await?;
@@ -1122,8 +1321,10 @@ async fn read_ai_egress(State(state): State<AppState>) -> Result<Json<AIEgressRe
 /// required and explicit: an omitted body must never silently turn egress on.
 async fn write_ai_egress_consent(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AIEgressRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let raw: body::RawAiEgressConsent = body::parse(&body)?;
     let consent = body::ai_egress_consent(raw)?;
     let disclosure = ica_application::write_egress_consent(
@@ -1138,7 +1339,11 @@ async fn write_ai_egress_consent(
 // == W5: AI models / routing / usage / budget ==
 
 /// `GET /ai/models` — the registry with the V1.0 fallback, key presence only.
-async fn list_ai_models(State(state): State<AppState>) -> Result<Json<AiModelsRead>, ApiError> {
+async fn list_ai_models(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
+) -> Result<Json<AiModelsRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let overview = ica_application::list_ai_models(
         state.ai_models(),
         state.secrets(),
@@ -1152,7 +1357,11 @@ async fn list_ai_models(State(state): State<AppState>) -> Result<Json<AiModelsRe
 }
 
 /// `GET /ai/routing` — the effective table (defaults layered with overrides).
-async fn get_ai_routing(State(state): State<AppState>) -> Result<Json<AiRoutingRead>, ApiError> {
+async fn get_ai_routing(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
+) -> Result<Json<AiRoutingRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let routing = ica_application::get_ai_routing(state.ai_models()).await?;
     Ok(Json(AiRoutingRead { routing }))
 }
@@ -1160,8 +1369,10 @@ async fn get_ai_routing(State(state): State<AppState>) -> Result<Json<AiRoutingR
 /// `PATCH /ai/routing` — persist overrides for known message types only.
 async fn update_ai_routing(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AiRoutingRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let raw: body::RawAiRoutingPatch = body::parse(&body)?;
     let patch = body::ai_routing_patch(raw)?;
     let routing = ica_application::update_ai_routing(state.ai_models(), patch.routing).await?;
@@ -1171,8 +1382,10 @@ async fn update_ai_routing(
 /// `GET /ai/usage` — today, `days` of history, all-time per model.
 async fn get_ai_usage(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<query::RawAiUsageQuery>,
 ) -> Result<Json<AiUsageRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let days = query::validate_ai_usage_days(raw)?;
     let today = chrono::Utc::now()
         .naive_utc()
@@ -1184,7 +1397,11 @@ async fn get_ai_usage(
 }
 
 /// `GET /ai/budget` — the current budget config and spend state.
-async fn get_ai_budget(State(state): State<AppState>) -> Result<Json<AiBudgetRead>, ApiError> {
+async fn get_ai_budget(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
+) -> Result<Json<AiBudgetRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let today = chrono::Utc::now()
         .naive_utc()
         .format("%Y-%m-%d")
@@ -1200,8 +1417,10 @@ async fn get_ai_budget(State(state): State<AppState>) -> Result<Json<AiBudgetRea
 /// with the fresh spend state.
 async fn update_ai_budget(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AiBudgetRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let raw: body::RawAiBudgetPatch = body::parse(&body)?;
     let patch = body::ai_budget_patch(raw)?;
     state
@@ -1239,8 +1458,10 @@ async fn update_ai_budget(
 /// audit it masked, and report the enabled flag (never the key).
 async fn write_ai_key_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AiKeyStatus>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let raw: body::RawAiKeyWrite = body::parse(&body)?;
     let write = body::ai_key_write(raw)?;
     let (installation, masked, model_id) = ica_application::write_ai_key(
@@ -1265,8 +1486,10 @@ async fn write_ai_key_endpoint(
 /// audit the change.
 async fn clear_ai_key_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<query::RawAiKeyClearQuery>,
 ) -> Result<Json<AiKeyStatus>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let model_id = query::validate_ai_key_clear(raw)?;
     let (installation, masked, model_id) =
         ica_application::clear_ai_key(state.secrets(), state.settings(), model_id.as_deref())
@@ -1284,7 +1507,10 @@ async fn clear_ai_key_endpoint(
 /// `GET /api/backups` — both backup families, newest first.
 async fn list_backups_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<Vec<BackupRead>>, ApiError> {
+    // Backup files are installation-wide; only an operator may enumerate them.
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let records = ica_application::list_backups(state.backups()).await?;
     Ok(Json(records.into_iter().map(Into::into).collect()))
 }
@@ -1293,7 +1519,9 @@ async fn list_backups_endpoint(
 /// database.
 async fn create_backup_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<BackupRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     let record = ica_application::create_backup(state.backups()).await?;
     Ok(Json(record.into()))
 }
@@ -1303,9 +1531,11 @@ async fn create_backup_endpoint(
 /// never a path.
 async fn restore_backup_endpoint(
     State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
     Path(name): Path<String>,
     body: Bytes,
 ) -> Result<Json<RestoreRead>, ApiError> {
+    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
     // Business rules (confirm, file-name guard, existence pre-check) live in
     // the shared Application use case; IPC executes the identical code.
     let payload: serde_json::Value = body::parse(&body)?;

@@ -42,11 +42,22 @@ pub async fn preview_import(
     imports: &dyn ImportRepository,
     request: NewImportPreview,
 ) -> Result<ica_domain::ImportSession, ApplicationError> {
+    preview_import_scoped(imports, request, None).await
+}
+
+/// SEC-04: the parent candidate is resolved in scope and the session is
+/// stamped with the authenticated actor's ownership.
+pub async fn preview_import_scoped(
+    imports: &dyn ImportRepository,
+    request: NewImportPreview,
+    scope: Option<&crate::Scope>,
+) -> Result<ica_domain::ImportSession, ApplicationError> {
     if let Some(candidate_id) = &request.candidate_id {
-        let exists = imports
-            .candidate_exists(candidate_id)
-            .await
-            .map_err(unavailable)?;
+        let exists = match scope {
+            Some(scope) => imports.candidate_exists_scoped(candidate_id, scope).await,
+            None => imports.candidate_exists(candidate_id).await,
+        }
+        .map_err(unavailable)?;
         if !exists {
             return Err(ApplicationError::not_found("Candidate", candidate_id));
         }
@@ -103,18 +114,20 @@ pub async fn preview_import(
         })
         .collect();
 
-    let created = imports
-        .create_preview(NewImportSessionRow {
-            candidate_id: request.candidate_id,
-            source: request.source.as_str().to_string(),
-            raw_text: request.raw_text,
-            status,
-            error_message,
-            records,
-            detected_duplicate_count,
-        })
-        .await
-        .map_err(unavailable)?;
+    let row = NewImportSessionRow {
+        candidate_id: request.candidate_id,
+        source: request.source.as_str().to_string(),
+        raw_text: request.raw_text,
+        status,
+        error_message,
+        records,
+        detected_duplicate_count,
+    };
+    let created = match scope {
+        Some(scope) => imports.create_preview_scoped(row, scope).await,
+        None => imports.create_preview(row).await,
+    }
+    .map_err(unavailable)?;
 
     Ok(created)
 }
@@ -124,9 +137,20 @@ pub async fn get_import(
     imports: &dyn ImportRepository,
     session_id: &str,
 ) -> Result<ica_domain::ImportSession, ApplicationError> {
-    let session = imports
-        .find(session_id)
-        .await
+    get_import_scoped(imports, session_id, None).await
+}
+
+/// SEC-04: out-of-scope sessions are indistinguishable from missing ones.
+pub async fn get_import_scoped(
+    imports: &dyn ImportRepository,
+    session_id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<ica_domain::ImportSession, ApplicationError> {
+    let found = match scope {
+        Some(scope) => imports.find_scoped(session_id, scope).await,
+        None => imports.find(session_id).await,
+    };
+    let session = found
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Import session", session_id))?;
     Ok(session)
@@ -141,9 +165,21 @@ pub async fn confirm_import(
     session_id: &str,
     request: NewImportConfirm,
 ) -> Result<ImportConfirmOutcome, ApplicationError> {
-    let session = imports
-        .find(session_id)
-        .await
+    confirm_import_scoped(imports, session_id, request, None).await
+}
+
+/// SEC-04: both the session and its destination candidate must be in scope.
+pub async fn confirm_import_scoped(
+    imports: &dyn ImportRepository,
+    session_id: &str,
+    request: NewImportConfirm,
+    scope: Option<&crate::Scope>,
+) -> Result<ImportConfirmOutcome, ApplicationError> {
+    let found = match scope {
+        Some(scope) => imports.find_scoped(session_id, scope).await,
+        None => imports.find(session_id).await,
+    };
+    let session = found
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Import session", session_id))?;
 
@@ -167,27 +203,56 @@ pub async fn confirm_import(
         ));
     }
 
-    let outcome: ImportConfirmOutcome = imports
-        .confirm(
-            session_id,
-            &request.candidate_id,
-            request.conversation_id,
-            request
-                .corrections
-                .into_iter()
-                .map(
-                    |correction: ImportCorrection| crate::ports::ImportRecordCorrection {
-                        id: correction.id,
-                        sender_type: correction.sender_type,
-                        content: correction.content,
-                        message_time: correction.message_time,
-                        skip: correction.skip,
-                    },
-                )
-                .collect(),
+    if let Some(scope) = scope {
+        let exists = imports
+            .candidate_exists_scoped(&request.candidate_id, scope)
+            .await
+            .map_err(unavailable)?;
+        if !exists {
+            return Err(ApplicationError::not_found(
+                "Candidate",
+                &request.candidate_id,
+            ));
+        }
+    }
+
+    let corrections: Vec<crate::ports::ImportRecordCorrection> = request
+        .corrections
+        .into_iter()
+        .map(
+            |correction: ImportCorrection| crate::ports::ImportRecordCorrection {
+                id: correction.id,
+                sender_type: correction.sender_type,
+                content: correction.content,
+                message_time: correction.message_time,
+                skip: correction.skip,
+            },
         )
-        .await
-        .map_err(unavailable)?;
+        .collect();
+    let outcome: ImportConfirmOutcome = match scope {
+        Some(scope) => {
+            imports
+                .confirm_scoped(
+                    session_id,
+                    &request.candidate_id,
+                    request.conversation_id,
+                    corrections,
+                    scope,
+                )
+                .await
+        }
+        None => {
+            imports
+                .confirm(
+                    session_id,
+                    &request.candidate_id,
+                    request.conversation_id,
+                    corrections,
+                )
+                .await
+        }
+    }
+    .map_err(unavailable)?;
 
     Ok(outcome)
 }
@@ -199,9 +264,20 @@ pub async fn reject_import(
     imports: &dyn ImportRepository,
     session_id: &str,
 ) -> Result<ica_domain::ImportSession, ApplicationError> {
-    let session = imports
-        .find(session_id)
-        .await
+    reject_import_scoped(imports, session_id, None).await
+}
+
+/// SEC-04: reject only a session inside the caller's scope.
+pub async fn reject_import_scoped(
+    imports: &dyn ImportRepository,
+    session_id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<ica_domain::ImportSession, ApplicationError> {
+    let found = match scope {
+        Some(scope) => imports.find_scoped(session_id, scope).await,
+        None => imports.find(session_id).await,
+    };
+    let session = found
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Import session", session_id))?;
 
@@ -212,11 +288,12 @@ pub async fn reject_import(
         ));
     }
 
-    let updated = imports
-        .reject(session_id)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Import session", session_id))?;
+    let updated = match scope {
+        Some(scope) => imports.reject_scoped(session_id, scope).await,
+        None => imports.reject(session_id).await,
+    }
+    .map_err(unavailable)?
+    .ok_or_else(|| ApplicationError::not_found("Import session", session_id))?;
     Ok(updated)
 }
 
@@ -311,6 +388,18 @@ pub async fn ocr_screenshot(
     request: NewImportOcr,
     allowed_dir: &std::path::Path,
 ) -> Result<OcrOutcome, ApplicationError> {
+    ocr_screenshot_scoped(imports, ocr, request, allowed_dir, None).await
+}
+
+/// SEC-04: the OCR result is archived through the scoped preview path, so a
+/// foreign candidate id cannot be used to file a session.
+pub async fn ocr_screenshot_scoped(
+    imports: &dyn ImportRepository,
+    ocr: &dyn crate::ports::OcrEngine,
+    request: NewImportOcr,
+    allowed_dir: &std::path::Path,
+    scope: Option<&crate::Scope>,
+) -> Result<OcrOutcome, ApplicationError> {
     let resolved = assert_ocr_path_allowed(&request.image_path, allowed_dir)?;
 
     if !resolved.exists() {
@@ -339,13 +428,14 @@ pub async fn ocr_screenshot(
     let _ = std::fs::remove_file(&resolved);
     let text = read?;
 
-    let session = preview_import(
+    let session = preview_import_scoped(
         imports,
         NewImportPreview {
             candidate_id: request.candidate_id,
             raw_text: text.clone(),
             source: ica_domain::MessageSource::ScreenshotOcr,
         },
+        scope,
     )
     .await?;
 
