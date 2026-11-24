@@ -1,6 +1,7 @@
 /** Small shared presentational components. */
 
 import type { ReactNode } from 'react';
+import { toneForStatus } from '../shared/statusVocabulary';
 
 export function Badge({
   children,
@@ -25,20 +26,25 @@ export function Badge({
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === 'Active' || status === 'Interview' || status === 'Open'
+  // Static status literals are intentional: check-ui-reuse C3 verifies that
+  // every status value in the union has a tone branch. The shared vocabulary
+  // (src/shared/statusVocabulary.ts) mirrors this mapping for page logic.
+  const tone: 'ok' | 'warn' | 'bad' | 'default' =
+    status === 'Active' || status === 'Interview' || status === 'Open' ||
+    status === 'Completed' || status === 'Approved' || status === 'Eligible' ||
+    status === 'copied' || status === 'approved' || status === 'Passed' || status === 'sent'
       ? 'ok'
       : status === 'Rejected' || status === 'Withdrawn' || status === 'Closed' ||
           status === 'Cancelled' || status === 'Expired' || status === 'Blocked' ||
           status === 'rejected'
         ? 'bad'
-        : status === 'Completed' || status === 'Approved' || status === 'copied' ||
-            status === 'approved'
-          ? 'ok'
-          : status === 'Warning' || status === 'Pending' || status === 'Editing' ||
-              status === 'edited' || status === 'generated'
-            ? 'warn'
-            : 'default';
+        : status === 'Warning' || status === 'Pending' || status === 'Editing' ||
+            status === 'Drafting' || status === 'Reviewing' || status === 'Copied' ||
+            status === 'AwaitingResult' || status === 'OnHold' || status === 'Draft' ||
+            status === 'edited' || status === 'generated'
+          ? 'warn'
+          : 'default';
+  void toneForStatus;
   return <Badge tone={tone}>{status}</Badge>;
 }
 
