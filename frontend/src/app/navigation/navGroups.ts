@@ -30,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'AI 工作空间',
     items: [
       // `/drafts` 是草稿审核页，不是 AI 对话页（ICA-UX-009 §1 D-01）。
+      { to: '/ai-workspace', label: 'AI 工作空间' },
       { to: '/drafts', label: 'AI 草稿审核' },
       { to: '/browser', label: '浏览器自动化' },
     ],

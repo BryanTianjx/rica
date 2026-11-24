@@ -16,6 +16,7 @@ import { PositionsPage } from './pages/PositionsPage';
 import { ConversationsPage } from './pages/ConversationsPage';
 import { FollowUpsPage } from './pages/FollowUpsPage';
 import { DraftsPage } from './pages/DraftsPage';
+import { AiWorkspacePage } from './pages/AiWorkspacePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { BrowserPage } from './pages/BrowserPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -158,7 +159,8 @@ function Shell() {
                 <Route path="/positions" element={<PositionsPage />} />
                 <Route path="/conversations" element={<ConversationsPage />} />
                 <Route path="/follow-ups" element={<FollowUpsPage />} />
-                <Route path="/drafts" element={<DraftsPage />} />
+                <Route path="/ai-workspace" element={<AiWorkspacePage />} />
+          <Route path="/drafts" element={<DraftsPage />} />
                 <Route path="/browser" element={<BrowserPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 {/* WP08: fallback in addition to the original 10 declarations. */}
