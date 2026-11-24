@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '../app/layout/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime } from '../components/ui';
@@ -169,12 +170,10 @@ export function SettingsPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>系统设置</h1>
-          <p>跟进策略、AI 接入状态与本地数据备份。</p>
-        </div>
-      </div>
+      <PageHeader
+        title="系统设置"
+        description={<p>跟进策略、AI 接入状态与本地数据备份。</p>}
+      />
 
       {notice && (
         <div className="notice" aria-live="polite">

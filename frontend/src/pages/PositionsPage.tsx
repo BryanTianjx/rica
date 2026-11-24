@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageHeader } from '../app/layout/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { backend, describeApiError } from '../services/backend';
 import { positionChanged, subscribePositionChanged } from '../services/backend/events';
@@ -259,15 +260,11 @@ export function PositionsPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>岗位管理</h1>
-          <p>岗位要求只作为匹配和沟通参考，不会被写成候选人的真实经历。</p>
-        </div>
-        <div className="actions">
-          <button onClick={openCreateForm}>新增岗位</button>
-        </div>
-      </div>
+      <PageHeader
+        title="岗位管理"
+        description={<p>岗位要求只作为匹配和沟通参考，不会被写成候选人的真实经历。</p>}
+        actions={<button onClick={openCreateForm}>新增岗位</button>}
+      />
 
       {notice && (
         <div className="notice" aria-live="polite">

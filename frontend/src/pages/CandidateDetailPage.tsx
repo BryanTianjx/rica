@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '../app/layout/PageHeader';
 import { Link, useParams } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
@@ -283,22 +284,20 @@ export function CandidateDetailPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>
-            {person.name} <StatusBadge status={person.status} />
-          </h1>
+      <PageHeader
+        title={<>{person.name} <StatusBadge status={person.status} /></>}
+        description={
           <p>
             {person.position_name ?? '未关联岗位'} · 来源 {person.source} ·{' '}
             {person.message_count} 条消息
           </p>
-        </div>
-        <div className="actions">
+        }
+        actions={
           <Link className="btn" to="/candidates">
             返回列表
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {actionError && <ErrorBox message={actionError} />}
       {notice && (

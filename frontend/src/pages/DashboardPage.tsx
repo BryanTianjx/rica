@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PageHeader } from '../app/layout/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
 import { EmptyState, ErrorBox, Loading, LocalTime, Stat, StatusBadge } from '../components/ui';
@@ -17,18 +18,18 @@ export function DashboardPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>工作台</h1>
-          <p>所有统计均来自本地数据库实时计算。</p>
-        </div>
-        <div className="actions">
-          <button onClick={reload}>刷新</button>
-          <Link className="btn primary" to="/candidates">
-            新增候选人
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="工作台"
+        description={<p>所有统计均来自本地数据库实时计算。</p>}
+        actions={
+          <>
+            <button onClick={reload}>刷新</button>
+            <Link className="btn primary" to="/candidates">
+              新增候选人
+            </Link>
+          </>
+        }
+      />
 
       <div className="grid cols-4 mb-16">
         <Stat

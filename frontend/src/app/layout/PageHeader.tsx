@@ -1,6 +1,10 @@
-/** Phase 1 WP06 — Shell-owned page header and breadcrumb.
- * Page components still own their <h1> in Phase 1; this header only provides
- * breadcrumb + optional actions so existing page tests remain valid.
+/** Phase 1 WP06 + follow-up: one shared header primitive.
+ *
+ * App Shell renders it with `breadcrumb` only (no title). Pages render it with
+ * `title`/`description`/`actions` (no breadcrumb), so the <h1> is produced by
+ * one component instead of hand-written in every page. A page rendered on its
+ * own in a test still exposes its heading, because PageHeader renders it in
+ * place of the old `.page-head` block.
  */
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -21,15 +25,29 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
 
 export function PageHeader({
   breadcrumb,
+  title,
+  description,
   actions,
 }: {
-  breadcrumb: Crumb[];
+  breadcrumb?: Crumb[];
+  title?: ReactNode;
+  description?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
     <header className="page-header">
-      <Breadcrumb items={breadcrumb} />
-      {actions && <div className="page-header-actions">{actions}</div>}
+      {breadcrumb && <Breadcrumb items={breadcrumb} />}
+      {title !== undefined ? (
+        <div className="page-head">
+          <div>
+            <h1>{title}</h1>
+            {description}
+          </div>
+          {actions && <div className="actions">{actions}</div>}
+        </div>
+      ) : (
+        actions && <div className="page-header-actions">{actions}</div>
+      )}
     </header>
   );
 }

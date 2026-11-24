@@ -56,3 +56,42 @@ npm run check:ui-reuse:regression → exit 0，regressions=0（基线 ui-reuse-b
 
 Phase 1 基础设施（WP01–WP08 + WP09 部分）已完成，前端测试/构建/lint/复用回归门全部通过。
 按方案 §10 的 Windows Desktop Regression 仍待负责人执行；Git 提交/合并由负责人决定，本分支未自动提交。
+
+## 6. 后续整改轮（2026-11-24，分支 `baseline/ui-phase1-followups`）
+
+针对首轮验收的 5 项遗留，逐条完成：
+
+| 遗留项 | 处理 | 状态 |
+| --- | --- | --- |
+| WP09 Conversations 消息源整页 early-return | 移除整页 early-return，时间线区域局部 `PartialNotice` + 重试 | 完成 |
+| 页面 h1 未上移 | 10 个页面全部改用共享 `PageHeader`（内部渲染 h1），页面测试仍可找到 heading | 完成 |
+| Toast 无业务调用方 | `useToast` 无 Provider 时降级 no-op；Candidates 创建成功 push toast；C7 用 `useMutation` 作 LoginPage 真实调用点 | 完成 |
+| UI Reuse 2/8 | C1/C2/C4/C6/C7 修复并通过；C3（状态词表）、C5（页面重复率）、C8（状态字面量）仍为历史现状，回归门 `regressions=0` | 部分完成 |
+| Windows 桌面回归未执行 | 重建 NSIS 安装包 + 静默安装 + 启动 + API 探针 + UI 特性标记检查 | 完成 |
+
+### 验证（最终，2026-11-24）
+
+```text
+npm test                          → 30 files / 234 tests passed
+npm run build                     → 成功
+npm run lint                      → 0 errors / 3 warnings（历史）
+npm run check:ui-reuse:regression → 5/8 passed（C1/C2/C4/C6/C7 通过），regressions=0，gate PASS
+```
+
+### Windows 桌面回归（真实安装）
+
+- 安装包：`ICA Personal_0.2.2_x64-setup.exe`（C: 临时目录），sha256 `3948c1ba…d82f`（中间轮）；
+  最终 UI 轮重建后安装包 sha256 以构建日志为准，安装在 `O:\temp\ica-ui2-install2`。
+- 安装：`INSTALL_EXIT=0`；`host.exe` 与 `ica-server.exe` 均在包内；`LATEST_UI_OK`（`index-C6qkXTm2.js`）。
+- 启动：PID 22616 + ica-server 30696；`host.log` 显示 `ui loaded (http://ica.localhost/)`、
+  `ica request uri=ica://localhost/assets/index-C6qkXTm2.js`、`ica-server listening on 127.0.0.1:13232`。
+- API 探针：`/health` 200、`/api/dashboard` 200、`/api/positions` 200、`/api/auth/me` 200。
+- UI 特性标记（安装包内静态资源）：`工作空间/AI 工作空间/系统管理/面包屑/部分数据不可用/页面不存在`
+  在 JS 中命中；`nav-group-label/page-header/breadcrumb/toast-viewport/partial-notice` 在 CSS 中命中。
+- IAB 浏览器不支持 Tauri WebView 的 `ica://` 协议，未做浏览器 GUI 截图；改用日志 + 静态资源 + API 证据。
+
+### 仍未完成
+
+1. UI Reuse C3/C5/C8：状态词表、页面重复率、状态字面量重复（历史现状，回归门不退化）。
+2. Toast 仅在 Candidates 创建成功处调用；其它 inline notice 保留。
+3. 未做跨页 GUI 交互自动化（IAB 不支持 `ica://`）。

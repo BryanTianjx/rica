@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '../app/layout/PageHeader';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { PartialNotice } from '../shared/components/PartialNotice';
@@ -183,13 +184,15 @@ export function FollowUpsPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>跟进任务</h1>
-          <p>Approved 只代表话术获批，Copied 只代表已复制；发送与否由你在这里手动记录。</p>
-          <p>任务创建时由策略判定状态：可跟进（Eligible）、未到时间（Pending）或被阻止（Blocked）。</p>
-        </div>
-      </div>
+      <PageHeader
+        title="跟进任务"
+        description={
+          <>
+            <p>Approved 只代表话术获批，Copied 只代表已复制；发送与否由你在这里手动记录。</p>
+            <p>任务创建时由策略判定状态：可跟进（Eligible）、未到时间（Pending）或被阻止（Blocked）。</p>
+          </>
+        }
+      />
 
       {notice && (
         <div className="notice" aria-live="polite">
