@@ -1,5 +1,5 @@
-import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from './auth/AuthContext';
 import { initTheme, toggleTheme, type Theme } from './theme';
 import { Loading } from './components/ui';
@@ -8,6 +8,7 @@ import { crumbsFor } from './app/navigation/routeMeta';
 import { PageHeader } from './app/layout/PageHeader';
 import { AppErrorBoundary } from './app/layout/AppErrorBoundary';
 import { ToastProvider, ToastViewport } from './shared/components/ToastViewport';
+import { CommandPalette } from './app/layout/CommandPalette';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CandidatesPage } from './pages/CandidatesPage';
@@ -81,6 +82,25 @@ function Shell() {
   // initTheme 已在 main.tsx（首帧前）把主题写到 <html data-theme>，这里只是镜像。
   const [theme, setTheme] = useState<Theme>(() => initTheme());
   const location = useLocation();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // Phase 6 §9.4: global shortcuts (Ctrl+K command, Ctrl+, settings, Esc closes palette).
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((value) => !value);
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === ',') {
+        event.preventDefault();
+        navigate('/settings');
+      }
+      if (event.key === 'Escape' && paletteOpen) setPaletteOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [paletteOpen, navigate]);
 
   if (status === 'checking') {
     return (
@@ -96,6 +116,8 @@ function Shell() {
 
   return (
     <ToastProvider>
+      <a className="skip-link" href="#main-content">跳到主内容</a>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <div className="app">
         <nav className="sidebar" aria-label="主导航">
           <div className="brand">
@@ -149,7 +171,7 @@ function Shell() {
         <div className="shell-main">
           <PageHeader breadcrumb={crumbsFor(location.pathname)} />
           <AppErrorBoundary>
-            <main className="main">
+            <main className="main" id="main-content">
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
                 {/* 桌面宿主旧版本直接打开 /index.html：重定向到工作台，避免主区域空白 */}
