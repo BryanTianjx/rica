@@ -114,6 +114,8 @@ supersedes: null
 | `audits/mvp-r1.0/`(6 份:README/baseline/module/api/ipc-gui/test-baseline/verify-matrix) | Draft(待项目负责人确认) |
 | `audits/arch-p6-delivery-record.md` | Active(ARCH-P6 交付记录,绑定 HEAD 与执行证据) |
 | `audits/sec-04-bc-delivery-record.md` | DeliveredWithLimitations(B/C 实现交付,待独立验证) |
+| `origin/audit/full-audit-r1.0`(远端分支,5 份 R1.0 审计文档) | 待合并(审计基线 `c3749018`;未合入 main) |
+| `audits/audit-r1-remediation-record-20261124.md` | Active(首轮整改执行记录与剩余风险;绑定整改工作区,非新 commit) |
 
 ### DOC-10 项目知识
 | 文档 | 状态 |

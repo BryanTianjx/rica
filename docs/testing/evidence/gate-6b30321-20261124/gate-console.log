@@ -1,0 +1,178 @@
+ARCH-P6 unified gate | HEAD=6b303212865adf13deecb3d3bfef5d52ae380381 | started=2026-11-24T12:05:35+00:00
+
+========================================================================
+== STAGE rust_gate ==
+$ C:\Users\TIAN\AppData\Local\hermes\tools\python-3.14.9+20261021-win32-x64\python.exe scripts/check.py
+    Checking hyper-rustls v0.27.10
+    Checking hashbrown v0.14.5
+    Checking simple_asn1 v0.6.4
+    Checking toml_edit v0.22.27
+    Checking nalgebra v0.32.6
+    Checking tower-http v0.6.11
+    Checking rand_distr v0.4.3
+    Checking image v0.25.10
+    Checking ndarray v0.17.2
+    Checking pem v3.0.6
+    Checking itertools v0.12.1
+    Checking toml v0.8.23
+   Compiling sqlx-macros v0.8.6
+    Checking fs2 v0.4.3
+    Checking jsonwebtoken v9.3.1
+    Checking reqwest v0.12.28
+    Checking hashlink v0.9.1
+    Checking ghash v0.5.1
+    Checking blowfish v0.9.1
+    Checking aes v0.8.4
+    Checking ctr v0.9.2
+    Checking aead v0.5.2
+    Checking fallible-streaming-iterator v0.1.9
+    Checking fallible-iterator v0.3.0
+    Checking sqlx v0.8.6
+    Checking bcrypt v0.15.1
+    Checking uuid v1.29.3
+    Checking keyring v3.6.3
+    Checking ica-contracts v0.1.0 (O:\ICA-RUST\crates\ica-contracts)
+    Checking aes-gcm v0.10.3
+    Checking rusqlite v0.32.1
+   Compiling thiserror v1.0.69
+   Compiling thiserror-impl v1.0.69
+    Checking fastrand v2.5.0
+    Checking sha1 v0.10.7
+    Checking utf-8 v0.7.6
+    Checking tempfile v3.27.0
+    Checking data-encoding v2.11.1
+    Checking mime v0.3.18
+    Checking serde_path_to_error v0.1.20
+    Checking lazy_static v1.5.1
+    Checking axum-core v0.5.6
+    Checking matchit v0.8.4
+    Checking sharded-slab v0.1.7
+    Checking ort v2.0.0-rc.15
+    Checking matchers v0.2.0
+    Checking tracing-log v0.2.0
+    Checking nu-ansi-term v0.50.3
+    Checking thread_local v1.1.10
+    Checking tracing-subscriber v0.3.23
+    Checking imageproc v0.25.1
+    Checking axum v0.8.9
+    Checking tungstenite v0.24.0
+    Checking tokio-tungstenite v0.24.0
+    Checking rapidocr-core v0.3.0
+    Checking ica-infra v0.1.0 (O:\ICA-RUST\crates\ica-infra)
+    Checking ica-api v0.1.0 (O:\ICA-RUST\crates\ica-api)
+    Checking ica-desktop v0.1.0 (O:\ICA-RUST\crates\ica-desktop)
+    Checking ica-server v0.1.0 (O:\ICA-RUST\crates\ica-server)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3m 00s
+--- rust_gate: PASS (exit=0, 683.37s) ---
+
+========================================================================
+== STAGE sidecar_contract ==
+$ cargo test -p ica-contracts --test sidecar_contract_test
+
+running 6 tests
+test malformed_lines_never_decode_into_a_request_or_response ... ok
+test golden_request_and_response_shapes_are_stable ... ok
+test error_dto_redacts_credentials_in_message_and_details ... ok
+test error_paths_produce_stable_wire_codes ... ok
+test version_negotiation_is_explicit_and_symmetric ... ok
+test every_capability_method_has_a_contract_vector ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling serde_core v1.0.229
+   Compiling memchr v2.8.3
+   Compiling num-traits v0.2.19
+   Compiling syn v3.0.10
+   Compiling serde v1.0.229
+   Compiling crypto-common v0.1.7
+   Compiling serde_json v1.0.154
+   Compiling indexmap v2.14.2
+   Compiling digest v0.10.7
+   Compiling aho-corasick v1.1.5
+   Compiling sha2 v0.10.9
+   Compiling percent-encoding v2.3.2
+   Compiling form_urlencoded v1.2.2
+   Compiling regex-automata v0.4.18
+   Compiling chrono v0.4.45
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling async-trait v0.1.92
+   Compiling regex v1.13.1
+   Compiling thiserror v2.0.21
+   Compiling ica-domain v0.1.0 (O:\ICA-RUST\crates\ica-domain)
+   Compiling ica-application v0.1.0 (O:\ICA-RUST\crates\ica-application)
+   Compiling serde_urlencoded v0.7.1
+   Compiling ica-contracts v0.1.0 (O:\ICA-RUST\crates\ica-contracts)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 29.90s
+     Running tests\sidecar_contract_test.rs (C:\Users\TIAN\.cache\ica-rust-target\debug\deps\sidecar_contract_test-868df4421fd1dfa2.exe)
+--- sidecar_contract: PASS (exit=0, 30.87s) ---
+
+========================================================================
+== STAGE endpoint_map ==
+$ C:\Users\TIAN\AppData\Local\hermes\tools\python-3.14.9+20261021-win32-x64\python.exe scripts/check_endpoint_map.py --self-test
+self-test: 5/5 assertions passed (no-exclusion mismatch, exclusion match, new-route mismatch, ADR-0008 exact exclusion, ADR-0008 unlisted-route mismatch)
+--- endpoint_map: PASS (exit=0, 0.19s) ---
+
+========================================================================
+== STAGE endpoint_map_baseline ==
+SKIP: Python baseline venv not present at \mnt\o\ica\backend; self-test stage still covers the comparison logic.
+
+========================================================================
+== STAGE contract_verify ==
+SKIP: opt-in (ICA_GATE_RUN_CONTRACT=1) and requires the frozen Python baseline at /mnt/o/ica/backend; not run by default in CI because it boots two services and rewrites captures.
+
+========================================================================
+== STAGE frontend_install ==
+SKIP: node_modules already present.
+
+========================================================================
+== STAGE frontend_lint ==
+$ npm run lint
+OSError: [WinError 2] 系统找不到指定的文件。
+--- frontend_lint: FAIL (exit=127, 0.01s) ---
+
+========================================================================
+== STAGE frontend_build ==
+$ npm run build
+OSError: [WinError 2] 系统找不到指定的文件。
+--- frontend_build: FAIL (exit=127, 0.01s) ---
+
+========================================================================
+== STAGE frontend_test ==
+$ npm run test
+OSError: [WinError 2] 系统找不到指定的文件。
+--- frontend_test: FAIL (exit=127, 0.01s) ---
+
+========================================================================
+== STAGE tauri_syntax ==
+$ rustfmt --edition 2021 --check O:\ICA-RUST\desktop\tauri-host\src\ica_backend.rs O:\ICA-RUST\desktop\tauri-host\src\main.rs
+
+--- tauri_syntax: PASS (exit=0, 0.36s) ---
+
+========================================================================
+== STAGE tauri_build ==
+BLOCKED: HOST LIMITATION: glib-2.0 / webkit2gtk-4.1 not available (WSL has no WebKit2GTK). Tauri compile is NOT verified here; tauri_syntax only proves the host sources parse.
+
+========================================================================
+== STAGE security_scan ==
+$ cargo audit --locked
+error: unexpected argument '--locked' found
+
+  tip: a similar argument exists: '--no-yanked'
+
+Usage: cargo audit --no-yanked
+
+For more information, try '--help'.
+--- security_scan: FAIL (exit=2, 0.29s) ---
+
+========================================================================
+== STAGE e2e ==
+BLOCKED: NO E2E HARNESS IN REPO: QA-02 core recruiting-loop E2E is not implemented (DEF-003 Triaged). AC1 chains the entry point only; no E2E pass is claimed.
+
+========================================================================
+== GATE SUMMARY ==
+HEAD=6b303212865adf13deecb3d3bfef5d52ae380381  PASS=4  FAIL=4  SKIP=3  BLOCKED=2
+gate_result: FAIL
+INDEPENDENT SECURITY VERIFICATION: PENDING (manual) — this gate does NOT self-sign Verified.
+WINDOWS DESKTOP ACCEPTANCE: BLOCKED (no Windows host) — see docs/testing/desktop-release-acceptance.md
+execution record: docs\testing\evidence\gate-6b30321-20261124\gate-run.json

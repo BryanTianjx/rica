@@ -20,12 +20,12 @@ use chrono::Utc;
 
 use ica_application::{
     BrowserExtractionRepository, CandidateConfirm, CandidateConfirmOutcome, ExtractionDraft,
-    RepositoryError,
+    RepositoryError, Scope,
 };
 
 use crate::audit::{insert_audit, AuditEntry};
 use crate::store::{
-    new_uuid, repo_error, to_sql_timestamp, SqliteStore, DEFAULT_TENANT_ID, LOCAL_OWNER_ID,
+    new_uuid, ownership, repo_error, scope_predicates, to_sql_timestamp, SqliteStore,
 };
 
 /// The columns the confirm path reads from a draft row, in query order.
@@ -97,15 +97,43 @@ impl BrowserExtractionRepository for SqliteStore {
         &self,
         session_id: &str,
     ) -> Result<Option<ExtractionDraft>, RepositoryError> {
-        let row: Option<ExtractionRow> = sqlx::query_as(&format!(
+        self.find_extraction(session_id, None).await
+    }
+
+    /// SEC-04: the staged draft is only visible inside the caller's scope.
+    async fn find_by_import_session_scoped(
+        &self,
+        session_id: &str,
+        scope: &Scope,
+    ) -> Result<Option<ExtractionDraft>, RepositoryError> {
+        self.find_extraction(session_id, Some(scope)).await
+    }
+
+    async fn find_extraction(
+        &self,
+        session_id: &str,
+        scope: Option<&Scope>,
+    ) -> Result<Option<ExtractionDraft>, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(scope, "browser_candidate_extractions");
+        let sql = format!(
             "SELECT {EXTRACTION_COLUMNS} FROM browser_candidate_extractions \
-             WHERE import_session_id = ?"
-        ))
-        .bind(session_id)
-        .fetch_optional(self.pool())
-        .await
-        .map_err(repo_error)?;
-        Ok(row.map(|row| row.into_draft()))
+             WHERE import_session_id = ?{}",
+            if predicates.is_empty() {
+                String::new()
+            } else {
+                format!(" AND {}", predicates.join(" AND "))
+            }
+        );
+        let mut query = sqlx::query_as::<_, ExtractionRow>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(session_id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
+        let row = query
+            .fetch_optional(self.pool())
+            .await
+            .map_err(repo_error)?;
+        Ok(row.map(ExtractionRow::into_draft))
     }
 
     async fn record_duplicate_block(
@@ -140,6 +168,36 @@ impl BrowserExtractionRepository for SqliteStore {
         draft: &ExtractionDraft,
         request: CandidateConfirm,
     ) -> Result<CandidateConfirmOutcome, RepositoryError> {
+        self.confirm_candidate_with_scope(session_id, draft, request, None)
+            .await
+    }
+
+    /// SEC-04: commit only an extraction inside the caller's scope.
+    async fn confirm_candidate_scoped(
+        &self,
+        session_id: &str,
+        draft: &ExtractionDraft,
+        request: CandidateConfirm,
+        scope: &Scope,
+    ) -> Result<CandidateConfirmOutcome, RepositoryError> {
+        if self
+            .find_extraction(session_id, Some(scope))
+            .await?
+            .is_none()
+        {
+            return Err(RepositoryError::not_found("Extraction draft".to_string()));
+        }
+        self.confirm_candidate_with_scope(session_id, draft, request, Some(scope))
+            .await
+    }
+
+    async fn confirm_candidate_with_scope(
+        &self,
+        session_id: &str,
+        draft: &ExtractionDraft,
+        request: CandidateConfirm,
+        scope: Option<&Scope>,
+    ) -> Result<CandidateConfirmOutcome, RepositoryError> {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
 
         let fields = draft.present_fields();
@@ -166,13 +224,26 @@ impl BrowserExtractionRepository for SqliteStore {
             ));
         }
         if let Some(position_id) = &request.position_id {
-            let exists: Option<String> =
-                sqlx::query_scalar("SELECT id FROM positions WHERE id = ?")
-                    .bind(position_id)
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .map_err(repo_error)?;
-            if exists.is_none() {
+            let (predicates, scoped_binds) = scope_predicates(scope, "positions");
+            let sql = format!(
+                "SELECT id FROM positions WHERE id = ?{}",
+                if predicates.is_empty() {
+                    String::new()
+                } else {
+                    format!(" AND {}", predicates.join(" AND "))
+                }
+            );
+            let mut query = sqlx::query_scalar::<_, String>(sqlx::AssertSqlSafe(sql.to_owned()))
+                .bind(position_id.to_string());
+            for value in scoped_binds {
+                query = query.bind(value);
+            }
+            if query
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(repo_error)?
+                .is_none()
+            {
                 return Err(RepositoryError::not_found(format!(
                     "Position '{position_id}' was not found"
                 )));
@@ -181,6 +252,7 @@ impl BrowserExtractionRepository for SqliteStore {
 
         let candidate_id = new_uuid();
         let now = to_sql_timestamp(&Utc::now());
+        let (owner_id, tenant_id) = ownership(scope);
         let source = format!("browser:{}", draft.source_domain)
             .chars()
             .take(64)
@@ -211,8 +283,8 @@ impl BrowserExtractionRepository for SqliteStore {
         .bind(&notes)
         .bind(&now)
         .bind(&now)
-        .bind(LOCAL_OWNER_ID)
-        .bind(DEFAULT_TENANT_ID)
+        .bind(owner_id)
+        .bind(tenant_id)
         .execute(&mut *tx)
         .await
         .map_err(repo_error)?;

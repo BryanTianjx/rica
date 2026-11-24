@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use ica_application::{
     DashboardRepository, Field, FollowUpPolicyPatch, FollowUpPolicyRecord, FollowUpRepository,
     FollowUpResultPatch, FollowUpTaskFilter, FollowUpTaskPatch, NewFollowUpTaskRow, NewSendRecord,
-    RepositoryError,
+    RepositoryError, Scope,
 };
 use ica_domain::{FollowUpPolicy, FollowUpTask, FollowUpTaskStatus, Message};
 use serde_json::json;
@@ -20,7 +20,8 @@ use sqlx::{FromRow, SqliteConnection};
 use crate::audit::{insert_audit, AuditEntry};
 use crate::send_records::insert_send_record;
 use crate::store::{
-    offset_bind, repo_error, to_sql_timestamp, SqliteStore, DEFAULT_TENANT_ID, LOCAL_OWNER_ID,
+    offset_bind, ownership, repo_error, scope_predicates, to_sql_timestamp, SqliteStore,
+    DEFAULT_TENANT_ID, LOCAL_OWNER_ID,
 };
 
 /// Task columns plus the candidate name the read model carries
@@ -203,11 +204,13 @@ async fn fetch_one_task(
     connection: &mut SqliteConnection,
     id: &str,
 ) -> Result<Option<FollowUpTask>, RepositoryError> {
-    let row: Option<FollowUpTaskRow> = sqlx::query_as(&format!("{SELECT_COLUMNS} WHERE t.id = ?"))
-        .bind(id)
-        .fetch_optional(connection)
-        .await
-        .map_err(repo_error)?;
+    let row: Option<FollowUpTaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{SELECT_COLUMNS} WHERE t.id = ?"
+    )))
+    .bind(id)
+    .fetch_optional(connection)
+    .await
+    .map_err(repo_error)?;
     row.map(FollowUpTaskRow::into_task).transpose()
 }
 
@@ -231,6 +234,24 @@ impl SqliteStore {
         };
         (where_sql, binds)
     }
+
+    /// SEC-04: the same filter with the caller's tenant/owner predicates.
+    fn task_filters_scoped(filter: &FollowUpTaskFilter, scope: &Scope) -> (String, Vec<String>) {
+        let (base_where, mut binds) = Self::task_filters(filter);
+        let (scoped, scoped_binds) = scope_predicates(Some(scope), "t");
+        binds.extend(scoped_binds);
+        let mut clauses: Vec<String> = Vec::new();
+        if !base_where.is_empty() {
+            clauses.push(base_where.trim_start_matches(" WHERE ").to_string());
+        }
+        clauses.extend(scoped);
+        let where_sql = if clauses.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", clauses.join(" AND "))
+        };
+        (where_sql, binds)
+    }
 }
 
 #[async_trait]
@@ -247,7 +268,8 @@ impl FollowUpRepository for SqliteStore {
             format!("{SELECT_COLUMNS}{where_sql} ORDER BY t.created_at DESC LIMIT ? OFFSET ?");
 
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        let mut count_query =
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql.to_owned()));
         for value in &binds {
             count_query = count_query.bind(value);
         }
@@ -256,7 +278,48 @@ impl FollowUpRepository for SqliteStore {
             .await
             .map_err(repo_error)?;
 
-        let mut list_query = sqlx::query_as::<_, FollowUpTaskRow>(&list_sql);
+        let mut list_query =
+            sqlx::query_as::<_, FollowUpTaskRow>(sqlx::AssertSqlSafe(list_sql.to_owned()));
+        for value in &binds {
+            list_query = list_query.bind(value);
+        }
+        list_query = list_query.bind(limit as i64).bind(offset_bind(offset));
+        let rows = list_query
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        let items = rows
+            .into_iter()
+            .map(FollowUpTaskRow::into_task)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((items, total as usize))
+    }
+
+    async fn list_scoped(
+        &self,
+        filter: FollowUpTaskFilter,
+        offset: usize,
+        limit: usize,
+        scope: &Scope,
+    ) -> Result<(Vec<FollowUpTask>, usize), RepositoryError> {
+        let (where_sql, binds) = Self::task_filters_scoped(&filter, scope);
+        let count_sql = format!("SELECT COUNT(*) FROM follow_up_tasks t{where_sql}");
+        let list_sql =
+            format!("{SELECT_COLUMNS}{where_sql} ORDER BY t.created_at DESC LIMIT ? OFFSET ?");
+
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let mut count_query =
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql.to_owned()));
+        for value in &binds {
+            count_query = count_query.bind(value);
+        }
+        let total: i64 = count_query
+            .fetch_one(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+
+        let mut list_query =
+            sqlx::query_as::<_, FollowUpTaskRow>(sqlx::AssertSqlSafe(list_sql.to_owned()));
         for value in &binds {
             list_query = list_query.bind(value);
         }
@@ -277,6 +340,30 @@ impl FollowUpRepository for SqliteStore {
         fetch_one_task(&mut connection, id).await
     }
 
+    /// SEC-04: the single-task read with scope predicates in SQL.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        scope: &Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(Some(scope), "t");
+        let sql = format!(
+            "{SELECT_COLUMNS} WHERE t.id = ? AND {}",
+            predicates.join(" AND ")
+        );
+        let mut query = sqlx::query_as::<_, FollowUpTaskRow>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let row = query
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        row.map(FollowUpTaskRow::into_task).transpose()
+    }
+
     async fn find_open_for_candidate(
         &self,
         candidate_id: &str,
@@ -287,7 +374,7 @@ impl FollowUpRepository for SqliteStore {
              'Copied', 'AwaitingResult') ORDER BY t.created_at DESC LIMIT 1"
         );
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let row: Option<FollowUpTaskRow> = sqlx::query_as(&sql)
+        let row: Option<FollowUpTaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql.to_owned()))
             .bind(candidate_id)
             .fetch_optional(&mut *connection)
             .await
@@ -295,57 +382,42 @@ impl FollowUpRepository for SqliteStore {
         row.map(FollowUpTaskRow::into_task).transpose()
     }
 
-    async fn create(&self, new: NewFollowUpTaskRow) -> Result<FollowUpTask, RepositoryError> {
-        let now = to_sql_timestamp(&Utc::now());
-        let id = crate::store::new_uuid();
-        let status = new.status.as_str();
-
-        let mut tx = self.pool().begin().await.map_err(repo_error)?;
-        sqlx::query(concat!(
-            "INSERT INTO follow_up_tasks (id, candidate_id, position_id, status, objective,",
-            " reason, block_reason, recommended_at, expires_at, last_follow_up_at,",
-            " follow_up_count, completed_at, result_type, result_note, result_recorded_at,",
-            " created_at, updated_at, owner_id, tenant_id)",
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, NULL, NULL, NULL, NULL, ?, ?, ?, ?)"
-        ))
-        .bind(&id)
-        .bind(&new.candidate_id)
-        .bind(&new.position_id)
-        .bind(status)
-        .bind(&new.objective)
-        .bind(&new.reason)
-        .bind(&new.block_reason)
-        .bind(new.recommended_at.map(|value| to_sql_timestamp(&value)))
-        .bind(to_sql_timestamp(&new.expires_at))
-        .bind(&now)
-        .bind(&now)
-        .bind(LOCAL_OWNER_ID)
-        .bind(DEFAULT_TENANT_ID)
-        .execute(&mut *tx)
-        .await
-        .map_err(repo_error)?;
-
-        insert_audit(
-            &mut tx,
-            AuditEntry::new(
-                "follow_up.task_created",
-                "follow_up_task",
-                &id,
-                "Created follow-up task",
-            )
-            .with_metadata(json!({
-                "status": status,
-                "outcome": new.outcome,
-            })),
-        )
-        .await
-        .map_err(repo_error)?;
-        tx.commit().await.map_err(repo_error)?;
-
+    async fn find_open_for_candidate_scoped(
+        &self,
+        candidate_id: &str,
+        scope: &Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        let (predicates, scoped_binds) = scope_predicates(Some(scope), "t");
+        let sql = format!(
+            "{SELECT_COLUMNS} WHERE t.candidate_id = ? AND t.status IN (\
+             'Pending', 'Eligible', 'Drafting', 'Reviewing', 'Rejected', 'Approved', \
+             'Copied', 'AwaitingResult') AND {} ORDER BY t.created_at DESC LIMIT 1",
+            predicates.join(" AND ")
+        );
+        let mut query = sqlx::query_as::<_, FollowUpTaskRow>(sqlx::AssertSqlSafe(sql.to_owned()))
+            .bind(candidate_id.to_string());
+        for value in scoped_binds {
+            query = query.bind(value);
+        }
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        fetch_one_task(&mut connection, &id)
-            .await?
-            .ok_or_else(|| RepositoryError::unavailable("inserted follow-up task disappeared"))
+        let row = query
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        row.map(FollowUpTaskRow::into_task).transpose()
+    }
+
+    async fn create(&self, new: NewFollowUpTaskRow) -> Result<FollowUpTask, RepositoryError> {
+        self.insert_task(new, None).await
+    }
+
+    /// SEC-04: stamp the authenticated actor/tenant on the new task.
+    async fn create_scoped(
+        &self,
+        new: NewFollowUpTaskRow,
+        scope: &Scope,
+    ) -> Result<FollowUpTask, RepositoryError> {
+        self.insert_task(new, Some(scope)).await
     }
 
     async fn mark_reused(
@@ -522,6 +594,33 @@ impl FollowUpRepository for SqliteStore {
         patch: FollowUpResultPatch,
         send_record: Option<NewSendRecord>,
     ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.record_result_with_owner(id, patch, send_record, None)
+            .await
+    }
+
+    async fn record_result_scoped(
+        &self,
+        id: &str,
+        patch: FollowUpResultPatch,
+        send_record: Option<NewSendRecord>,
+        scope: &Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.record_result_with_owner(id, patch, send_record, Some(scope))
+            .await
+    }
+
+    // The shared result write; the optional scope only decides the ownership
+    // stamp on the send-record row appended in the same transaction.
+    async fn record_result_with_owner(
+        &self,
+        id: &str,
+        patch: FollowUpResultPatch,
+        send_record: Option<NewSendRecord>,
+        scope: Option<&Scope>,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
         let Some(current) = fetch_one_task(&mut tx, id).await? else {
             return Ok(None);
@@ -582,9 +681,18 @@ impl FollowUpRepository for SqliteStore {
                 .sent_at
                 .map(|value| to_sql_timestamp(&value))
                 .unwrap_or_else(|| now.clone());
-            insert_send_record(&mut tx, &send_id, send_record, &sent_at, &now)
-                .await
-                .map_err(repo_error)?;
+            let (owner_id, tenant_id) = ownership(scope);
+            insert_send_record(
+                &mut tx,
+                &send_id,
+                send_record,
+                &sent_at,
+                &now,
+                owner_id,
+                tenant_id,
+            )
+            .await
+            .map_err(repo_error)?;
             insert_audit(
                 &mut tx,
                 AuditEntry::new(
@@ -627,10 +735,10 @@ impl FollowUpRepository for SqliteStore {
     async fn expire_stale(&self, now: DateTime<Utc>) -> Result<u64, RepositoryError> {
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
         let now_sql = to_sql_timestamp(&now);
-        let expired: Vec<String> = sqlx::query_scalar(&format!(
+        let expired: Vec<String> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
             "SELECT id FROM follow_up_tasks WHERE expires_at IS NOT NULL AND expires_at < ? \
              AND status IN {EXPIRABLE_STATUSES}"
-        ))
+        )))
         .bind(&now_sql)
         .fetch_all(&mut *connection)
         .await
@@ -672,7 +780,7 @@ impl FollowUpRepository for SqliteStore {
             " ORDER BY (message_time IS NULL), message_time DESC, created_at DESC LIMIT 1"
         );
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let row: Option<MessageRow> = sqlx::query_as(sql)
+        let row: Option<MessageRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql.to_owned()))
             .bind(candidate_id)
             .fetch_optional(&mut *connection)
             .await
@@ -682,9 +790,9 @@ impl FollowUpRepository for SqliteStore {
 
     async fn contact_attempt_count(&self, candidate_id: &str) -> Result<i64, RepositoryError> {
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar(&format!(
+        let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
             "SELECT COUNT(*) FROM follow_up_tasks WHERE candidate_id = ? AND status IN {CONTACT_STATUSES}"
-        ))
+        )))
         .bind(candidate_id)
         .fetch_one(&mut *connection)
         .await
@@ -701,7 +809,7 @@ impl FollowUpRepository for SqliteStore {
              ORDER BY (t.last_follow_up_at IS NULL), t.last_follow_up_at DESC LIMIT 1"
         );
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let row: Option<FollowUpTaskRow> = sqlx::query_as(&sql)
+        let row: Option<FollowUpTaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql.to_owned()))
             .bind(candidate_id)
             .fetch_optional(&mut *connection)
             .await
@@ -859,6 +967,119 @@ impl FollowUpRepository for SqliteStore {
         row.map(PolicyRow::into_record)
             .ok_or_else(|| RepositoryError::unavailable("updated policy row disappeared"))
     }
+
+    // SEC-04: every mutation is guarded by a scoped lookup before the shared
+    // write runs, so an out-of-scope id reports "missing" instead of mutating.
+
+    async fn update_scoped(
+        &self,
+        id: &str,
+        patch: FollowUpTaskPatch,
+        scope: &Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.update(id, patch).await
+    }
+
+    async fn cancel_scoped(
+        &self,
+        id: &str,
+        reason: Option<String>,
+        scope: &Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.cancel(id, reason).await
+    }
+
+    async fn complete_scoped(
+        &self,
+        id: &str,
+        completed_at: DateTime<Utc>,
+        scope: &Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.complete(id, completed_at).await
+    }
+
+    async fn advance_scoped(
+        &self,
+        id: &str,
+        target: FollowUpTaskStatus,
+        reason: Option<String>,
+        scope: &Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        if self.find_scoped(id, scope).await?.is_none() {
+            return Ok(None);
+        }
+        self.advance(id, target, reason).await
+    }
+}
+
+impl SqliteStore {
+    /// The one task insert, shared by Local and authenticated creation.
+    async fn insert_task(
+        &self,
+        new: NewFollowUpTaskRow,
+        scope: Option<&Scope>,
+    ) -> Result<FollowUpTask, RepositoryError> {
+        let now = to_sql_timestamp(&Utc::now());
+        let id = crate::store::new_uuid();
+        let status = new.status.as_str();
+        let (owner_id, tenant_id) = ownership(scope);
+
+        let mut tx = self.pool().begin().await.map_err(repo_error)?;
+        sqlx::query(concat!(
+            "INSERT INTO follow_up_tasks (id, candidate_id, position_id, status, objective,",
+            " reason, block_reason, recommended_at, expires_at, last_follow_up_at,",
+            " follow_up_count, completed_at, result_type, result_note, result_recorded_at,",
+            " created_at, updated_at, owner_id, tenant_id)",
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, NULL, NULL, NULL, NULL, ?, ?, ?, ?)"
+        ))
+        .bind(&id)
+        .bind(&new.candidate_id)
+        .bind(&new.position_id)
+        .bind(status)
+        .bind(&new.objective)
+        .bind(&new.reason)
+        .bind(&new.block_reason)
+        .bind(new.recommended_at.map(|value| to_sql_timestamp(&value)))
+        .bind(to_sql_timestamp(&new.expires_at))
+        .bind(&now)
+        .bind(&now)
+        .bind(owner_id)
+        .bind(tenant_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(repo_error)?;
+
+        insert_audit(
+            &mut tx,
+            AuditEntry::new(
+                "follow_up.task_created",
+                "follow_up_task",
+                &id,
+                "Created follow-up task",
+            )
+            .with_metadata(json!({
+                "status": status,
+                "outcome": new.outcome,
+            })),
+        )
+        .await
+        .map_err(repo_error)?;
+        tx.commit().await.map_err(repo_error)?;
+
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        fetch_one_task(&mut connection, &id)
+            .await?
+            .ok_or_else(|| RepositoryError::unavailable("inserted follow-up task disappeared"))
+    }
 }
 
 #[async_trait]
@@ -950,7 +1171,7 @@ impl DashboardRepository for SqliteStore {
              ORDER BY (t.recommended_at IS NULL), t.recommended_at ASC LIMIT ?"
         );
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let rows: Vec<FollowUpTaskRow> = sqlx::query_as(&sql)
+        let rows: Vec<FollowUpTaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql.to_owned()))
             .bind(limit as i64)
             .fetch_all(&mut *connection)
             .await
@@ -965,9 +1186,9 @@ impl DashboardRepository for SqliteStore {
             .collect::<Vec<_>>()
             .join(", ");
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar(&format!(
+        let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
             "SELECT COUNT(*) FROM follow_up_tasks WHERE status IN ({list})"
-        ))
+        )))
         .fetch_one(&mut *connection)
         .await
         .map_err(repo_error)?;
@@ -981,9 +1202,9 @@ impl DashboardRepository for SqliteStore {
             .collect::<Vec<_>>()
             .join(", ");
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar(&format!(
+        let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
             "SELECT COUNT(*) FROM generated_drafts WHERE status IN ({list})"
-        ))
+        )))
         .fetch_one(&mut *connection)
         .await
         .map_err(repo_error)?;
@@ -997,7 +1218,7 @@ impl DashboardRepository for SqliteStore {
             " ORDER BY created_at DESC LIMIT ?"
         );
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let rows: Vec<MessageRow> = sqlx::query_as(sql)
+        let rows: Vec<MessageRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql.to_owned()))
             .bind(limit as i64)
             .fetch_all(&mut *connection)
             .await

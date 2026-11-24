@@ -646,7 +646,8 @@ pub async fn pool_for(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
 
 /// Count rows matching `sql` with the given text binds.
 pub async fn count(pool: &sqlx::SqlitePool, sql: &str, binds: &[&str]) -> i64 {
-    let mut query = sqlx::query_scalar::<_, i64>(sql);
+    // sqlx 0.9 owns its SQL string; test callers pass internal literals only.
+    let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql.to_owned()));
     for value in binds {
         query = query.bind(*value);
     }

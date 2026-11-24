@@ -39,9 +39,9 @@ async fn open(path: &Path) -> SqlitePool {
 }
 
 async fn history_versions(pool: &SqlitePool) -> Vec<i64> {
-    let rows: Vec<(i64,)> = sqlx::query_as(&format!(
+    let rows: Vec<(i64,)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT version FROM {HISTORY_TABLE} ORDER BY version"
-    ))
+    )))
     .fetch_all(pool)
     .await
     .expect("read history");
@@ -140,16 +140,16 @@ async fn a_database_newer_than_the_binary_is_refused() {
     support::create_schema(&path).await;
     let pool = open(&path).await;
 
-    sqlx::query(&format!(
+    sqlx::query(sqlx::AssertSqlSafe(format!(
         "CREATE TABLE {HISTORY_TABLE} (version INTEGER PRIMARY KEY, \
          description TEXT NOT NULL, applied_at TEXT NOT NULL)"
-    ))
+    )))
     .execute(&pool)
     .await
     .expect("create history");
-    sqlx::query(&format!(
+    sqlx::query(sqlx::AssertSqlSafe(format!(
         "INSERT INTO {HISTORY_TABLE} (version, description, applied_at) VALUES (99, 'from the future', 'x')"
-    ))
+    )))
     .execute(&pool)
     .await
     .expect("insert future version");

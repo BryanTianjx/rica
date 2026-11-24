@@ -4,6 +4,16 @@
 //! lives here, so `ica-domain` and `ica-application` stay free of a database
 //! driver. [`SqliteStore`] implements every application port over one pool, so
 //! a business write and the audit event it produces share a transaction.
+//!
+//! # Dynamic SQL and `AssertSqlSafe`
+//!
+//! sqlx 0.9 requires `SqlSafeStr` for every query. Static SQL uses `&'static str`
+//! literals directly; the dynamic strings here are wrapped in
+//! `sqlx::AssertSqlSafe`. That wrapper is an explicit audit, not sanitisation:
+//! every dynamic part is an internal constant (`SELECT_COLUMNS`, table names
+//! from `BUSINESS_TABLES`/`HISTORY_TABLE`, condition fragments assembled from
+//! fixed literals), while all caller-controlled values go through `.bind()`.
+//! Never interpolate request data into a query string — use a bind parameter.
 
 pub mod ai_client;
 pub mod ai_models;

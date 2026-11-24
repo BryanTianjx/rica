@@ -88,20 +88,31 @@ pub async fn evaluate(
     positions: &dyn PositionRepository,
     evaluation: NewFollowUpEvaluation,
 ) -> Result<FollowUpDecision, ApplicationError> {
-    let candidate = candidates
-        .find(&evaluation.candidate_id)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Candidate", &evaluation.candidate_id))?;
+    evaluate_scoped(follow_ups, candidates, positions, evaluation, None).await
+}
+
+/// SEC-04: the candidate and any position override are resolved in scope.
+pub async fn evaluate_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    candidates: &dyn CandidateRepository,
+    positions: &dyn PositionRepository,
+    evaluation: NewFollowUpEvaluation,
+    scope: Option<&crate::Scope>,
+) -> Result<FollowUpDecision, ApplicationError> {
+    let candidate =
+        crate::candidates::get_candidate_scoped(candidates, &evaluation.candidate_id, scope)
+            .await?;
     let position = match evaluation
         .position_id
         .as_deref()
         .or(candidate.position_id.as_deref())
     {
-        Some(position_id) => positions.find(position_id).await.map_err(unavailable)?,
+        Some(position_id) => {
+            Some(crate::positions::get_position_scoped(positions, position_id, scope).await?)
+        }
         None => None,
     };
-    evaluate_for_candidate(follow_ups, positions, &candidate, position).await
+    evaluate_for_candidate(follow_ups, positions, &candidate, position, scope).await
 }
 
 /// Run the decision engine for one candidate, using current data — shared by
@@ -112,11 +123,14 @@ async fn evaluate_for_candidate(
     positions: &dyn PositionRepository,
     candidate: &ica_domain::Candidate,
     position_override: Option<Position>,
+    scope: Option<&crate::Scope>,
 ) -> Result<FollowUpDecision, ApplicationError> {
     let position = match position_override {
         Some(position) => Some(position),
         None => match &candidate.position_id {
-            Some(position_id) => positions.find(position_id).await.map_err(unavailable)?,
+            Some(position_id) => {
+                Some(crate::positions::get_position_scoped(positions, position_id, scope).await?)
+            }
             None => None,
         },
     };
@@ -172,14 +186,26 @@ pub async fn list_tasks(
     offset: usize,
     limit: usize,
 ) -> Result<(Vec<FollowUpTask>, usize), ApplicationError> {
+    list_tasks_scoped(follow_ups, filter, offset, limit, None).await
+}
+
+/// SEC-04: list with the tenant/owner predicate in the repository's SQL.
+pub async fn list_tasks_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    filter: FollowUpTaskFilter,
+    offset: usize,
+    limit: usize,
+    scope: Option<&crate::Scope>,
+) -> Result<(Vec<FollowUpTask>, usize), ApplicationError> {
     follow_ups
         .expire_stale(Utc::now())
         .await
         .map_err(unavailable)?;
-    follow_ups
-        .list(filter, offset, limit)
-        .await
-        .map_err(unavailable)
+    match scope {
+        Some(scope) => follow_ups.list_scoped(filter, offset, limit, scope).await,
+        None => follow_ups.list(filter, offset, limit).await,
+    }
+    .map_err(unavailable)
 }
 
 /// Fetch one task or report it missing with the baseline's message.
@@ -187,9 +213,20 @@ pub async fn get_task(
     follow_ups: &dyn FollowUpRepository,
     id: &str,
 ) -> Result<FollowUpTask, ApplicationError> {
-    follow_ups
-        .find(id)
-        .await
+    get_task_scoped(follow_ups, id, None).await
+}
+
+/// SEC-04: out-of-scope tasks are indistinguishable from missing ones.
+pub async fn get_task_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<FollowUpTask, ApplicationError> {
+    let found = match scope {
+        Some(scope) => follow_ups.find_scoped(id, scope).await,
+        None => follow_ups.find(id).await,
+    };
+    found
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Follow-up task", id))
 }
@@ -205,21 +242,33 @@ pub async fn create_task(
     positions: &dyn PositionRepository,
     new: NewFollowUpTask,
 ) -> Result<FollowUpTask, ApplicationError> {
-    let candidate = candidates
-        .find(&new.candidate_id)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Candidate", &new.candidate_id))?;
+    create_task_scoped(follow_ups, candidates, positions, new, None).await
+}
+
+/// SEC-04: candidate, position and the reuse lookup are scoped, and the new
+/// task carries the authenticated actor's ownership.
+pub async fn create_task_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    candidates: &dyn CandidateRepository,
+    positions: &dyn PositionRepository,
+    new: NewFollowUpTask,
+    scope: Option<&crate::Scope>,
+) -> Result<FollowUpTask, ApplicationError> {
+    let candidate =
+        crate::candidates::get_candidate_scoped(candidates, &new.candidate_id, scope).await?;
     let policy = active_policy(follow_ups).await?;
     let position = match new
         .position_id
         .as_deref()
         .or(candidate.position_id.as_deref())
     {
-        Some(position_id) => positions.find(position_id).await.map_err(unavailable)?,
+        Some(position_id) => {
+            Some(crate::positions::get_position_scoped(positions, position_id, scope).await?)
+        }
         None => None,
     };
-    let decision = evaluate_for_candidate(follow_ups, positions, &candidate, position).await?;
+    let decision =
+        evaluate_for_candidate(follow_ups, positions, &candidate, position, scope).await?;
 
     let (status, block_reason) = match decision.outcome {
         DecisionOutcome::Blocked => (
@@ -232,11 +281,16 @@ pub async fn create_task(
 
     // Reuse an open task rather than piling up duplicates: a double click must
     // not leave duplicate work in the workbench.
-    if let Some(existing) = follow_ups
-        .find_open_for_candidate(&candidate.id)
-        .await
-        .map_err(unavailable)?
-    {
+    let existing = match scope {
+        Some(scope) => {
+            follow_ups
+                .find_open_for_candidate_scoped(&candidate.id, scope)
+                .await
+        }
+        None => follow_ups.find_open_for_candidate(&candidate.id).await,
+    }
+    .map_err(unavailable)?;
+    if let Some(existing) = existing {
         let status = existing.status;
         return follow_ups
             .mark_reused(&existing.id, status)
@@ -246,29 +300,31 @@ pub async fn create_task(
     }
 
     let now = Utc::now();
-    follow_ups
-        .create(NewFollowUpTaskRow {
-            candidate_id: candidate.id.clone(),
-            position_id: new
-                .position_id
-                .clone()
-                .or_else(|| candidate.position_id.clone()),
-            status,
-            outcome: decision.outcome.as_str().to_string(),
-            objective: new
-                .objective
-                .clone()
-                .or_else(|| decision.suggested_objective.clone()),
-            reason: new
-                .reason
-                .clone()
-                .or_else(|| reason_from_decision(&decision)),
-            block_reason,
-            recommended_at: new.recommended_at.or(decision.recommended_at),
-            expires_at: task_expiry(now, Some(policy)),
-        })
-        .await
-        .map_err(unavailable)
+    let row = NewFollowUpTaskRow {
+        candidate_id: candidate.id.clone(),
+        position_id: new
+            .position_id
+            .clone()
+            .or_else(|| candidate.position_id.clone()),
+        status,
+        outcome: decision.outcome.as_str().to_string(),
+        objective: new
+            .objective
+            .clone()
+            .or_else(|| decision.suggested_objective.clone()),
+        reason: new
+            .reason
+            .clone()
+            .or_else(|| reason_from_decision(&decision)),
+        block_reason,
+        recommended_at: new.recommended_at.or(decision.recommended_at),
+        expires_at: task_expiry(now, Some(policy)),
+    };
+    match scope {
+        Some(scope) => follow_ups.create_scoped(row, scope).await,
+        None => follow_ups.create(row).await,
+    }
+    .map_err(unavailable)
 }
 
 /// One-line explanation of why a follow-up is (not) due.
@@ -293,7 +349,17 @@ pub async fn update_task(
     id: &str,
     patch: FollowUpTaskPatch,
 ) -> Result<FollowUpTask, ApplicationError> {
-    let task = get_task(follow_ups, id).await?;
+    update_task_scoped(follow_ups, id, patch, None).await
+}
+
+/// SEC-04: patch only a task the caller can see.
+pub async fn update_task_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    id: &str,
+    patch: FollowUpTaskPatch,
+    scope: Option<&crate::Scope>,
+) -> Result<FollowUpTask, ApplicationError> {
+    let task = get_task_scoped(follow_ups, id, scope).await?;
 
     if let Field::Value(target) = patch.status {
         let current = task.status;
@@ -325,9 +391,11 @@ pub async fn update_task(
         }
     }
 
-    follow_ups
-        .update(id, patch)
-        .await
+    let updated = match scope {
+        Some(scope) => follow_ups.update_scoped(id, patch, scope).await,
+        None => follow_ups.update(id, patch).await,
+    };
+    updated
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Follow-up task", id))
 }
@@ -350,7 +418,17 @@ pub async fn cancel_task(
     id: &str,
     reason: Option<String>,
 ) -> Result<FollowUpTask, ApplicationError> {
-    let task = get_task(follow_ups, id).await?;
+    cancel_task_scoped(follow_ups, id, reason, None).await
+}
+
+/// SEC-04: cancel only a task the caller can see.
+pub async fn cancel_task_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    id: &str,
+    reason: Option<String>,
+    scope: Option<&crate::Scope>,
+) -> Result<FollowUpTask, ApplicationError> {
+    let task = get_task_scoped(follow_ups, id, scope).await?;
     let current = task.status;
     if !can_transition(current, FollowUpTaskStatus::Cancelled) {
         let mut details = BTreeMap::new();
@@ -362,9 +440,11 @@ pub async fn cancel_task(
     }
     // Python: `reason or task.reason` — an empty string keeps the old reason.
     let reason = reason.filter(|value| !value.is_empty());
-    follow_ups
-        .cancel(id, reason)
-        .await
+    let cancelled = match scope {
+        Some(scope) => follow_ups.cancel_scoped(id, reason, scope).await,
+        None => follow_ups.cancel(id, reason).await,
+    };
+    cancelled
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Follow-up task", id))
 }
@@ -374,7 +454,16 @@ pub async fn complete_task(
     follow_ups: &dyn FollowUpRepository,
     id: &str,
 ) -> Result<FollowUpTask, ApplicationError> {
-    let task = get_task(follow_ups, id).await?;
+    complete_task_scoped(follow_ups, id, None).await
+}
+
+/// SEC-04: complete only a task the caller can see.
+pub async fn complete_task_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<FollowUpTask, ApplicationError> {
+    let task = get_task_scoped(follow_ups, id, scope).await?;
     let current = task.status;
     if !can_transition(current, FollowUpTaskStatus::Completed) {
         let mut details = BTreeMap::new();
@@ -384,9 +473,11 @@ pub async fn complete_task(
             details,
         ));
     }
-    follow_ups
-        .complete(id, Utc::now())
-        .await
+    let completed = match scope {
+        Some(scope) => follow_ups.complete_scoped(id, Utc::now(), scope).await,
+        None => follow_ups.complete(id, Utc::now()).await,
+    };
+    completed
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Follow-up task", id))
 }
@@ -401,7 +492,17 @@ pub async fn record_result(
     id: &str,
     result: NewFollowUpResult,
 ) -> Result<FollowUpTask, ApplicationError> {
-    let task = get_task(follow_ups, id).await?;
+    record_result_scoped(follow_ups, id, result, None).await
+}
+
+/// SEC-04: record a result only for a task the caller can see.
+pub async fn record_result_scoped(
+    follow_ups: &dyn FollowUpRepository,
+    id: &str,
+    result: NewFollowUpResult,
+    scope: Option<&crate::Scope>,
+) -> Result<FollowUpTask, ApplicationError> {
+    let task = get_task_scoped(follow_ups, id, scope).await?;
     let now = Utc::now();
 
     let already_counted = task.result_recorded_at.is_some() && task.result_type.is_some();
@@ -468,21 +569,24 @@ pub async fn record_result(
         None
     };
 
-    follow_ups
-        .record_result(
-            &task.id,
-            FollowUpResultPatch {
-                result_type: result.result_type.as_str().to_string(),
-                result_note: result.note,
-                result_recorded_at: now,
-                status,
-                completed_at,
-                bump_count,
-                last_follow_up_at,
-            },
-            send_record,
-        )
-        .await
+    let patch = FollowUpResultPatch {
+        result_type: result.result_type.as_str().to_string(),
+        result_note: result.note,
+        result_recorded_at: now,
+        status,
+        completed_at,
+        bump_count,
+        last_follow_up_at,
+    };
+    let updated = match scope {
+        Some(scope) => {
+            follow_ups
+                .record_result_scoped(&task.id, patch, send_record, scope)
+                .await
+        }
+        None => follow_ups.record_result(&task.id, patch, send_record).await,
+    };
+    updated
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Follow-up task", id))
 }

@@ -1,0 +1,287 @@
+ARCH-P6 unified gate | HEAD=6b303212865adf13deecb3d3bfef5d52ae380381 | started=2026-11-24T13:20:49+00:00
+
+========================================================================
+== STAGE rust_gate ==
+$ C:\Users\TIAN\AppData\Local\hermes\tools\python-3.14.9+20261021-win32-x64\python.exe scripts/check.py
+test tests::sec04_a_auth_required_flag_is_explicit_only ... ok
+test tests::bas002_non_loopback_hosts_are_rejected ... ok
+test tests::sec04_a_non_loopback_is_refused_without_explicit_opt_in ... ok
+test tests::sec04_a_opt_in_without_real_auth_is_refused_with_a_clear_message ... ok
+test tests::bas002_loopback_host_can_actually_bind ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests ica_api
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_application
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_contracts
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_desktop
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_domain
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_infra
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+tests: 547 passed / 0 failed
+
+== 5/5 endpoint reconciliation ==
+   contract=68 implemented=68 missing=0 extra=0 auxiliary=1
+   ok: implemented + missing == contract total, no extra routes (1 auxiliary route(s) per ADR-0003 D-2)
+
+All gates passed.
+    Checking ica-domain v0.1.0 (O:\ICA-RUST\crates\ica-domain)
+    Checking ica-application v0.1.0 (O:\ICA-RUST\crates\ica-application)
+    Checking ica-infra v0.1.0 (O:\ICA-RUST\crates\ica-infra)
+    Checking ica-contracts v0.1.0 (O:\ICA-RUST\crates\ica-contracts)
+    Checking ica-api v0.1.0 (O:\ICA-RUST\crates\ica-api)
+    Checking ica-desktop v0.1.0 (O:\ICA-RUST\crates\ica-desktop)
+    Checking ica-server v0.1.0 (O:\ICA-RUST\crates\ica-server)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 57.21s
+--- rust_gate: PASS (exit=0, 408.52s) ---
+
+========================================================================
+== STAGE sidecar_contract ==
+$ cargo test -p ica-contracts --test sidecar_contract_test
+
+running 6 tests
+test error_dto_redacts_credentials_in_message_and_details ... ok
+test error_paths_produce_stable_wire_codes ... ok
+test malformed_lines_never_decode_into_a_request_or_response ... ok
+test every_capability_method_has_a_contract_vector ... ok
+test version_negotiation_is_explicit_and_symmetric ... ok
+test golden_request_and_response_shapes_are_stable ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.85s
+     Running tests\sidecar_contract_test.rs (C:\Users\TIAN\.cache\ica-rust-target\debug\deps\sidecar_contract_test-446873dabf30defd.exe)
+--- sidecar_contract: PASS (exit=0, 1.24s) ---
+
+========================================================================
+== STAGE endpoint_map ==
+$ C:\Users\TIAN\AppData\Local\hermes\tools\python-3.14.9+20261021-win32-x64\python.exe scripts/check_endpoint_map.py --self-test
+self-test: 5/5 assertions passed (no-exclusion mismatch, exclusion match, new-route mismatch, ADR-0008 exact exclusion, ADR-0008 unlisted-route mismatch)
+--- endpoint_map: PASS (exit=0, 0.21s) ---
+
+========================================================================
+== STAGE endpoint_map_baseline ==
+SKIP: Python baseline venv not present at \mnt\o\ica\backend; self-test stage still covers the comparison logic.
+
+========================================================================
+== STAGE contract_verify ==
+SKIP: opt-in (ICA_GATE_RUN_CONTRACT=1) and requires the frozen Python baseline at /mnt/o/ica/backend; not run by default in CI because it boots two services and rewrites captures.
+
+========================================================================
+== STAGE frontend_install ==
+SKIP: node_modules already present.
+
+========================================================================
+== STAGE frontend_lint ==
+$ C:\Program Files\nodejs\npm.CMD run lint
+
+> frontend@0.0.0 lint
+> oxlint
+
+
+  ! unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily.
+    ,-[src/services/backend/events.ts:68:26]
+ 67 |   if (isTauri) return;
+ 68 |   for (const handler of [...localHandlers]) handler(payload);
+    :                          ^^^
+ 69 | }
+    `----
+  help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+
+  ! unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily.
+    ,-[src/auth/tokenStore.ts:40:21]
+ 39 | export function notifySessionExpired(): void {
+ 40 |   for (const cb of [...sessionExpiredSubscribers]) {
+    :                     ^^^
+ 41 |     try {
+    `----
+  help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+
+  ! unicorn(prefer-string-starts-ends-with): Prefer String#endsWith over a regex with a dollar sign.
+     ,-[scripts/check-ui-reuse.mjs:573:9]
+ 572 |   for (const file of sourceFiles) {
+ 573 |     if (/\/types\.ts$/.test(file)) continue;
+     :         ^^^^^^^^^^^^^^^^^^^
+ 574 |     if (!/\/(components|hooks|pages)\//.test(file)) continue;
+     `----
+  help: Replace `/\/types\.ts$/.test(file)` with `file.endsWith('/types.ts')`.
+
+Found 3 warnings and 0 errors.
+Finished in 82ms on 93 files with 96 rules using 8 threads.
+--- frontend_lint: PASS (exit=0, 1.48s) ---
+
+========================================================================
+== STAGE frontend_build ==
+$ C:\Program Files\nodejs\npm.CMD run build
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+[36mvite v8.3.5 [32mbuilding client environment for production...[36m[39m
+transforming...
+✓ 75 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.52 kB │ gzip:   0.35 kB
+dist/assets/index-C2OzubNE.css   19.14 kB │ gzip:   4.63 kB
+dist/assets/index-Ck0K6b31.js   410.21 kB │ gzip: 120.14 kB
+
+[32m✓ built in 477ms[39m
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - `__dirname` (vite.config.ts:27:26). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+--- frontend_build: PASS (exit=0, 3.6s) ---
+
+========================================================================
+== STAGE frontend_test ==
+$ C:\Program Files\nodejs\npm.CMD run test
+[2m Test Files [22m [1m[32m35 passed[39m[22m[90m (35)[39m
+[2m      Tests [22m [1m[32m247 passed[39m[22m[90m (247)[39m
+[2m   Start at [22m 21:27:46
+[2m   Duration [22m 44.75s[2m (environment 55%, tests 31%, setup 10%, import 3%, worker 1%, transform 1%)[22m
+
+[2mEnvironment [22m [33mjsdom was created 35 times[39m[2m · 146.90s total, 55% of tracked time[22m
+[2m            [22m [2mcreate it once per worker with [22m[33mpool: 'vmThreads'[39m[2m (keeps per-file isolation) or [22m[33misolate: false[39m[2m (shares it across files)[22m
+[2m            [22m [2mlearn more: https://vitest.dev/guide/improving-performance#test-environments[22m
+
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - `__dirname` (vite.config.ts:27:26). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+[90mstderr[2m | src/pages/CandidatesPage.test.tsx[2m > [22m[2mCandidatesPage — 搜索[2m > [22m[2m搜索框存在并可输入
+[22m[39mAn update to CandidatesPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | src/pages/DashboardPage.test.tsx[2m > [22m[2mDashboardPage — 刷新与错误[2m > [22m[2m点击刷新按钮触发 reload
+[22m[39mAn update to DashboardPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | src/auth/AuthContext.test.tsx[2m > [22m[2mAuthContext[2m > [22m[2mkicks to unauthenticated when the API layer reports the session expired (F2-1)
+[22m[39mAn update to AuthProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | src/hooks/useAsync.test.ts[2m > [22m[2museAsync[2m > [22m[2mloads data and exposes reload
+[22m[39mAn update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+--- frontend_test: PASS (exit=0, 46.53s) ---
+
+========================================================================
+== STAGE tauri_syntax ==
+$ rustfmt --edition 2021 --check O:\ICA-RUST\desktop\tauri-host\src\ica_backend.rs O:\ICA-RUST\desktop\tauri-host\src\main.rs
+
+--- tauri_syntax: PASS (exit=0, 0.32s) ---
+
+========================================================================
+== STAGE tauri_build ==
+BLOCKED: HOST LIMITATION: glib-2.0 / webkit2gtk-4.1 not available (WSL has no WebKit2GTK). Tauri compile is NOT verified here; tauri_syntax only proves the host sources parse.
+
+========================================================================
+== STAGE security_scan ==
+$ cargo audit
+Crate:     chrono
+Version:   0.4.45
+Warning:   unmaintained
+Title:     chrono is unmaintained
+Date:      2026-09-14
+ID:        RUSTSEC-2026-0543
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0543
+Solution:  No fixed upgrade is available!
+
+Crate:     paste
+Version:   1.0.15
+Warning:   unmaintained
+Title:     paste - no longer maintained
+Date:      2024-10-07
+ID:        RUSTSEC-2024-0436
+URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
+Solution:  No fixed upgrade is available!
+
+Crate:     ttf-parser
+Version:   0.25.1
+Warning:   unmaintained
+Title:     `ttf-parser` is unmaintained
+Date:      2026-06-28
+ID:        RUSTSEC-2026-0192
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0192
+Solution:  No fixed upgrade is available!
+
+    Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
+      Loaded 1566 security advisories (from C:\Users\TIAN\.cargo\advisory-db)
+    Updating crates.io index
+    Scanning Cargo.lock for vulnerabilities (394 crate dependencies)
+warning: 3 allowed warnings found
+--- security_scan: PASS (exit=0, 4.8s) ---
+
+========================================================================
+== STAGE e2e ==
+BLOCKED: NO E2E HARNESS IN REPO: QA-02 core recruiting-loop E2E is not implemented (DEF-003 Triaged). AC1 chains the entry point only; no E2E pass is claimed.
+
+========================================================================
+== GATE SUMMARY ==
+HEAD=6b303212865adf13deecb3d3bfef5d52ae380381  PASS=8  FAIL=0  SKIP=3  BLOCKED=2
+gate_result: PASS_WITH_LIMITATIONS
+INDEPENDENT SECURITY VERIFICATION: PENDING (manual) — this gate does NOT self-sign Verified.
+WINDOWS DESKTOP ACCEPTANCE: BLOCKED (no Windows host) — see docs/testing/desktop-release-acceptance.md
+execution record: docs\testing\evidence\gate-post-remediation-20261124\gate-run-after-sqlite-upgrade.json

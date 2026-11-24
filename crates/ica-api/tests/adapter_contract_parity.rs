@@ -472,6 +472,6 @@ fn adapter_bodies_only_parse_validate_and_call_use_cases() {
     // Application layer, reachable from either transport.
     assert!(HTTP.contains("ica_application::restore_backup_checked("));
     assert!(IPC.contains("ica_application::restore_backup_checked("));
-    assert!(HTTP.contains("ica_application::get_import("));
+    assert!(HTTP.contains("ica_application::get_import_scoped("));
     assert!(!IPC.contains("state.imports().find("));
 }

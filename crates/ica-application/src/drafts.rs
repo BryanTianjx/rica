@@ -26,10 +26,22 @@ pub async fn list_drafts(
     offset: usize,
     limit: usize,
 ) -> Result<(Vec<GeneratedDraft>, usize), ApplicationError> {
-    drafts
-        .list(filter, offset, limit)
-        .await
-        .map_err(unavailable)
+    list_drafts_scoped(drafts, filter, offset, limit, None).await
+}
+
+/// SEC-04: list with the authenticated tenant/owner predicate in SQL.
+pub async fn list_drafts_scoped(
+    drafts: &dyn DraftRepository,
+    filter: DraftFilter,
+    offset: usize,
+    limit: usize,
+    scope: Option<&crate::Scope>,
+) -> Result<(Vec<GeneratedDraft>, usize), ApplicationError> {
+    match scope {
+        Some(scope) => drafts.list_scoped(filter, offset, limit, scope).await,
+        None => drafts.list(filter, offset, limit).await,
+    }
+    .map_err(unavailable)
 }
 
 /// Fetch one draft or report it missing with the baseline's message.
@@ -37,9 +49,20 @@ pub async fn get_draft(
     drafts: &dyn DraftRepository,
     id: &str,
 ) -> Result<GeneratedDraft, ApplicationError> {
-    drafts
-        .find(id)
-        .await
+    get_draft_scoped(drafts, id, None).await
+}
+
+/// SEC-04: out-of-scope drafts are indistinguishable from missing ones.
+pub async fn get_draft_scoped(
+    drafts: &dyn DraftRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<GeneratedDraft, ApplicationError> {
+    let found = match scope {
+        Some(scope) => drafts.find_scoped(id, scope).await,
+        None => drafts.find(id).await,
+    };
+    found
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Draft", id))
 }
@@ -64,11 +87,40 @@ pub async fn generate(
     generator: &dyn DraftGenerator,
     request: NewDraftGeneration,
 ) -> Result<GenerateOutcome, ApplicationError> {
-    let candidate = candidates
-        .find(&request.candidate_id)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Candidate", &request.candidate_id))?;
+    generate_impl(
+        drafts, follow_ups, candidates, positions, generator, request, None,
+    )
+    .await
+}
+
+/// SEC-04: every parent (candidate, position, task) is resolved in the
+/// caller's scope, and the generator stamps the new drafts with it.
+pub async fn generate_scoped(
+    drafts: &dyn DraftRepository,
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    candidates: &dyn crate::ports::CandidateRepository,
+    positions: &dyn crate::ports::PositionRepository,
+    generator: &dyn DraftGenerator,
+    request: NewDraftGeneration,
+    scope: Option<&crate::Scope>,
+) -> Result<GenerateOutcome, ApplicationError> {
+    generate_impl(
+        drafts, follow_ups, candidates, positions, generator, request, scope,
+    )
+    .await
+}
+
+async fn generate_impl(
+    drafts: &dyn DraftRepository,
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    candidates: &dyn crate::ports::CandidateRepository,
+    positions: &dyn crate::ports::PositionRepository,
+    generator: &dyn DraftGenerator,
+    request: NewDraftGeneration,
+    scope: Option<&crate::Scope>,
+) -> Result<GenerateOutcome, ApplicationError> {
+    let candidate =
+        crate::candidates::get_candidate_scoped(candidates, &request.candidate_id, scope).await?;
 
     // Egress gate (PRIV-07): the operator can stop every outbound AI call from
     // the settings page; the default (no recorded switch) is allowed.
@@ -98,7 +150,9 @@ pub async fn generate(
     }
 
     let position = match &candidate.position_id {
-        Some(position_id) => positions.find(position_id).await.map_err(unavailable)?,
+        Some(position_id) => {
+            Some(crate::positions::get_position_scoped(positions, position_id, scope).await?)
+        }
         None => None,
     };
     if let Some(position) = &position {
@@ -118,9 +172,11 @@ pub async fn generate(
     // The draft belongs to a follow-up task; validate before anything else so
     // a blocked or closed task cannot be drafted.
     if let Some(task_id) = &request.task_id {
-        let task = follow_ups
-            .find(task_id)
-            .await
+        let found = match scope {
+            Some(scope) => follow_ups.find_scoped(task_id, scope).await,
+            None => follow_ups.find(task_id).await,
+        };
+        let task = found
             .map_err(unavailable)?
             .ok_or_else(|| ApplicationError::not_found("Follow-up task", task_id))?;
         if task.status == ica_domain::FollowUpTaskStatus::Blocked {
@@ -166,6 +222,9 @@ pub async fn generate(
             max_length: request.max_length,
             model_id: request.model_id,
             comparison_models: request.comparison_models,
+            // SEC-04: the generator stamps the persisted draft(s) with this
+            // actor/tenant; Local mode passes None and keeps the defaults.
+            scope: scope.cloned(),
         })
         .await?;
 
@@ -176,11 +235,12 @@ pub async fn generate(
     let outcome = match outcome {
         crate::ports::DraftGeneration::Single(draft) => {
             if let Some(task_id) = &draft.task_id {
-                advance_task(
+                advance_task_scoped(
                     follow_ups,
                     task_id,
                     ica_domain::FollowUpTaskStatus::Reviewing,
                     "A draft was generated",
+                    scope,
                 )
                 .await?;
             }
@@ -207,7 +267,17 @@ pub async fn update_draft(
     id: &str,
     patch: DraftPatch,
 ) -> Result<GeneratedDraft, ApplicationError> {
-    let draft = get_draft(drafts, id).await?;
+    update_draft_scoped(drafts, id, patch, None).await
+}
+
+/// SEC-04: edit only a draft the caller can see.
+pub async fn update_draft_scoped(
+    drafts: &dyn DraftRepository,
+    id: &str,
+    patch: DraftPatch,
+    scope: Option<&crate::Scope>,
+) -> Result<GeneratedDraft, ApplicationError> {
+    let draft = get_draft_scoped(drafts, id, scope).await?;
     if matches!(draft.status, DraftStatus::Approved | DraftStatus::Copied) {
         let mut details = std::collections::BTreeMap::new();
         details.insert("status".to_string(), draft.status.as_str().to_string());
@@ -219,9 +289,15 @@ pub async fn update_draft(
             details,
         ));
     }
-    drafts
-        .update(id, patch.message_text, patch.objective)
-        .await
+    let updated = match scope {
+        Some(scope) => {
+            drafts
+                .update_scoped(id, patch.message_text, patch.objective, scope)
+                .await
+        }
+        None => drafts.update(id, patch.message_text, patch.objective).await,
+    };
+    updated
         .map_err(unavailable)?
         .ok_or_else(|| ApplicationError::not_found("Draft", id))
 }
@@ -235,7 +311,19 @@ pub async fn approve_draft(
     id: &str,
     note: Option<String>,
 ) -> Result<GeneratedDraft, ApplicationError> {
-    let draft = get_draft(drafts, id).await?;
+    approve_draft_scoped(drafts, follow_ups, id, note, None).await
+}
+
+/// SEC-04: approve only a draft the caller can see; its linked task must be
+/// in the same scope too.
+pub async fn approve_draft_scoped(
+    drafts: &dyn DraftRepository,
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    id: &str,
+    note: Option<String>,
+    scope: Option<&crate::Scope>,
+) -> Result<GeneratedDraft, ApplicationError> {
+    let draft = get_draft_scoped(drafts, id, scope).await?;
     if draft.status == DraftStatus::Rejected {
         return Err(ApplicationError::conflict(
             "A rejected draft cannot be approved",
@@ -245,25 +333,28 @@ pub async fn approve_draft(
     // Guard before the write: the baseline rolls the draft change back when
     // the task cannot reach `Approved`.
     if let Some(task_id) = &draft.task_id {
-        ensure_transition_reachable(
+        ensure_transition_reachable_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::Approved,
+            scope,
         )
         .await?;
     }
-    let updated = drafts
-        .approve(id, Utc::now(), note)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Draft", id))?;
+    let updated = match scope {
+        Some(scope) => drafts.approve_scoped(id, Utc::now(), note, scope).await,
+        None => drafts.approve(id, Utc::now(), note).await,
+    }
+    .map_err(unavailable)?
+    .ok_or_else(|| ApplicationError::not_found("Draft", id))?;
 
     if let Some(task_id) = &updated.task_id {
-        advance_task(
+        advance_task_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::Approved,
             "The draft was approved by the user",
+            scope,
         )
         .await?;
     }
@@ -276,27 +367,40 @@ pub async fn reject_draft(
     follow_ups: &dyn crate::ports::FollowUpRepository,
     id: &str,
 ) -> Result<GeneratedDraft, ApplicationError> {
-    let draft = get_draft(drafts, id).await?;
+    reject_draft_scoped(drafts, follow_ups, id, None).await
+}
+
+/// SEC-04: reject only a draft the caller can see.
+pub async fn reject_draft_scoped(
+    drafts: &dyn DraftRepository,
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<GeneratedDraft, ApplicationError> {
+    let draft = get_draft_scoped(drafts, id, scope).await?;
     if let Some(task_id) = &draft.task_id {
-        ensure_transition_reachable(
+        ensure_transition_reachable_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::Rejected,
+            scope,
         )
         .await?;
     }
-    let updated = drafts
-        .reject(id, Utc::now())
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Draft", id))?;
+    let updated = match scope {
+        Some(scope) => drafts.reject_scoped(id, Utc::now(), scope).await,
+        None => drafts.reject(id, Utc::now()).await,
+    }
+    .map_err(unavailable)?
+    .ok_or_else(|| ApplicationError::not_found("Draft", id))?;
 
     if let Some(task_id) = &updated.task_id {
-        advance_task(
+        advance_task_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::Rejected,
             "The draft was rejected by the user",
+            scope,
         )
         .await?;
     }
@@ -310,7 +414,17 @@ pub async fn copy_draft(
     follow_ups: &dyn crate::ports::FollowUpRepository,
     id: &str,
 ) -> Result<crate::payload::DraftCopyOutcome, ApplicationError> {
-    let draft = get_draft(drafts, id).await?;
+    copy_draft_scoped(drafts, follow_ups, id, None).await
+}
+
+/// SEC-04: copy only a draft the caller can see.
+pub async fn copy_draft_scoped(
+    drafts: &dyn DraftRepository,
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<crate::payload::DraftCopyOutcome, ApplicationError> {
+    let draft = get_draft_scoped(drafts, id, scope).await?;
     if draft.status == DraftStatus::Rejected {
         return Err(ApplicationError::conflict(
             "A rejected draft cannot be copied",
@@ -318,26 +432,29 @@ pub async fn copy_draft(
         ));
     }
     if let Some(task_id) = &draft.task_id {
-        ensure_transition_reachable(
+        ensure_transition_reachable_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::AwaitingResult,
+            scope,
         )
         .await?;
     }
     let copied_at = Utc::now();
-    let updated = drafts
-        .copy(id, copied_at)
-        .await
-        .map_err(unavailable)?
-        .ok_or_else(|| ApplicationError::not_found("Draft", id))?;
+    let updated = match scope {
+        Some(scope) => drafts.copy_scoped(id, copied_at, scope).await,
+        None => drafts.copy(id, copied_at).await,
+    }
+    .map_err(unavailable)?
+    .ok_or_else(|| ApplicationError::not_found("Draft", id))?;
 
     if let Some(task_id) = &updated.task_id {
-        advance_task(
+        advance_task_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::AwaitingResult,
             "The draft was copied; waiting for the user to record the result",
+            scope,
         )
         .await?;
     }
@@ -353,11 +470,24 @@ pub async fn get_draft_group(
     drafts: &dyn DraftRepository,
     group_id: &str,
 ) -> Result<Vec<GeneratedDraft>, ApplicationError> {
-    let drafts = drafts.find_group(group_id).await.map_err(unavailable)?;
-    if drafts.is_empty() {
+    get_draft_group_scoped(drafts, group_id, None).await
+}
+
+/// SEC-04: a foreign group is indistinguishable from a missing one.
+pub async fn get_draft_group_scoped(
+    drafts: &dyn DraftRepository,
+    group_id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<Vec<GeneratedDraft>, ApplicationError> {
+    let rows = match scope {
+        Some(scope) => drafts.find_group_scoped(group_id, scope).await,
+        None => drafts.find_group(group_id).await,
+    }
+    .map_err(unavailable)?;
+    if rows.is_empty() {
         return Err(ApplicationError::not_found("Draft group", group_id));
     }
-    let mut ordered = drafts;
+    let mut ordered = rows;
     ordered.sort_by_key(|draft| draft.created_at);
     Ok(ordered)
 }
@@ -372,7 +502,19 @@ pub async fn select_draft_from_group(
     group_id: &str,
     selection: NewDraftGroupSelection,
 ) -> Result<Vec<GeneratedDraft>, ApplicationError> {
-    let group = get_draft_group(drafts, group_id).await?;
+    select_draft_from_group_scoped(drafts, follow_ups, group_id, selection, None).await
+}
+
+/// SEC-04: the whole group is resolved in the caller's scope before it can be
+/// selected or superseded.
+pub async fn select_draft_from_group_scoped(
+    drafts: &dyn DraftRepository,
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    group_id: &str,
+    selection: NewDraftGroupSelection,
+    scope: Option<&crate::Scope>,
+) -> Result<Vec<GeneratedDraft>, ApplicationError> {
+    let group = get_draft_group_scoped(drafts, group_id, scope).await?;
     if !group.iter().any(|draft| draft.id == selection.draft_id) {
         // The baseline raises `BusinessRuleError` with no `details` at all, so
         // the envelope must carry `{}` — adding `draft_id` here is a shape
@@ -402,33 +544,44 @@ pub async fn select_draft_from_group(
     // `supersede_others` would commit and the siblings would stay `rejected`
     // even though the request failed.
     if let Some(task_id) = &selected.task_id {
-        ensure_transition_reachable(
+        ensure_transition_reachable_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::Reviewing,
+            scope,
         )
         .await?;
     }
 
     // The others are marked rejected WITHOUT touching the shared task: only
     // the selected draft owns the task transition.
-    drafts
-        .supersede_others(group_id, &selection.draft_id, Utc::now())
-        .await
-        .map_err(unavailable)?;
+    match scope {
+        Some(scope) => {
+            drafts
+                .supersede_others_scoped(group_id, &selection.draft_id, Utc::now(), scope)
+                .await
+        }
+        None => {
+            drafts
+                .supersede_others(group_id, &selection.draft_id, Utc::now())
+                .await
+        }
+    }
+    .map_err(unavailable)?;
 
     if let Some(task_id) = &selected.task_id {
-        advance_task(
+        advance_task_scoped(
             follow_ups,
             task_id,
             ica_domain::FollowUpTaskStatus::Reviewing,
             "A draft was selected from a comparison group",
+            scope,
         )
         .await?;
     }
 
     // Re-read: the superseded rows changed; the returned group reflects it.
-    get_draft_group(drafts, group_id).await
+    get_draft_group_scoped(drafts, group_id, scope).await
 }
 
 /// The shared `advance_task`: walk the shortest legal path to `target` and
@@ -439,10 +592,30 @@ pub async fn advance_task(
     target: ica_domain::FollowUpTaskStatus,
     reason: &str,
 ) -> Result<(), ApplicationError> {
-    follow_ups
-        .advance(id, target, Some(reason.to_string()))
-        .await
-        .map_err(unavailable)?;
+    advance_task_scoped(follow_ups, id, target, reason, None).await
+}
+
+/// SEC-04: the same transition for a task inside the caller's scope.
+pub async fn advance_task_scoped(
+    follow_ups: &dyn crate::ports::FollowUpRepository,
+    id: &str,
+    target: ica_domain::FollowUpTaskStatus,
+    reason: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<(), ApplicationError> {
+    let advanced = match scope {
+        Some(scope) => {
+            follow_ups
+                .advance_scoped(id, target, Some(reason.to_string()), scope)
+                .await
+        }
+        None => {
+            follow_ups
+                .advance(id, target, Some(reason.to_string()))
+                .await
+        }
+    };
+    advanced.map_err(unavailable)?;
     Ok(())
 }
 
@@ -461,12 +634,18 @@ pub async fn advance_task(
 /// desktop app drives one candidate's workflow at a time; the baseline's own
 /// guarantee only has to hold against *its* writes, and `advance` still
 /// re-validates the path inside its transaction.
-async fn ensure_transition_reachable(
+/// SEC-04: the pre-write guard with the caller's scope on the task read.
+async fn ensure_transition_reachable_scoped(
     follow_ups: &dyn crate::ports::FollowUpRepository,
     task_id: &str,
     target: ica_domain::FollowUpTaskStatus,
+    scope: Option<&crate::Scope>,
 ) -> Result<(), ApplicationError> {
-    let Some(task) = follow_ups.find(task_id).await.map_err(unavailable)? else {
+    let found = match scope {
+        Some(scope) => follow_ups.find_scoped(task_id, scope).await,
+        None => follow_ups.find(task_id).await,
+    };
+    let Some(task) = found.map_err(unavailable)? else {
         // The row is gone (a dangling `task_id` on the draft). The baseline's
         // `get_task` raises `NotFoundError` here, so the request is a 404 and
         // nothing is written. `advance` alone would not catch it: it treats a
@@ -497,5 +676,17 @@ pub async fn preview_context(
     messages: &dyn crate::ports::MessageRepository,
     candidate_id: &str,
 ) -> Result<AiContext, ApplicationError> {
-    crate::ai_context::build_context(candidates, positions, messages, candidate_id).await
+    preview_context_scoped(candidates, positions, messages, candidate_id, None).await
+}
+
+/// SEC-04: the AI-context preview is scoped exactly like the candidate read.
+pub async fn preview_context_scoped(
+    candidates: &dyn crate::ports::CandidateRepository,
+    positions: &dyn crate::ports::PositionRepository,
+    messages: &dyn crate::ports::MessageRepository,
+    candidate_id: &str,
+    scope: Option<&crate::Scope>,
+) -> Result<AiContext, ApplicationError> {
+    crate::ai_context::build_context_scoped(candidates, positions, messages, candidate_id, scope)
+        .await
 }

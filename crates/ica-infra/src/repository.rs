@@ -158,7 +158,7 @@ async fn fetch_positions(
     sql: &str,
     binds: &[String],
 ) -> Result<Vec<Position>, RepositoryError> {
-    let mut query = sqlx::query_as::<_, PositionRow>(sql);
+    let mut query = sqlx::query_as::<_, PositionRow>(sqlx::AssertSqlSafe(sql.to_owned()));
     for value in binds {
         query = query.bind(value.clone());
     }
@@ -195,7 +195,7 @@ async fn scoped_position_exists(
     } else {
         "SELECT 1 FROM positions WHERE id = ? AND tenant_id = ? AND owner_id = ?".to_string()
     };
-    let mut query = sqlx::query_scalar::<_, i64>(&sql)
+    let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql.to_owned()))
         .bind(id)
         .bind(&scope.tenant_id);
     if !scope.is_admin {
@@ -230,7 +230,8 @@ impl PositionRepository for SqliteStore {
         let (where_sql, binds) = filter_sql(&filter);
 
         let count_sql = format!("SELECT COUNT(*) FROM positions p{where_sql}");
-        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        let mut count_query =
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql.to_owned()));
         for value in &binds {
             count_query = count_query.bind(value.clone());
         }
@@ -241,7 +242,7 @@ impl PositionRepository for SqliteStore {
 
         let sql =
             format!("{SELECT_COLUMNS}{where_sql} ORDER BY p.created_at DESC LIMIT ? OFFSET ?");
-        let mut page_query = sqlx::query_as::<_, PositionRow>(&sql);
+        let mut page_query = sqlx::query_as::<_, PositionRow>(sqlx::AssertSqlSafe(sql.to_owned()));
         for value in &binds {
             page_query = page_query.bind(value.clone());
         }
@@ -393,12 +394,13 @@ impl PositionRepository for SqliteStore {
     ) -> Result<Option<Position>, RepositoryError> {
         let mut tx = self.pool().begin().await.map_err(repo_error)?;
 
-        let existing =
-            sqlx::query_as::<_, PositionRow>(&format!("{SELECT_COLUMNS} WHERE p.id = ?"))
-                .bind(id)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(repo_error)?;
+        let existing = sqlx::query_as::<_, PositionRow>(sqlx::AssertSqlSafe(format!(
+            "{SELECT_COLUMNS} WHERE p.id = ?"
+        )))
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(repo_error)?;
         let Some(row) = existing else {
             tx.rollback().await.map_err(repo_error)?;
             return Ok(None);

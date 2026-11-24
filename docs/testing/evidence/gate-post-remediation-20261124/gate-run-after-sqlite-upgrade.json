@@ -1,0 +1,194 @@
+{
+  "schema": "arch-p6-gate-run-v1",
+  "head": "6b303212865adf13deecb3d3bfef5d52ae380381",
+  "worktree": "O:\\ICA-RUST",
+  "mode": "local",
+  "started_at": "2026-11-24T13:20:49+00:00",
+  "finished_at": "2026-11-24T13:28:36+00:00",
+  "stages": [
+    {
+      "name": "rust_gate",
+      "status": "PASS",
+      "command": [
+        "C:\\Users\\TIAN\\AppData\\Local\\hermes\\tools\\python-3.14.9+20261021-win32-x64\\python.exe",
+        "scripts/check.py"
+      ],
+      "cwd": "O:\\ICA-RUST",
+      "exit_code": 0,
+      "seconds": 408.52,
+      "started_at": "2026-11-24T13:20:49+00:00",
+      "detail": "reuses scripts/check.py (layering, fmt, clippy -D warnings, workspace tests, endpoint reconciliation). DEF-006 3 POC tests excluded via CARGO_TEST_EXTRA_ARGS.",
+      "output_tail": "test tests::sec04_a_auth_required_flag_is_explicit_only ... ok\ntest tests::bas002_non_loopback_hosts_are_rejected ... ok\ntest tests::sec04_a_non_loopback_is_refused_without_explicit_opt_in ... ok\ntest tests::sec04_a_opt_in_without_real_auth_is_refused_with_a_clear_message ... ok\ntest tests::bas002_loopback_host_can_actually_bind ... ok\n\ntest result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n   Doc-tests ica_api\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Doc-tests ica_application\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Doc-tests ica_contracts\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Doc-tests ica_desktop\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Doc-tests ica_domain\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Doc-tests ica_infra\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\ntests: 547 passed / 0 failed\n\n== 5/5 endpoint reconciliation ==\n   contract=68 implemented=68 missing=0 extra=0 auxiliary=1\n   ok: implemented + missing == contract total, no extra routes (1 auxiliary route(s) per ADR-0003 D-2)\n\nAll gates passed.\n    Checking ica-domain v0.1.0 (O:\\ICA-RUST\\crates\\ica-domain)\n    Checking ica-application v0.1.0 (O:\\ICA-RUST\\crates\\ica-application)\n    Checking ica-infra v0.1.0 (O:\\ICA-RUST\\crates\\ica-infra)\n    Checking ica-contracts v0.1.0 (O:\\ICA-RUST\\crates\\ica-contracts)\n    Checking ica-api v0.1.0 (O:\\ICA-RUST\\crates\\ica-api)\n    Checking ica-desktop v0.1.0 (O:\\ICA-RUST\\crates\\ica-desktop)\n    Checking ica-server v0.1.0 (O:\\ICA-RUST\\crates\\ica-server)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 57.21s"
+    },
+    {
+      "name": "sidecar_contract",
+      "status": "PASS",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "ica-contracts",
+        "--test",
+        "sidecar_contract_test"
+      ],
+      "cwd": "O:\\ICA-RUST",
+      "exit_code": 0,
+      "seconds": 1.24,
+      "started_at": "2026-11-24T13:27:38+00:00",
+      "detail": "reuses crates/ica-contracts/tests/sidecar_contract_test.rs",
+      "output_tail": "\nrunning 6 tests\ntest error_dto_redacts_credentials_in_message_and_details ... ok\ntest error_paths_produce_stable_wire_codes ... ok\ntest malformed_lines_never_decode_into_a_request_or_response ... ok\ntest every_capability_method_has_a_contract_vector ... ok\ntest version_negotiation_is_explicit_and_symmetric ... ok\ntest golden_request_and_response_shapes_are_stable ... ok\n\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.85s\n     Running tests\\sidecar_contract_test.rs (C:\\Users\\TIAN\\.cache\\ica-rust-target\\debug\\deps\\sidecar_contract_test-446873dabf30defd.exe)"
+    },
+    {
+      "name": "endpoint_map",
+      "status": "PASS",
+      "command": [
+        "C:\\Users\\TIAN\\AppData\\Local\\hermes\\tools\\python-3.14.9+20261021-win32-x64\\python.exe",
+        "scripts/check_endpoint_map.py",
+        "--self-test"
+      ],
+      "cwd": "O:\\ICA-RUST",
+      "exit_code": 0,
+      "seconds": 0.21,
+      "started_at": "2026-11-24T13:27:39+00:00",
+      "detail": "reuses scripts/check_endpoint_map.py --self-test (5/5 synthetic assertions; no baseline checkout needed).",
+      "output_tail": "self-test: 5/5 assertions passed (no-exclusion mismatch, exclusion match, new-route mismatch, ADR-0008 exact exclusion, ADR-0008 unlisted-route mismatch)"
+    },
+    {
+      "name": "endpoint_map_baseline",
+      "status": "SKIP",
+      "command": [],
+      "exit_code": null,
+      "seconds": 0,
+      "started_at": "2026-11-24T13:27:39+00:00",
+      "detail": "Python baseline venv not present at \\mnt\\o\\ica\\backend; self-test stage still covers the comparison logic.",
+      "output_tail": ""
+    },
+    {
+      "name": "contract_verify",
+      "status": "SKIP",
+      "command": [],
+      "exit_code": null,
+      "seconds": 0,
+      "started_at": "2026-11-24T13:27:39+00:00",
+      "detail": "opt-in (ICA_GATE_RUN_CONTRACT=1) and requires the frozen Python baseline at /mnt/o/ica/backend; not run by default in CI because it boots two services and rewrites captures.",
+      "output_tail": ""
+    },
+    {
+      "name": "frontend_install",
+      "status": "SKIP",
+      "command": [],
+      "exit_code": null,
+      "seconds": 0,
+      "started_at": "2026-11-24T13:27:39+00:00",
+      "detail": "node_modules already present.",
+      "output_tail": ""
+    },
+    {
+      "name": "frontend_lint",
+      "status": "PASS",
+      "command": [
+        "C:\\Program Files\\nodejs\\npm.CMD",
+        "run",
+        "lint"
+      ],
+      "cwd": "O:\\ICA-RUST\\frontend",
+      "exit_code": 0,
+      "seconds": 1.48,
+      "started_at": "2026-11-24T13:27:39+00:00",
+      "detail": "",
+      "output_tail": "\n> frontend@0.0.0 lint\n> oxlint\n\n\n  ! unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily.\n    ,-[src/services/backend/events.ts:68:26]\n 67 |   if (isTauri) return;\n 68 |   for (const handler of [...localHandlers]) handler(payload);\n    :                          ^^^\n 69 | }\n    `----\n  help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.\n\n  ! unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily.\n    ,-[src/auth/tokenStore.ts:40:21]\n 39 | export function notifySessionExpired(): void {\n 40 |   for (const cb of [...sessionExpiredSubscribers]) {\n    :                     ^^^\n 41 |     try {\n    `----\n  help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.\n\n  ! unicorn(prefer-string-starts-ends-with): Prefer String#endsWith over a regex with a dollar sign.\n     ,-[scripts/check-ui-reuse.mjs:573:9]\n 572 |   for (const file of sourceFiles) {\n 573 |     if (/\\/types\\.ts$/.test(file)) continue;\n     :         ^^^^^^^^^^^^^^^^^^^\n 574 |     if (!/\\/(components|hooks|pages)\\//.test(file)) continue;\n     `----\n  help: Replace `/\\/types\\.ts$/.test(file)` with `file.endsWith('/types.ts')`.\n\nFound 3 warnings and 0 errors.\nFinished in 82ms on 93 files with 96 rules using 8 threads."
+    },
+    {
+      "name": "frontend_build",
+      "status": "PASS",
+      "command": [
+        "C:\\Program Files\\nodejs\\npm.CMD",
+        "run",
+        "build"
+      ],
+      "cwd": "O:\\ICA-RUST\\frontend",
+      "exit_code": 0,
+      "seconds": 3.6,
+      "started_at": "2026-11-24T13:27:41+00:00",
+      "detail": "tsc -b (typecheck) + vite build",
+      "output_tail": "\n> frontend@0.0.0 build\n> tsc -b && vite build\n\n\u001b[36mvite v8.3.5 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\ntransforming...\n✓ 75 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.52 kB │ gzip:   0.35 kB\ndist/assets/index-C2OzubNE.css   19.14 kB │ gzip:   4.63 kB\ndist/assets/index-Ck0K6b31.js   410.21 kB │ gzip: 120.14 kB\n\n\u001b[32m✓ built in 477ms\u001b[39m\n\u001b[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:27:26). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\u001b[39m"
+    },
+    {
+      "name": "frontend_test",
+      "status": "PASS",
+      "command": [
+        "C:\\Program Files\\nodejs\\npm.CMD",
+        "run",
+        "test"
+      ],
+      "cwd": "O:\\ICA-RUST\\frontend",
+      "exit_code": 0,
+      "seconds": 46.53,
+      "started_at": "2026-11-24T13:27:44+00:00",
+      "detail": "vitest run; allow >=300s for jsdom environment setup",
+      "output_tail": "\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m35 passed\u001b[39m\u001b[22m\u001b[90m (35)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m247 passed\u001b[39m\u001b[22m\u001b[90m (247)\u001b[39m\n\u001b[2m   Start at \u001b[22m 21:27:46\n\u001b[2m   Duration \u001b[22m 44.75s\u001b[2m (environment 55%, tests 31%, setup 10%, import 3%, worker 1%, transform 1%)\u001b[22m\n\n\u001b[2mEnvironment \u001b[22m \u001b[33mjsdom was created 35 times\u001b[39m\u001b[2m · 146.90s total, 55% of tracked time\u001b[22m\n\u001b[2m            \u001b[22m \u001b[2mcreate it once per worker with \u001b[22m\u001b[33mpool: 'vmThreads'\u001b[39m\u001b[2m (keeps per-file isolation) or \u001b[22m\u001b[33misolate: false\u001b[39m\u001b[2m (shares it across files)\u001b[22m\n\u001b[2m            \u001b[22m \u001b[2mlearn more: https://vitest.dev/guide/improving-performance#test-environments\u001b[22m\n\n\u001b[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:27:26). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\u001b[39m\n\u001b[90mstderr\u001b[2m | src/pages/CandidatesPage.test.tsx\u001b[2m > \u001b[22m\u001b[2mCandidatesPage — 搜索\u001b[2m > \u001b[22m\u001b[2m搜索框存在并可输入\n\u001b[22m\u001b[39mAn update to CandidatesPage inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n\u001b[90mstderr\u001b[2m | src/pages/DashboardPage.test.tsx\u001b[2m > \u001b[22m\u001b[2mDashboardPage — 刷新与错误\u001b[2m > \u001b[22m\u001b[2m点击刷新按钮触发 reload\n\u001b[22m\u001b[39mAn update to DashboardPage inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n\u001b[90mstderr\u001b[2m | src/auth/AuthContext.test.tsx\u001b[2m > \u001b[22m\u001b[2mAuthContext\u001b[2m > \u001b[22m\u001b[2mkicks to unauthenticated when the API layer reports the session expired (F2-1)\n\u001b[22m\u001b[39mAn update to AuthProvider inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n\u001b[90mstderr\u001b[2m | src/hooks/useAsync.test.ts\u001b[2m > \u001b[22m\u001b[2museAsync\u001b[2m > \u001b[22m\u001b[2mloads data and exposes reload\n\u001b[22m\u001b[39mAn update to TestComponent inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n"
+    },
+    {
+      "name": "tauri_syntax",
+      "status": "PASS",
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--check",
+        "O:\\ICA-RUST\\desktop\\tauri-host\\src\\ica_backend.rs",
+        "O:\\ICA-RUST\\desktop\\tauri-host\\src\\main.rs"
+      ],
+      "cwd": "O:\\ICA-RUST",
+      "exit_code": 0,
+      "seconds": 0.32,
+      "started_at": "2026-11-24T13:28:31+00:00",
+      "detail": "rustfmt parses the host sources without needing glib/WebKit; syntax-check only, NOT a typed build.",
+      "output_tail": ""
+    },
+    {
+      "name": "tauri_build",
+      "status": "BLOCKED",
+      "command": [],
+      "exit_code": null,
+      "seconds": 0,
+      "started_at": "2026-11-24T13:28:31+00:00",
+      "detail": "HOST LIMITATION: glib-2.0 / webkit2gtk-4.1 not available (WSL has no WebKit2GTK). Tauri compile is NOT verified here; tauri_syntax only proves the host sources parse.",
+      "output_tail": ""
+    },
+    {
+      "name": "security_scan",
+      "status": "PASS",
+      "command": [
+        "cargo",
+        "audit"
+      ],
+      "cwd": "O:\\ICA-RUST",
+      "exit_code": 0,
+      "seconds": 4.8,
+      "started_at": "2026-11-24T13:28:32+00:00",
+      "detail": "cargo-audit dependency advisory scan.",
+      "output_tail": "Crate:     chrono\nVersion:   0.4.45\nWarning:   unmaintained\nTitle:     chrono is unmaintained\nDate:      2026-09-14\nID:        RUSTSEC-2026-0543\nURL:       https://rustsec.org/advisories/RUSTSEC-2026-0543\nSolution:  No fixed upgrade is available!\n\nCrate:     paste\nVersion:   1.0.15\nWarning:   unmaintained\nTitle:     paste - no longer maintained\nDate:      2024-10-07\nID:        RUSTSEC-2024-0436\nURL:       https://rustsec.org/advisories/RUSTSEC-2024-0436\nSolution:  No fixed upgrade is available!\n\nCrate:     ttf-parser\nVersion:   0.25.1\nWarning:   unmaintained\nTitle:     `ttf-parser` is unmaintained\nDate:      2026-06-28\nID:        RUSTSEC-2026-0192\nURL:       https://rustsec.org/advisories/RUSTSEC-2026-0192\nSolution:  No fixed upgrade is available!\n\n    Fetching advisory database from `https://github.com/RustSec/advisory-db.git`\n      Loaded 1566 security advisories (from C:\\Users\\TIAN\\.cargo\\advisory-db)\n    Updating crates.io index\n    Scanning Cargo.lock for vulnerabilities (394 crate dependencies)\nwarning: 3 allowed warnings found"
+    },
+    {
+      "name": "e2e",
+      "status": "BLOCKED",
+      "command": [],
+      "exit_code": null,
+      "seconds": 0,
+      "started_at": "2026-11-24T13:28:36+00:00",
+      "detail": "NO E2E HARNESS IN REPO: QA-02 core recruiting-loop E2E is not implemented (DEF-003 Triaged). AC1 chains the entry point only; no E2E pass is claimed.",
+      "output_tail": ""
+    }
+  ],
+  "summary": {
+    "PASS": 8,
+    "FAIL": 0,
+    "SKIP": 3,
+    "BLOCKED": 2
+  },
+  "gate_result": "PASS_WITH_LIMITATIONS",
+  "independent_security_verification": "PENDING_MANUAL",
+  "windows_release_acceptance": "BLOCKED_NO_WINDOWS_HOST",
+  "self_signed_verified": false
+}

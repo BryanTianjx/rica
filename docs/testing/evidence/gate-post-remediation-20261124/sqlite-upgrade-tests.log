@@ -1,0 +1,858 @@
+   Compiling ica-infra v0.1.0 (O:\ICA-RUST\crates\ica-infra)
+   Compiling ica-desktop v0.1.0 (O:\ICA-RUST\crates\ica-desktop)
+   Compiling ica-api v0.1.0 (O:\ICA-RUST\crates\ica-api)
+   Compiling ica-server v0.1.0 (O:\ICA-RUST\crates\ica-server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5m 09s
+     Running unittests src\lib.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_api-2f0c78ba5d659c61.exe)
+
+running 10 tests
+test auth::tests::public_paths_are_exactly_the_bootstrap_chain ... ok
+test error::tests::the_newtype_binds_application_errors_to_http_statuses ... ok
+test extract::tests::the_last_occurrence_of_a_repeated_key_wins ... ok
+test error::tests::a_state_machine_conflict_renders_its_json_details ... ok
+test auth::tests::a_valid_access_bearer_becomes_a_real_context ... ok
+test error::tests::deref_exposes_the_contract_constructors ... ok
+test auth::tests::refresh_tokens_and_bad_signatures_are_rejected ... ok
+test http_parity::tests::patterns_match_static_and_parametrised_paths ... ok
+test routes::sec04_a_route_manifest_tests::public_whitelist_is_registered ... ok
+test routes::sec04_a_route_manifest_tests::every_matrix_contract_path_is_a_registered_route ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\adapter_contract_parity.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\adapter_contract_parity-bf517d0101209aa1.exe)
+
+running 5 tests
+test adapter_bodies_only_parse_validate_and_call_use_cases ... ok
+test error_envelopes_are_identical_across_transports ... ok
+test shared_application_guards_render_identically_over_both_transports ... ok
+test health_and_positions_reads_produce_identical_results ... ok
+test a_write_and_its_generated_fields_are_equivalent ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+
+     Running tests\ai_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ai_http-17a5f2c906a00118.exe)
+
+running 5 tests
+test a_null_routing_body_is_a_dict_type_422 ... ok
+test usage_aggregates_today_history_and_all_time ... ok
+test an_empty_registry_falls_back_to_the_v1_0_settings_model ... ok
+test routing_patch_persists_overrides_and_unknowns_are_rejected ... ok
+test budget_patch_persists_rows_mutates_the_process_and_never_audits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+     Running tests\ai_key_backups_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ai_key_backups_http-1ba27647d9f05e97.exe)
+
+running 5 tests
+test restore_guards_run_in_the_baseline_order ... ok
+test an_empty_key_is_a_coded_422_and_a_model_slot_stays_independent ... ok
+test clearing_the_installation_key_turns_ai_back_off ... ok
+test writing_the_installation_key_turns_ai_on_and_audits_masked ... ok
+test the_backup_lifecycle_round_trips_the_data ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+     Running tests\arch_p5_transport_migration.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\arch_p5_transport_migration-0e48c228e76b0daa.exe)
+
+running 5 tests
+test p2_adapter_contract_parity_is_reused_not_rebuilt ... ok
+test host_registers_only_the_migrated_positions_commands ... ok
+test rollback_flag_and_migration_manifest_are_wired ... ok
+test http_server_capability_is_still_registered ... ok
+test ui_components_do_not_depend_on_transport_implementations ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\audit_events_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\audit_events_http-a0177e894d3a2312.exe)
+
+running 7 tests
+test a_filter_longer_than_the_pydantic_max_is_a_422 ... ok
+test a_broken_metadata_blob_degrades_to_an_empty_object ... ok
+test a_business_write_lands_in_the_trail ... ok
+test the_trail_is_a_bare_array_of_newest_first_entries ... ok
+test an_empty_trail_is_an_empty_array_not_a_page ... ok
+test limit_bounds_follow_the_shared_page_contract ... ok
+test filters_narrow_to_one_entity_and_empty_values_are_ignored ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+     Running tests\auth_shares_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\auth_shares_http-0aeb416284493963.exe)
+
+running 4 tests
+test me_answers_the_synthetic_local_user ... ok
+test shares_upsert_on_recipient_and_resource ... ok
+test the_first_registration_bootstraps_a_tenant_and_admin_role ... ok
+test login_issues_a_pair_and_rotation_is_single_use ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+     Running tests\backup_drill_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\backup_drill_http-dbf0c54bac2b350e.exe)
+
+running 5 tests
+test d1_a_backup_of_a_fresh_database_is_listed_with_full_metadata ... ok
+test d10_a_backup_removed_on_disk_disappears_and_cannot_be_restored ... ok
+test d8_retention_prunes_the_oldest_across_both_families ... ok
+test d2_restore_moves_data_back_and_forth_between_two_backups ... ok
+test d7_reads_during_the_restore_never_observe_a_broken_state ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.83s
+
+     Running tests\candidates_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\candidates_http-d532f81b81649707.exe)
+
+running 21 tests
+test create_candidate_with_a_position_returns_its_name ... ok
+test candidate_detail_of_a_missing_id_is_404 ... ok
+test create_candidate_linked_to_a_missing_position_is_404 ... ok
+test create_candidate_with_a_blank_name_is_422 ... ok
+test create_candidate_applies_the_baseline_defaults ... ok
+test candidate_detail_carries_the_nested_position_and_real_counters ... ok
+test delete_a_missing_candidate_is_404 ... ok
+test candidate_detail_without_a_position_has_a_null_nested_object ... ok
+test list_candidates_rejects_a_page_size_over_500 ... ok
+test list_candidates_with_an_unknown_status_is_422 ... ok
+test list_candidates_include_archived_adds_the_archived_row ... ok
+test list_candidates_search_is_case_insensitive_over_three_columns ... ok
+test list_candidates_paginates_with_real_total_and_updated_at_order ... ok
+test list_candidates_filters_by_status_and_position ... ok
+test delete_candidate_removes_every_dependent_record ... ok
+test list_candidates_hides_archived_rows_and_reports_the_real_total ... ok
+test patch_candidate_to_a_missing_position_is_404 ... ok
+test patch_a_missing_candidate_is_404 ... ok
+test patch_candidate_null_position_id_detaches_the_position ... ok
+test patch_candidate_updates_the_present_fields_only ... ok
+test patch_candidate_explicit_null_on_a_not_null_column_is_422 ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.48s
+
+     Running tests\conversations_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\conversations_http-beadf3f99a199f66.exe)
+
+running 19 tests
+test create_conversation_without_a_candidate_is_422 ... ok
+test create_conversation_returns_201_with_the_candidate_position ... ok
+test create_message_for_a_missing_candidate_is_404 ... ok
+test create_conversation_for_a_missing_candidate_is_404 ... ok
+test create_message_with_an_explicit_conversation_uses_it ... ok
+test create_message_reuses_the_candidates_active_conversation ... ok
+test create_message_opens_a_conversation_when_none_is_active ... ok
+test create_message_with_a_missing_conversation_is_404 ... ok
+test create_message_with_empty_content_is_422 ... ok
+test timeline_honours_limit ... ok
+test create_message_with_another_candidates_conversation_is_422 ... ok
+test messages_reject_a_page_size_over_1000 ... ok
+test list_conversations_is_ordered_by_last_message_desc_with_message_counts ... ok
+test list_messages_is_ordered_by_message_time_asc_with_nulls_last ... ok
+test list_conversations_filters_by_candidate ... ok
+test messages_total_is_the_real_count_not_the_window ... ok
+test timeline_is_an_array_of_message_entries ... ok
+test timeline_of_a_missing_candidate_is_404_not_an_empty_list ... ok
+test timeline_rejects_a_page_size_over_1000 ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.94s
+
+     Running tests\draft_unreachable_transition.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\draft_unreachable_transition-f45a17452c329d99.exe)
+
+running 6 tests
+test approve_with_a_dangling_task_id_is_404_and_leaves_the_draft_alone ... ok
+test copy_with_a_dangling_task_id_is_404_and_leaves_the_draft_alone ... ok
+test reject_on_an_unreachable_task_is_409_and_leaves_the_draft_alone ... ok
+test copy_on_an_unreachable_task_is_409_and_leaves_the_draft_alone ... ok
+test select_from_a_group_on_an_unreachable_task_is_409_and_touches_no_sibling ... ok
+test approve_on_an_unreachable_task_is_409_and_leaves_the_draft_alone ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+     Running tests\follow_ups_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\follow_ups_http-5b0345f0fe50ef95.exe)
+
+running 11 tests
+test policy_creates_the_default_row_and_enforces_the_ranges ... ok
+test an_unknown_status_is_a_422_enum_error ... ok
+test recording_results_is_idempotent_and_logs_sends ... ok
+test patch_field_semantics_match_the_baseline ... ok
+test a_semantic_state_cannot_be_set_by_a_raw_patch ... ok
+test creating_tasks_reuses_open_rows ... ok
+test creating_tasks_records_blocks_and_validates ... ok
+test evaluate_answers_the_stable_branches ... ok
+test the_list_sweeps_stale_tasks ... ok
+test the_dashboard_counts_the_fixture ... ok
+test the_state_machine_walks_like_the_baseline ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.14s
+
+     Running tests\generate_model_resolution.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\generate_model_resolution-bd1793c9e41a95a6.exe)
+
+running 3 tests
+test an_unknown_comparison_model_is_503_naming_the_first_unknown ... ok
+test an_unknown_model_id_is_503_naming_that_model ... ok
+test a_known_model_falls_through_to_the_missing_key ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests\positions_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\positions_http-4ffca97ad2b18ef6.exe)
+
+running 28 tests
+test health_has_exactly_the_three_baseline_fields ... ok
+test health_reports_status_app_name_and_ai_flag ... ok
+test a_search_term_over_200_characters_is_a_422 ... ok
+test an_unknown_path_keeps_the_project_error_envelope ... ok
+test a_negative_offset_is_a_422 ... ok
+test an_unparseable_boolean_is_a_422 ... ok
+test an_unknown_position_is_a_404_not_an_empty_page ... ok
+test a_non_numeric_limit_is_a_422_not_a_500 ... ok
+test limit_above_500_is_a_422 ... ok
+test limit_zero_is_a_422_with_the_validation_envelope ... ok
+test list_hides_archived_rows_and_orders_newest_first ... ok
+test list_items_carry_the_same_fields_as_the_detail_endpoint ... ok
+test list_envelope_has_exactly_the_five_baseline_fields ... ok
+test list_include_archived_returns_the_archived_row_too ... ok
+test list_offset_past_the_end_returns_an_empty_page_with_the_real_total ... ok
+test list_search_survives_a_row_with_a_null_location ... ok
+test list_search_respects_the_archive_filter ... ok
+test list_search_matches_name_and_location_case_insensitively ... ok
+test list_search_trims_surrounding_whitespace ... ok
+test list_reports_has_more_when_a_further_page_exists ... ok
+test list_search_that_matches_nothing_is_an_empty_page ... ok
+test list_second_page_reports_no_more_rows ... ok
+test position_detail_reports_missing_rows_with_the_baseline_envelope ... ok
+test position_detail_returns_an_archived_row ... ok
+test several_bad_parameters_are_reported_together ... ok
+test position_detail_returns_every_field_with_a_utc_offset ... ok
+test position_detail_keeps_microseconds_from_the_stored_timestamp ... ok
+test list_accepts_the_boolean_spellings_fastapi_accepts ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.67s
+
+     Running tests\positions_write_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\positions_write_http-8bdf47444dea3c9a.exe)
+
+running 17 tests
+test create_position_with_an_unknown_status_is_422 ... ok
+test create_position_with_broken_json_is_422_not_a_plain_text_body ... ok
+test create_position_without_a_name_is_422 ... ok
+test create_position_with_a_blank_name_is_422 ... ok
+test create_position_stores_every_optional_field ... ok
+test delete_a_missing_position_is_404 ... ok
+test create_position_returns_201_and_the_stored_row ... ok
+test create_position_with_a_negative_salary_is_422 ... ok
+test patch_a_missing_position_is_404_with_the_baseline_message ... ok
+test patch_position_archives_and_unarchives ... ok
+test patch_position_changes_only_the_present_fields ... ok
+test patch_position_explicit_null_archived_is_422_not_500 ... ok
+test delete_position_returns_204_and_detaches_candidates ... ok
+test patch_position_explicit_null_name_is_422_not_500 ... ok
+test patch_position_null_location_clears_the_column ... ok
+test patch_position_null_status_is_ignored_like_the_baseline ... ok
+test the_position_list_total_stays_the_real_count_after_a_write ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.61s
+
+     Running tests\router_parity_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\router_parity_http-08b8fcc3f72be962.exe)
+
+running 16 tests
+test a_padded_boolean_is_rejected_with_bool_parsing ... ok
+test a_trailing_slash_on_an_unknown_path_answers_404 ... ok
+test a_trailing_slash_on_the_bare_api_prefix_answers_404 ... ok
+test a_trailing_slash_on_a_parameterised_route_redirects ... ok
+test a_head_with_a_trailing_slash_redirects ... ok
+test a_repeated_query_key_keeps_the_last_value ... ok
+test a_trailing_slash_redirects_with_the_query_preserved ... ok
+test a_bare_trailing_slash_redirects ... ok
+test an_offset_beyond_u64_is_a_validation_envelope ... ok
+test head_on_a_served_route_answers_the_405_envelope ... ok
+test an_unserved_method_with_a_trailing_slash_redirects ... ok
+test an_offset_past_i64_returns_the_empty_page_with_the_offset_echoed ... ok
+test multiple_trailing_slashes_redirect_to_the_stripped_path ... ok
+test the_root_path_stays_unimplemented_as_declared ... ok
+test an_unserved_method_answers_the_405_envelope ... ok
+test head_on_an_unknown_path_answers_404 ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.12s
+
+     Running tests\sec04_authorization_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\sec04_authorization_http-6ec5b499822ec78a.exe)
+
+running 8 tests
+test sec04_bc_public_paths_match_auth_public_paths ... ok
+test sec04_a_public_whitelist_matches_unauthenticated_routes ... ok
+test sec04_a_matrix_policy_column_matches_whitelist ... ok
+test http_and_ipc_share_and_auth_paths_use_the_same_use_cases ... ok
+test an_invalid_token_is_rejected_with_401 ... ok
+test missing_resources_return_404 ... ok
+test local_mode_does_not_gate_business_routes_on_a_bearer_token ... ok
+test self_share_is_rejected_by_the_application_layer ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running tests\sec04_bc_authorization_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\sec04_bc_authorization_http-da7dcdfed2cab219.exe)
+
+running 8 tests
+test contract_authorization_trace_is_complete ... ok
+test me_reflects_the_verified_identity ... ok
+test anonymous_and_forged_bearers_are_rejected_with_baseline_code ... ok
+test write_and_delete_obey_identity_and_ownership ... ok
+test cross_tenant_reads_are_invisible ... ok
+test admin_operations_reject_member_role ... ok
+test candidate_rows_are_isolated_by_tenant_and_owner ... ok
+test cross_tenant_share_create_and_revoke_are_denied ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+     Running tests\send_records_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\send_records_http-9bac7b97716d9684.exe)
+
+running 15 tests
+test list_send_records_rejects_an_unknown_status ... ok
+test list_send_records_filters_by_candidate_and_status ... ok
+test record_send_for_a_missing_candidate_is_404 ... ok
+test list_send_records_paginates ... ok
+test record_send_with_a_missing_draft_is_404 ... ok
+test list_send_records_is_newest_send_first_with_the_real_total ... ok
+test record_send_keeps_an_explicit_sent_at ... ok
+test record_send_appends_a_row_with_the_local_actor_and_a_default_time ... ok
+test record_send_without_a_status_is_422 ... ok
+test record_send_with_a_missing_task_is_404 ... ok
+test record_send_with_an_unapproved_draft_is_409 ... ok
+test record_send_with_a_task_of_another_candidate_is_409 ... ok
+test record_send_with_an_approved_draft_and_its_task_is_201 ... ok
+test record_send_with_an_unknown_status_is_422 ... ok
+test record_send_with_another_candidates_draft_is_409 ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s
+
+     Running tests\settings_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\settings_http-0546ba05e28d567a.exe)
+
+running 5 tests
+test an_omitted_or_null_switch_is_a_pydantic_shaped_422 ... ok
+test settings_echoes_the_effective_configuration_without_secrets ... ok
+test ai_egress_discloses_the_pipeline_and_defaults_to_consent_granted ... ok
+test revoking_consent_persists_the_switch_and_audits_it ... ok
+test granting_again_flips_the_switch_back_and_audits_the_grant ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running tests\w4_audit_regressions.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\w4_audit_regressions-68e02029142ccd71.exe)
+
+running 3 tests
+test the_encrypted_export_audit_keeps_the_declaration_order ... ok
+test confirming_records_its_audit_metadata_byte_for_byte ... ok
+test confirming_blanks_the_raw_text ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running tests\w4_imports_http.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\w4_imports_http-0b57846fd7e1635c.exe)
+
+running 12 tests
+test export_is_the_baseline_document_shape_and_hides_raw_text ... ok
+test import_is_an_idempotent_upsert ... ok
+test ocr_inside_the_staging_directory_reports_an_undecodable_image ... ok
+test export_with_an_unusable_key_is_a_422_with_the_baseline_code ... ok
+test export_with_a_key_returns_the_sealed_envelope_not_plaintext ... ok
+test get_reports_the_baseline_message_for_an_unknown_session ... ok
+test confirm_writes_one_message_per_record_and_stamps_the_session ... ok
+test confirm_twice_is_a_conflict_and_writes_nothing_more ... ok
+test ocr_refuses_a_path_outside_the_staging_directory ... ok
+test preview_rejects_an_unknown_candidate ... ok
+test reject_marks_the_session_and_blanks_the_raw_text ... ok
+test preview_persists_the_session_and_records_but_never_a_message ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.67s
+
+     Running tests\w4_reaudit_regressions.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\w4_reaudit_regressions-f07da83f580595f7.exe)
+
+running 8 tests
+test a_numeric_boolean_does_not_report_a_phantom_conflict ... ok
+test an_id_of_null_mints_a_uuid_instead_of_a_500 ... ok
+test a_bare_date_updated_at_still_wins_the_lww_race ... ok
+test positions_import_validates_like_the_baseline_and_lists_its_problems ... ok
+test imported_timestamps_land_in_the_baselines_sqlite_text ... ok
+test an_empty_string_id_is_treated_as_no_id ... ok
+test a_corrected_content_gets_a_hash_that_matches_its_text ... ok
+test an_import_can_rewrite_a_sessions_raw_text ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
+
+     Running tests\write_side_effects.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\write_side_effects-30af196295c3d656.exe)
+
+running 10 tests
+test a_message_moves_its_conversations_last_message_at ... ok
+test message_created_metadata_carries_the_source ... ok
+test a_send_record_that_means_no_contact_says_so_in_its_metadata ... ok
+test deleting_a_position_nulls_the_candidates_link_and_keeps_the_row ... ok
+test a_failed_write_leaves_no_row_and_no_audit_event ... ok
+test created_rows_carry_the_local_owner_and_default_tenant ... ok
+test deleting_a_candidate_cascades_to_conversations_and_messages ... ok
+test every_write_leaves_the_declared_audit_event ... ok
+test send_recorded_metadata_carries_the_six_declared_fields ... ok
+test the_message_content_hash_matches_the_python_normalisation ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+
+     Running unittests src\lib.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_application-c25f7b925e5a3fe9.exe)
+
+running 28 tests
+test auth_recovery::tests::non_probe_failure_is_an_authentication_error_with_a_retry_path ... ok
+test auth_recovery::tests::sec03_t01_login_enters_authenticated ... ok
+test auth_recovery::tests::sec03_t07_duplicate_401_never_starts_a_second_refresh ... ok
+test auth_recovery::tests::sec03_t06_revoked_refresh_token_requires_relogin ... ok
+test auth_recovery::tests::sec03_t03_expired_access_token_refreshes_and_retries_once ... ok
+test auth_recovery::tests::sec03_t04_restart_then_restore_is_the_same_transition ... ok
+test auth_recovery::tests::sec03_t02_unexpired_access_token_restores ... ok
+test auth_recovery::tests::sec03_t05_refresh_token_expired_requires_relogin ... ok
+test auth_recovery::tests::sec03_t08_refresh_500_does_not_retry_forever ... ok
+test auth_recovery::tests::sec03_t09_sign_out_clears_everything ... ok
+test auth_recovery::tests::sec03_t11_stale_token_cannot_be_accepted_after_retry ... ok
+test auth_recovery::tests::the_six_phase_names_are_stable ... ok
+test error::tests::bas002_from_repository_error_keeps_wire_behavior_and_source ... ok
+test error::tests::bas002_thiserror_keeps_display_text_and_wire_codes ... ok
+test prompts::tests::no_instruction_gets_the_judgement_line ... ok
+test request_context::tests::an_inactive_or_anonymous_context_cannot_authorize_any_action ... ok
+test prompts::tests::user_prompt_matches_the_baseline_parts ... ok
+test request_context::tests::local_mode_context_carries_the_trusted_identity ... ok
+test request_context::tests::ownership_is_a_separate_application_layer_check ... ok
+test request_context::tests::permission_is_enforced_not_ignored ... ok
+test runtime::tests::both_adapters_wrap_the_same_application_runtime ... ok
+test runtime::tests::lifecycle_moves_ready_drain_stopped_and_is_shared_by_clones ... ok
+test runtime::tests::the_runtime_is_send_sync_and_cloneable ... ok
+test validators::tests::blocking_conditions_win ... ok
+test validators::tests::a_promise_is_a_warning ... ok
+test validators::tests::a_clean_short_message_passes ... ok
+test validators::tests::long_text_without_references_is_a_warning ... ok
+test validators::tests::a_leaked_phone_is_a_warning ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests\positions.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\positions-450f59738577f2bb.exe)
+
+running 7 tests
+test get_maps_a_repository_failure_to_unavailable ... ok
+test get_returns_the_position_when_present ... ok
+test get_missing_position_reports_the_python_not_found_message ... ok
+test list_with_offset_past_total_returns_no_items_but_keeps_total ... ok
+test list_on_empty_table_is_an_empty_page ... ok
+test list_returns_the_requested_window_and_the_full_total ... ok
+test list_maps_a_repository_failure_to_unavailable ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_contracts-4f68aff895fa3510.exe)
+
+running 71 tests
+test auth_session::tests::sec03_c01_frontend_mirrors_all_six_phases ... ok
+test body::draft_tests::a_draft_patch_ignores_null_and_absent_alike ... ok
+test body::draft_tests::generate_defaults_match_the_python_signature ... ok
+test body::draft_tests::an_empty_message_text_is_a_422 ... ok
+test body::draft_tests::max_length_is_range_checked ... ok
+test auth_session::tests::sec03_c03_tauri_host_is_thin_wiring_over_the_persisted_key ... ok
+test body::tests::a_negative_salary_is_rejected_on_create_and_update ... ok
+test body::tests::a_null_on_a_nullable_column_clears_it ... ok
+test body::tests::a_datetime_without_an_offset_is_utc ... ok
+test body::tests::a_null_status_is_ignored_like_the_baseline ... ok
+test body::tests::a_whitespace_candidate_name_is_blank ... ok
+test body::tests::a_whitespace_position_name_is_accepted_like_pydantic ... ok
+test auth_session::tests::sec03_c04_lifecycle_tests_cover_the_plan_matrix ... ok
+test body::tests::a_send_record_without_a_status_is_rejected ... ok
+test body::tests::an_absent_key_stays_absent_even_next_to_a_null_one ... ok
+test body::tests::an_explicit_null_name_is_rejected_on_patch ... ok
+test body::tests::an_explicit_null_archived_is_rejected_on_patch ... ok
+test body::tests::an_unknown_message_source_is_rejected ... ok
+test body::tests::message_content_must_not_be_empty ... ok
+test dto::tests::a_full_page_reports_more_rows ... ok
+test dto::tests::a_short_page_reports_no_more_rows ... ok
+test dto::tests::renders_a_whole_second_without_a_fraction ... ok
+test dto::tests::renders_microseconds_with_six_digits ... ok
+test dto::tests::the_last_partial_page_reports_no_more_rows ... ok
+test error::tests::a_conflict_keeps_the_baseline_code ... ok
+test error::tests::a_business_validation_renders_its_identifiers_not_an_error_list ... ok
+test error::tests::application_and_contract_error_vocabularies_agree ... ok
+test error::tests::the_envelope_has_exactly_the_shared_error_shape ... ok
+test error::tests::the_sidecar_classifier_only_emits_shared_codes ... ok
+test error::tests::the_wire_vocabulary_matches_the_baseline_codes ... ok
+test events::tests::all_change_kinds_render_as_lowercase_literals ... ok
+test events::tests::event_name_is_stable_and_namespaced ... ok
+test events::tests::payload_serialises_to_a_flat_string_shape ... ok
+test proxy_headers::tests::connection_declared_hop_headers_are_dropped_and_content_length_is_computed ... ok
+test proxy_headers::tests::response_headers_are_filtered_with_a_separate_allowlist ... ok
+test proxy_headers::tests::host_wires_the_shared_policy ... ok
+test proxy_headers::tests::malicious_headers_are_rejected ... ok
+test query::tests::a_limit_beyond_u64_is_less_than_equal_like_python ... ok
+test query::tests::a_negative_offset_is_rejected ... ok
+test query::tests::a_non_numeric_limit_is_an_int_parsing_error ... ok
+test query::tests::a_multibyte_search_term_is_measured_in_characters ... ok
+test query::tests::a_padded_boolean_is_not_trimmed_like_pydantic ... ok
+test query::tests::a_search_term_of_201_characters_is_rejected ... ok
+test query::tests::a_search_term_of_exactly_200_characters_is_accepted ... ok
+test query::tests::an_offset_beyond_u64_is_an_int_parsing_error_imp4 ... ok
+test query::tests::all_pydantic_boolean_spellings_are_accepted ... ok
+test query::tests::an_unknown_send_status_is_a_422_enum_error ... ok
+test query::tests::an_unknown_candidate_status_is_a_422_enum_error ... ok
+test query::tests::defaults_match_the_python_signature ... ok
+test query::tests::every_bad_parameter_is_reported_together ... ok
+test query::tests::integers_beyond_i64_are_accepted_like_python ... ok
+test query::tests::integers_use_the_python_grammar ... ok
+test query::tests::limit_500_is_the_highest_accepted_value ... ok
+test query::tests::limit_zero_is_rejected_as_greater_than_zero ... ok
+test query::tests::limit_above_the_ceiling_is_rejected ... ok
+test query::tests::messages_default_to_200_and_cap_at_1000 ... ok
+test query::tests::timeline_accepts_and_rejects_the_message_ceiling ... ok
+test query::tests::underscored_and_signed_numbers_are_accepted ... ok
+test sidecar_protocol::tests::a_granted_request_round_trips_as_one_json_line ... ok
+test sidecar_protocol::tests::business_methods_are_rejected_even_when_granted ... ok
+test sidecar_protocol::tests::database_paths_and_credentials_are_not_allowed_in_params ... ok
+test sidecar_protocol::tests::an_ungranted_or_unknown_method_is_rejected ... ok
+test sidecar_protocol::tests::error_responses_round_trip_and_are_redacted_on_encode ... ok
+test sidecar_protocol::tests::unsafe_path_grants_are_rejected ... ok
+test sidecar_protocol::tests::request_ids_are_unique_within_a_process ... ok
+test sidecar_protocol::tests::malformed_lines_and_missing_fields_are_rejected ... ok
+test sidecar_protocol::tests::version_negotiation_accepts_only_supported_versions ... ok
+test proxy_headers::tests::business_headers_reach_backend_and_browser_junk_does_not ... ok
+test sidecar_protocol::tests::wildcard_grant_covers_the_capability_family ... ok
+test proxy_headers::tests::proxy_matches_direct_http_for_business_headers ... ok
+test auth_session::tests::sec03_c02_recovery_is_centralised_in_auth_context ... ok
+
+test result: ok. 71 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\sidecar_contract_test.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\sidecar_contract_test-09fc2da58fbe93f1.exe)
+
+running 6 tests
+test error_paths_produce_stable_wire_codes ... ok
+test version_negotiation_is_explicit_and_symmetric ... ok
+test every_capability_method_has_a_contract_vector ... ok
+test golden_request_and_response_shapes_are_stable ... ok
+test malformed_lines_never_decode_into_a_request_or_response ... ok
+test error_dto_redacts_credentials_in_message_and_details ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src\lib.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_desktop-1e5512830752780f.exe)
+
+running 35 tests
+test diagnostics::tests::a_failed_readiness_probe_marks_the_runtime_not_ready ... ok
+test diagnostics::tests::credentials_are_redacted_in_both_event_and_health_lines ... ok
+test diagnostics::tests::diagnostic_event_carries_the_eleven_vocabulary_fields ... ok
+test ipc_allowlist::tests::every_registered_command_is_allowed ... ok
+test error::tests::the_sidecar_uses_the_same_error_code_vocabulary ... ok
+test ipc_allowlist::tests::allowlist_is_unique_and_matches_the_f1_2_slice_size ... ok
+test ipc_allowlist::tests::a_command_outside_the_allowlist_is_rejected_with_the_envelope ... ok
+test diagnostics::tests::readiness_is_gated_by_readiness_probes_only ... ok
+test ipc_allowlist::tests::host_invoke_handler_registers_exactly_the_allowlist ... ok
+test processes::tests::an_empty_manager_reports_no_orphans ... ok
+test processes::tests::lifecycle_state_machine_only_allows_documented_edges ... ok
+test processes::tests::handshake_rejects_missing_or_invalid_port_data ... ok
+test processes::tests::handshake_accepts_both_live_and_baseline_shapes ... ok
+test processes::tests::runtime_health_marks_embedded_http_as_not_applicable ... ok
+test processes::tests::shutdown_plan_always_ends_in_reap_and_log ... ok
+test proxy::tests::port_zero_is_never_forwarded ... ok
+test routing::tests::ai_ext_model_crud_routes_to_python ... ok
+test proxy::tests::request_rendering_goes_through_the_shared_allowlist ... ok
+test routing::tests::implemented_w5_routes_stay_on_rust ... ok
+test routing::tests::browser_v1_routes_to_python ... ok
+test routing::tests::the_68_route_contract_stays_on_rust ... ok
+test runtime_policy::tests::always_and_never_are_explicit_opt_ins ... ok
+test runtime_policy::tests::an_unknown_mode_falls_back_to_embedded ... ok
+test runtime_policy::tests::sidecar_request_knobs_are_host_injected_and_bounded ... ok
+test runtime_policy::tests::embedded_mode_is_the_default_and_never_resident ... ok
+test runtime_policy::tests::timeouts_are_positive_and_invalid_values_keep_the_default ... ok
+test sidecar::tests::cancel_and_health_requests_are_valid_protocol_requests ... ok
+test sidecar::tests::crashes_feed_the_p3_bounded_restart_policy ... ok
+test sidecar::tests::capacity_and_ungranted_requests_are_refused_at_the_boundary ... ok
+test sidecar::tests::a_request_gets_a_deadline_and_replies_correlate_by_id ... ok
+test sidecar::tests::expired_requests_are_removed_and_cancelled_requests_are_idempotent ... ok
+test sidecar::tests::legacy_bridge_maps_methods_without_forwarding_grants ... ok
+test sidecar::tests::failure_dtos_use_the_shared_vocabulary_and_redact ... ok
+test sidecar::tests::legacy_replies_become_versioned_success_or_error_dtos ... ok
+test sidecar::tests::shutdown_is_the_p3_chain_not_a_second_implementation ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src\bin\ica-browser-worker.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_browser_worker-c6bee3d49fb47f2a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\arch_p3_runtime_convergence.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\arch_p3_runtime_convergence-33afa40e628153ff.exe)
+
+running 8 tests
+test graceful_shutdown_is_drain_then_timeout_then_kill_and_reap ... ok
+test embedded_mode_is_the_default_and_the_http_server_is_not_resident ... ok
+test the_manager_really_implements_the_delegated_four_stages ... ok
+test unified_health_snapshot_is_available_from_the_manager ... ok
+test app_runtime_init_and_destroy_are_explicit_in_the_host ... ok
+test unsupported_platform_assertion_is_documented_not_signed ... ok
+test host_contains_no_business_rules ... ok
+test host_owns_no_child_process_lifecycle ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\arch_p4_sidecar_protocol.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\arch_p4_sidecar_protocol-d4459fa58bf33e52.exe)
+
+running 6 tests
+test ac3_executor_gets_no_database_and_no_undeclared_capability ... ok
+test ac2_timeout_cancel_and_crash_reuse_p3_instead_of_rebuilding_it ... ok
+test ac1_protocol_is_transport_neutral_and_not_duplicated_in_the_host ... ok
+test independence_is_documented_not_self_signed ... ok
+test ac4_sidecar_is_an_external_capability_executor_only ... ok
+test ac5_rust_core_never_imports_python_implementation_details ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\browser_poc.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\browser_poc-6dbfd13190bbbbe7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\commands_smoke.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\commands_smoke-a2cb351e32225736.exe)
+
+running 6 tests
+test health_reports_the_injected_config ... ok
+test an_unknown_position_renders_the_ipc_error_envelope ... ok
+test settings_and_ai_egress_mirrors_the_http_contract ... ok
+test policy_defaults_and_typed_page_ranges_hold ... ok
+test audit_events_list_mirrors_the_http_contract ... ok
+test positions_create_and_get_round_trip ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests\w4_imports_commands.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\w4_imports_commands-6a44a5ad5f7f5f41.exe)
+
+running 10 tests
+test ocr_inside_the_staging_directory_reports_an_undecodable_image ... ok
+test ocr_refuses_a_path_outside_the_staging_directory ... ok
+test export_is_the_baseline_document_shape ... ok
+test import_is_an_idempotent_upsert ... ok
+test an_unknown_session_is_a_404_with_the_baseline_message ... ok
+test export_with_an_unusable_key_is_a_422 ... ok
+test export_with_a_key_returns_the_sealed_envelope ... ok
+test confirm_twice_is_a_conflict_and_the_envelope_is_the_http_one ... ok
+test reject_marks_the_session ... ok
+test preview_then_confirm_then_reject_round_trip ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+     Running unittests src\lib.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_domain-b8cb2f25c26f6b5a.exe)
+
+running 35 tests
+test follow_up::tests::evaluation_blocks_come_first_in_priority_order ... ok
+test candidate_extraction::tests::normalize_name_matches_the_baseline ... ok
+test candidate_extraction::tests::an_empty_pair_of_texts_has_no_content_fingerprint ... ok
+test candidate_extraction::tests::identity_key_is_sha256_of_name_and_domain ... ok
+test candidate_extraction::tests::review_digest_is_sha256_of_the_sorted_canonical_json ... ok
+test follow_up::tests::count_limit_blocks_before_timing ... ok
+test follow_up::tests::evaluation_hits_the_timing_branches ... ok
+test follow_up::tests::humanize_matches_the_python_helper ... ok
+test follow_up::tests::manual_settable_and_result_completable_match_the_baseline ... ok
+test follow_up::tests::expiry_is_created_at_plus_the_validity_window ... ok
+test follow_up::tests::means_contacted_never_includes_draft_or_approval_states ... ok
+test follow_up::tests::self_transitions_are_always_legal ... ok
+test follow_up::tests::only_three_states_are_closed ... ok
+test follow_up::tests::the_measured_matrix_holds ... ok
+test follow_up::tests::paths_walk_the_shortest_route ... ok
+test follow_up::tests::the_twelve_statuses_round_trip_their_exact_strings ... ok
+test import_parser::tests::empty_input_warns_and_produces_nothing ... ok
+test redact::tests::a_digit_after_the_lowercase_x_defeats_the_id_rule_too ... ok
+test import_parser::tests::a_bare_time_without_seconds_does_parse ... ok
+test import_parser::tests::a_full_datetime_prefix_is_extracted ... ok
+test import_parser::tests::a_bare_time_with_seconds_yields_no_timestamp ... ok
+test import_parser::tests::duplicates_are_flagged_not_dropped ... ok
+test import_parser::tests::a_date_header_supplies_context_and_is_not_a_message ... ok
+test redact::tests::a_digit_after_the_x_defeats_the_id_rule ... ok
+test redact::tests::a_twelve_digit_run_is_not_a_phone_number ... ok
+test redact::tests::a_seventeen_digit_run_is_a_card_number_not_an_id ... ok
+test import_parser::tests::validation_messages_come_from_the_global_warning_tail ... ok
+test redact::tests::a_twenty_digit_run_matches_no_rule ... ok
+test redact::tests::an_eighteen_digit_run_prefers_the_id_rule ... ok
+test import_parser::tests::a_quoted_nickname_is_the_candidate ... ok
+test redact::tests::name_key_prefixes_are_redacted_with_the_key_kept ... ok
+test redact::tests::the_candidate_name_is_replaced_everywhere_it_occurs ... ok
+test redact::tests::privacy_patterns_mask_phone_email_id_and_card ... ok
+test redact::tests::one_character_names_are_ignored_like_python ... ok
+test redact::tests::the_x_is_still_an_id_when_no_digit_follows_it ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running tests\content_hash.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\content_hash-5dfbd6564efb3198.exe)
+
+running 9 tests
+test candidate_statuses_round_trip ... ok
+test message_enumerations_round_trip ... ok
+test different_bodies_hash_differently ... ok
+test an_empty_body_hashes_the_empty_string ... ok
+test position_statuses_round_trip ... ok
+test multibyte_content_is_hashed_as_utf8 ... ok
+test result_types_round_trip_and_only_contact_outcomes_count ... ok
+test the_fingerprint_matches_the_measured_python_value ... ok
+test whitespace_runs_collapse_and_case_folds ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pagination.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\pagination-d486d744ea1e519a.exe)
+
+running 9 tests
+test empty_source_is_an_empty_page ... ok
+test exact_fit_reports_no_more ... ok
+test first_page_slices_and_reports_more ... ok
+test middle_page_reports_more ... ok
+test limit_above_total_returns_every_row ... ok
+test last_full_page_reports_no_more ... ok
+test offset_past_total_returns_empty_items_but_keeps_total ... ok
+test short_page_near_the_end_reports_no_more ... ok
+test single_row_page_has_no_more ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\position_status.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\position_status-e7619da8296b52fb.exe)
+
+running 5 tests
+test only_closed_blocks_follow_up ... ok
+test rejects_empty_and_unknown_values ... ok
+test parses_every_value_the_python_enum_defines ... ok
+test rejects_lowercase_and_slug_forms ... ok
+test renders_the_same_string_it_parsed ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\search.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\search-d6071be65135afe4.exe)
+
+running 7 tests
+test max_search_length_matches_the_python_query_contract ... ok
+test empty_string_means_no_filter ... ok
+test keeps_inner_whitespace_of_the_term ... ok
+test single_character_term_is_kept ... ok
+test trims_surrounding_whitespace ... ok
+test non_ascii_terms_are_preserved ... ok
+test whitespace_only_means_no_filter ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_infra-ca720182f6028b82.exe)
+
+running 30 tests
+test export_crypto::tests::a_key_that_is_not_base64_is_refused_with_the_baseline_message ... ok
+test export_crypto::tests::a_key_of_the_wrong_length_reports_the_actual_length ... ok
+test json_fmt::tests::a_simple_object_uses_the_python_separators ... ok
+test json_fmt::tests::control_characters_use_the_short_escapes ... ok
+test json_fmt::tests::nested_objects_keep_their_order_too ... ok
+test json_fmt::tests::non_ascii_is_written_as_itself ... ok
+test json_fmt::tests::the_keys_keep_their_insertion_order ... ok
+test export_crypto::tests::the_iv_is_twelve_bytes_and_the_tag_sixteen ... ok
+test json_fmt::tests::the_sorted_compact_form_escapes_like_python ... ok
+test export_crypto::tests::two_seals_of_the_same_document_differ ... ok
+test export_crypto::tests::a_round_trip_recovers_the_document ... ok
+test json_fmt::tests::the_sorted_compact_form_sorts_and_is_tight ... ok
+test jwt_key::tests::sec01_t01_secret_is_256_bit_hex ... ok
+test jwt_key::tests::sec01_t02_independent_generations_do_not_repeat ... ok
+test jwt_key::tests::sec01_t04_restart_reuses_persisted_key ... ok
+test jwt_key::tests::sec01_t05_unavailable_store_fails_closed ... ok
+test jwt_key::tests::sec01_t06_key_never_renders_in_logs ... ok
+test jwt_key::tests::sec01_t07_rotation_replaces_the_active_key ... ok
+test jwt_key::tests::sec01_t08_invalid_stored_value_is_regenerated ... ok
+test ocr_rapid::decode_tests::model_dir_has_no_baseline_venv_fallback ... ok
+test ocr_rapid::tests::cleaning_drops_the_hyphen_like_the_baseline ... ok
+test jwt_key::tests::sec01_t03_no_time_or_pid_in_generators ... ok
+test ocr_rapid::tests::cleaning_drops_the_replacement_character ... ok
+test ocr_rapid::tests::the_detector_runs_unrestricted_like_the_baseline ... ok
+test ocr_rapid::tests::cleaning_keeps_spaces_and_trims ... ok
+test ocr_rapid::tests::the_excluded_set_really_contains_the_hyphen ... ok
+test time::tests::surrounding_whitespace_is_tolerated ... ok
+test time::tests::a_bare_date_is_midnight_utc_like_the_baseline ... ok
+test ocr_rapid::decode_tests::a_non_image_reports_pillow_words ... ok
+test ocr_rapid::decode_tests::a_truncated_png_reports_pillow_words ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\database.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\database-e90a0139e62a3367.exe)
+
+running 13 tests
+test decodes_iso_datetime_with_utc_offset ... ok
+test parses_relative_url_like_the_python_default ... ok
+test decodes_sqlite_datetime_without_fraction ... ok
+test decodes_sqlite_datetime_with_microseconds ... ok
+test parses_mode_ro_and_immutable_query_parameters ... ok
+test parses_python_style_absolute_url ... ok
+test rejects_a_value_that_is_not_a_timestamp ... ok
+test rejects_urls_that_are_not_sqlite ... ok
+test truncated_schema_reports_a_missing_table ... ok
+test read_write_connection_turns_on_foreign_keys_and_wal ... ok
+test baseline_snapshot_rebuilds_every_baseline_table ... ok
+test immutable_read_only_connection_never_creates_sidecar_files ... ok
+test read_only_connection_can_query_but_cannot_write ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
+
+     Running tests\migrations.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\migrations-d5d5868f48ccba6b.exe)
+
+running 6 tests
+test a_database_without_the_baseline_tables_is_refused ... ok
+test a_database_newer_than_the_binary_is_refused ... ok
+test a_failing_migration_leaves_no_partial_state ... ok
+test a_baseline_vintage_database_is_stamped_then_migrated ... ok
+test re_applying_is_a_no_op ... ok
+test the_canonical_list_applies_cleanly_on_the_baseline ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.90s
+
+     Running tests\positions_repository.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\positions_repository-9a5eb87d59f143e7.exe)
+
+running 11 tests
+test list_hides_archived_rows_by_default ... ok
+test list_include_archived_returns_every_row_newest_first ... ok
+test find_returns_none_for_an_unknown_id ... ok
+test find_returns_an_archived_row_too ... ok
+test list_decodes_status_archived_and_timestamps ... ok
+test candidate_count_comes_from_the_candidates_table ... ok
+test find_returns_the_row_with_its_candidate_count ... ok
+test search_matches_the_location_case_insensitively ... ok
+test search_matches_the_name_case_insensitively ... ok
+test search_survives_a_null_location_column ... ok
+test search_that_matches_nothing_returns_no_rows ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.30s
+
+     Running unittests src\main.rs (C:/Users/TIAN/.cache/ica-rust-target\debug\deps\ica_server-a760f40e26f383bf.exe)
+
+running 9 tests
+test tests::bas002_loopback_hosts_are_accepted ... ok
+test tests::sec04_a_fail_fast_wording_is_stable ... ok
+test tests::sec04_a_auth_required_flag_is_explicit_only ... ok
+test tests::sec04_a_does_not_pretend_authentication_is_implemented ... ok
+test tests::bas002_non_loopback_hosts_are_rejected ... ok
+test tests::sec04_a_loopback_stays_allowed_with_or_without_opt_in ... ok
+test tests::sec04_a_non_loopback_is_refused_without_explicit_opt_in ... ok
+test tests::sec04_a_opt_in_without_real_auth_is_refused_with_a_clear_message ... ok
+test tests::bas002_loopback_host_can_actually_bind ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests ica_api
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_application
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_contracts
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_desktop
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_domain
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ica_infra
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

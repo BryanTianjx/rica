@@ -229,20 +229,37 @@ PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH \
 # live /api routes: 68 / documented rows: 68 / RESULT: table matches
 ```
 
-## Known limitations (R0 + W4)
+## Known limitations (current state)
 
-- Routes for W5–W6 are not served: settings / audit-events / backups, AI
-  provider wiring, auth and shares.
-- **Tenant/owner scoping is not modelled.** It is a no-op in Python's default
-  `local` mode, so both services agree today and every written row carries the
-  V1.0 local owner/tenant; do not run the Rust service in `multiuser` mode
-  before W6 ships auth.
-- `GET /` (the welcome string) is not implemented — it is not part of the API
-  surface.
+- **MultiUser authorization is partial.** The HTTP authentication middleware is
+  real (anonymous/forged bearer requests get 401) and resource-level scope is
+  enforced for **Positions** only, with partial ownership checks for Shares.
+  Candidates, conversations, messages, drafts, follow-ups, imports, settings,
+  AI and backup data are not yet tenant/owner filtered in the repository, and
+  admin-only operations have no HTTP/IPC role gate. Do not expose the service
+  on a non-loopback interface: `NETWORK_AUTHENTICATION_READY` in
+  `crates/ica-server/src/main.rs` remains `false` on purpose. See
+  [`docs/architecture/api-authentication-matrix.md`](docs/architecture/api-authentication-matrix.md)
+  and [`docs/audits/sec-04-bc-delivery-record.md`](docs/audits/sec-04-bc-delivery-record.md).
+- **Verification evidence is version-bound.** The last full-stack gate report
+  is [`docs/testing/test-report-arch-p6.md`](docs/testing/test-report-arch-p6.md)
+  at HEAD `40575e1`; later UI phases recorded frontend-only numbers. A frozen
+  offline contract comparison passes 286/286 cases, but it is bound to the
+  2026-11-22 captures, not to the current working tree. The Python baseline
+  anchor is now resolved to `9ed173c` (ADR-0006 D-1; `d39e321` is the
+  pre-reanchor hash). Three Browser POC tests remain excluded, and there is no
+  E2E harness for the recruiting loop.
+- **Desktop acceptance is partial.** Windows 11 evidence at
+  [`docs/testing/desktop-release-acceptance.md`](docs/testing/desktop-release-acceptance.md)
+  is 7/9 items (W4/W5 not executed, W9 partial, installer unsigned, no release
+  tag) and bound to an older commit. Tauri host compilation is not verified on
+  Linux hosts without WebKit2GTK.
 - `422` bodies carry a structurally similar but not identical `details.errors`
   list to pydantic's; `contract_diff.py` compares status, `error.code`,
   `error.message` and the `details` key set (see contract doc §7).
 - The three declared improvements in contract doc §7.1 are the **only**
   intentional differences from Python (IMP-1/IMP-2/IMP-3); the comparison fails
   on anything else.
-- No packaging, Docker or desktop-shell changes.
+- UI reuse metrics C3/C5/C8 are still red in
+  `frontend/ui-reuse-baseline-r4-20261124.json`; the "regression=0" gate only
+  means no new regression against that frozen baseline.

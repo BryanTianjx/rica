@@ -1,1038 +1,1356 @@
-# **ICA R2.0 UI 重构方案：统一招聘工作台 + Hermes Agent Runtime + Browser Workspace**
+以下将其整理为正式项目工程文档，作为 ICA-RUST 后续 UI 重构的设计基线。文档覆盖产品设计原则、信息架构、视觉规范、交互规范、前端组件架构、Rust 后端集成约束、实施路线和验收标准。
 
-结合这五张现有界面，以及 ICA 最近确定的架构方向，我建议不要仅仅对现有页面进行美化，而是进行一次**信息架构（IA）、交互模式和工作流层面的整体重构**。
+# ICA Personal UI/UX 2.0 总体设计规范与重构实施方案
 
-核心变化是：
+**文档版本：** R1.0\
+**文档状态：** Draft / 设计基线\
+**项目名称：** ICA Personal\
+**适用版本：** ICA-RUST\
+**技术架构：** Tauri 2 + Rust + React + TypeScript\
+**设计方向：** AI-native Desktop Workspace\
+**设计模式：** Desktop-first / Local-first / Offline-first\
+**基准日期：** 2026-11-23
 
-- 从传统招聘信息管理系统，转向 AI-native 招聘工作台。
-- 从分散的候选人、岗位、沟通、跟进页面，转向围绕招聘任务组织工作。
-- 将 Hermes Agent Runtime 作为可调度的智能执行层。
-- 将 Browser Subsystem 作为独立的受控浏览器执行环境。
-- 将人工审批、权限控制和执行审计提升为一级交互能力。
+---
 
-最重要的架构原则是：
+# 1. 文档概述
 
-**ICA 是业务系统，Hermes 是 Agent Runtime，Browser 是执行环境。三者协同，但不能互相取代。**
+## 1.1 编写目的
 
-这也意味着 UI 不应该把 Hermes 的终端、Agent 会话或浏览器控制台直接搬进 ICA，而应该通过统一的工作台向用户呈现业务任务、AI 分析、浏览器执行和审批过程。
+本文档定义 ICA Personal UI/UX 2.0 的总体设计方向、信息架构、视觉设计体系、交互规范、前端工程架构及分阶段重构实施计划。
 
-## **一、现有 UI 评估**
+本次 UI 重构不是单纯的视觉优化，而是面向 ICA 产品定位、业务工作流和未来 Agent 扩展能力的一次整体交互架构升级。
 
-### **1. 总体评价**
+主要解决以下问题：
 
-当前界面采用传统 CRUD 管理后台模式，整体风格比较统一，信息结构也比较清晰，作为 ICA 早期版本是合适的。
+1. 现有界面采用传统后台管理系统布局，缺少统一的桌面工作空间设计。
+2. 一级导航与二级导航之间缺乏统一的信息架构。
+3. 系统设置中的 AI Provider、模型管理、场景路由等功能耦合度较高。
+4. 业务操作、AI 辅助操作和 Agent 执行之间缺少清晰的交互边界。
+5. 缺少统一的 Design System 和前端组件规范。
+6. 现有 UI 对未来 Hermes Agent、MCP 和浏览器子系统的扩展支持不足。
 
-但当加入 Hermes Agent Runtime 和 Browser Subsystem 后，现有设计会出现明显的扩展瓶颈。
+## 1.2 设计目标
 
-**现有 UI 的主要问题**
+| 目标      | 具体要求                      |
+| ------- | ------------------------- |
+| 统一视觉体系  | 建立完整的 Design Tokens 和组件规范 |
+| 优化信息架构  | 统一一级导航、二级导航和页面组织          |
+| AI 原生交互 | 将 AI 助手融入招聘业务工作流          |
+| 业务效率    | 减少页面跳转和重复操作               |
+| 配置可视化   | 提升 AI 服务、模型和路由的可理解性       |
+| 安全性     | 明确 AI、Agent 和人工操作权限边界     |
+| 可扩展性    | 支持 Hermes、MCP 和浏览器子系统     |
+| 本地优先    | 不破坏现有 Rust 后端和本地数据架构      |
 
-需要结构调整
+## 1.3 非目标
 
-| 页面      | 现有问题                 | 改进方向                 |
-| ------- | -------------------- | -------------------- |
-| 工作台     | 日历占据大量空间，缺少工作流概览     | 改为招聘任务驾驶舱            |
-| 候选人     | 纯表格展示，操作分散           | 增加候选人工作区             |
-| 候选人详情   | 档案、沟通、跟进纵向排列，空间利用率低  | 多面板工作空间              |
-| 岗位管理    | 基础 CRUD，缺少岗位与候选人关联视图 | 岗位 Pipeline          |
-| 沟通记录    | 左侧列表、右侧空白，信息密度低      | 沟通时间线与 AI 辅助工作区      |
-| AI 草稿审核 | 独立于业务流程              | 嵌入候选人沟通与审批流程         |
-| 浏览器自动化  | 只有导航入口，没有统一工作区       | 独立 Browser Workspace |
+本次 UI 重构不意味着同步扩大 MVP 产品范围。
 
-### **2. 五张截图逐页分析**
+以下事项不属于 UI 2.0 首期交付范围：
 
-**01. 工作台**
+- 自动向候选人发送招聘消息。
+- 自动执行完整招聘流程。
+- 自动修改候选人业务数据。
+- 自研完整 Agent Runtime。
+- 自研浏览器自动化引擎。
+- 引入在线服务作为 ICA 正常运行的必要条件。
+- 改变现有 Rust 后端核心业务模型。
+- 因 UI 重构而迁移或重建现有数据库。
 
-截图中的核心问题：
+---
 
-- 统计卡片仅展示数量，没有告诉招聘者下一步应该做什么。
-- 月历占据了主要视觉区域，但实际招聘任务更需要按优先级展示。
-- 待跟进候选人只是简单列表。
-- 没有 Agent 工作状态、浏览器会话、待审批操作的入口。
+# 2. 产品定位与设计原则
 
-建议将月历降级为辅助组件，工作台以待办任务、候选人动态和 Agent 工作状态为主。
+## 2.1 产品定位
 
-**02. 候选人列表**
+ICA Personal 是一款面向个人招聘工作流的本地优先 AI 招聘工作台。
 
-当前表格的优点是简单直接，但候选人管理缺少招聘上下文。
+核心定位：
 
-建议增加：
+**以招聘业务为中心，以 AI 助手为智能协作入口，以人工审核为最终控制机制。**
 
-- 当前招聘岗位。
-- 候选人阶段。
-- 最近一次沟通时间。
-- 下一步跟进时间。
-- AI 分析状态。
-- 浏览器来源及关联状态。
-- 待处理事项。
+产品不应被设计成传统 CRM，也不应简单地成为一个 AI Chat 客户端。
 
-不建议将所有字段都塞进表格。列表负责快速筛选，详情负责完整信息和操作。
+核心能力包括：
 
-**03. 候选人详情**
+1. 招聘业务管理。
+2. 候选人信息管理。
+3. 岗位需求管理。
+4. 招聘沟通记录。
+5. 招聘跟进任务。
+6. AI 辅助分析和内容生成。
+7. AI 草稿人工审核。
+8. Agent 和浏览器能力扩展。
 
-这是最值得重点改造的页面。
+## 2.2 核心设计原则
 
-目前存在三个相对独立的区域：
+### P1：Business-first
 
-1. 候选人档案。
-2. 跟进判断。
-3. 手动导入沟通记录。
+所有主要交互围绕招聘业务展开。
 
-它们实际上属于同一条招聘业务链路。
+AI 能力应该服务于候选人管理、岗位分析、沟通和跟进，而不是让用户脱离业务上下文单独使用 AI。
 
-建议整合成：
+### P2：AI-native
 
-- 左侧：候选人档案及招聘上下文。
-- 中间：沟通时间线和业务活动。
-- 右侧：AI 助手、跟进建议和审批操作。
-
-这样不需要频繁切换页面。
-
-**04. 岗位管理**
-
-当前岗位列表缺少招聘进度信息。
-
-建议增加岗位工作台，包括：
-
-- 岗位基本信息。
-- 招聘需求与技能要求。
-- 关联候选人。
-- 各招聘阶段人数。
-- 当前招聘任务。
-- 岗位状态与归档。
-
-岗位是招聘业务的组织维度，不应该仅仅是一个普通数据表。
-
-**05. 沟通记录**
-
-当前页面的问题最明显：
-
-- 左侧候选人列表占用大量空间。
-- 右侧没有选中会话时几乎没有有效信息。
-- 沟通记录缺少与 AI 分析、跟进任务的关联。
-
-建议改为双栏沟通工作区，支持沟通记录、AI 摘要、待回复事项和历史招聘上下文。
-
-## **二、重新设计整体信息架构**
-
-我建议将 ICA 的一级导航从当前七个入口，调整为六个业务工作区。
-
-## **ICA Personal · 新版导航结构**
-
-**01 工作台**
-
-个人招聘驾驶舱
-
-**02 招聘管理**
-
-候选人 · 岗位 · 沟通记录 · 跟进任务
-
-**03 AI 工作台**
-
-Hermes Runtime
-
-Agent 会话 · AI 分析 · 话术草稿 · 任务执行 · 运行记录
-
-**04 浏览器工作区**
-
-Browser Subsystem
-
-浏览器 · 页面预览 · 会话管理 · 自动化任务 · 执行状态
-
-**05 审批中心**
-
-消息审批 · 浏览器操作审批 · 权限申请 · 审计记录
-
-**06 系统设置**
-
-Agent 配置 · 浏览器配置 · 权限策略 · 数据管理 · 运行诊断
-
-这里有一个重要调整：
-
-原来的「AI 草稿审核」不再作为独立的业务导航，而是将草稿审批统一纳入审批中心，同时在候选人详情和 AI 工作台保留上下文操作入口。
-
-「跟进任务」也不再孤立存在，而是成为工作台和候选人详情中的任务视图。
-
-### **三、整体 UI 布局设计**
-
-建议采用统一的三层结构。
-
-**顶部全局栏**
-
-高度约 60px
-
-ICA Personal　/　当前工作区
-
-ICA Core
-
-Hermes Online
-
-**左侧导航**
-
-约 220–240px
-
-**工作台**
-
-招聘管理
-
-AI 工作台
-
-浏览器工作区
-
-审批中心
-
-系统设置
-
-**中央业务区**
-
-**页面标题与主要操作**
-
-搜索、筛选、创建、切换视图
-
-业务数据
-
-列表、时间线、详情
-
-任务上下文
-
-状态、建议、审批
-
-底部运行状态
-
-Agent / Browser / 数据库 / 后端连接
-
-**布局原则：**
-
-- 左侧导航保持稳定，不随业务页面变化。
-- 中间区域始终展示 ICA 业务内容。
-- 右侧智能面板根据当前页面上下文切换。
-- 底部运行状态显示系统健康信息，不占据主要工作空间。
-- Agent 面板支持收起、展开，不强制占据所有页面。
-
-## **四、核心页面重新设计**
-
-### **1. 新工作台：招聘驾驶舱**
-
-工作台应该回答四个问题：
-
-1. 当前有哪些招聘工作？
-2. 哪些候选人需要处理？
-3. Agent 正在做什么？
-4. 哪些操作需要我批准？
-
-[Interview Management Platform - Case Study | Chromosis](https://images.openai.com/static-rsc-4/VeopxR7jAeapHZoo2OKzv4iLjezh0nEyt3k4FWsdplTmFxs5MT18IP_LM8DqChAv3iE8CzOS8JUvtkz5P_lciCJT69kLjboOwOvHeY_8UgePnHfUXh7EzuFA4LfYOeHjcYfA_y9RtbHFJq08ds68EBLVeLIj9Ee5wSE_tU3W3zY?purpose=inline)
-
-[chromosis.com](https://chromosis.com/case-study/custom-web-application/interview-automation?utm_source=chatgpt.com)
-
-推荐布局：
-
-**工作台**
-
-示意布局
-
-# **12**
-
-候选人
-
-# **4**
-
-待跟进
-
-# **2**
-
-待审批
-
-# **1**
-
-Agent 任务
-
-**今日待办**
-
-李四 · 首次沟通
-
-王五 · 跟进提醒
-
-赵六 · 面试反馈
-
-**待审批**
-
-2 项待确认
-
-候选人沟通草稿
-
-浏览器页面操作
-
-**Agent 运行情况**
-
-Candidate Analysis
-
-运行中
-
-正在分析候选人经历，等待 ICA Core 返回结果
-
-Browser Session
-
-空闲
-
-**ICA AI 助手**
-
-可以询问候选人情况、生成沟通建议或创建招聘任务……
-
-原来的月历保留，但移动到「任务日历」视图，默认不再占据工作台主要区域。
-
-### **2. 候选人管理：从表格升级为候选人工作区**
-
-建议提供三种视图：
-
-- 列表视图：适合查找、筛选、批量浏览。
-- Pipeline 视图：适合按招聘阶段查看候选人。
-- 归档视图：适合历史候选人管理。
-
-[Devlumiq ATS - Full-Stack Recruitment Platform | Codester](https://images.openai.com/static-rsc-4/FeGkirPy-JGz8pDGpELd8dF2XkK6feTJoGWwsjOHusYpwb-GawCs82uUkAGns8DYGispkeiN2Oq0I2xgC47Ua8EQ6xZoUpY9bf-A7UHnQnVainuJIA_bZNpb9yiHotxNg1WwH4mQ3Ih9qlSDconpvjK3_JqBuJKZ2MgnJAQJhh0?purpose=inline)
-
-[codester.com](https://www.codester.com/items/65323/devlumiq-ats-full-stack-recruitment-platform?utm_source=chatgpt.com)
-
-建议列表字段：
-
-| 字段    | 说明                            |
-| ----- | ----------------------------- |
-| 候选人   | 姓名及基本信息                       |
-| 关联岗位  | 当前招聘岗位                        |
-| 招聘阶段  | New / Contacted / Interview 等 |
-| 最近沟通  | 最近一次有效沟通时间                    |
-| 下一步   | 跟进动作                          |
-| AI 状态 | 未分析、分析中、已完成                   |
-| 操作    | 查看、编辑、归档                      |
-
-状态建议在 UI 中统一中文显示，内部枚举可以保留英文，例如：
-
-- New → 新建
-- Contacted → 已联系
-- Interview → 面试中
-- Rejected → 已淘汰
-- Blocked → 已阻塞
-- Archived → 已归档
-
-不要让 Agent 自动修改候选人的业务状态。状态仍然由用户确认后变更。
-
-### **3. 候选人详情：采用三栏工作空间**
-
-这是整个 ICA 最重要的业务页面。
-
-[Building a Fake Job Candidate Detection System in 4 Hours: How Sardine Can Fight AI-Powered Job Fraud](https://images.openai.com/static-rsc-4/GvBGXoOxtOpG8PNJOTuIm3Pz0pUkydyFVK2BNZOO6REAJJkL4SYplqRdNcMwo0UZGmQ08AqRucf94ruyxxIfNK8FScTl7XuhjOMftGXqTwm_1umLC_fL5I5HB7nTwGr1TKFrB29l8GECY-ayYkbatBDYTQ8eOrvDQiIclBKcGbU?purpose=inline)
-
-[sardine.ai](https://www.sardine.ai/engineering-blogs/fake-job-candidate-detection-system?utm_source=chatgpt.com)
-
-建议重新组织为以下结构：
-
-**李四 · 候选人详情**
-
-已联系
-
-React 工程师 · BOSS 来源 · 关联岗位 Recruiting Partner
-
-**候选人档案**
-
-## **李四**
-
-5 年工作经验
-
-React / TypeScript
-
-期望薪资：25k
-
-期望地点：杭州
-
-**招聘信息**
-
-关联岗位
-
-Recruiting Partner
-
-**沟通时间线**
-
-11 月 19 日 · Recruiter
-
-你好，看到您投递了后端工程师岗位，方便聊聊吗？
-
-11 月 19 日 · Candidate
-
-您好，我目前在职，主要做 Python 后端。
-
-录入沟通记录
-
-粘贴聊天记录，解析后预览并确认写入
-
-**AI 助手**
-
-Hermes 可用
-
-**分析摘要**
-
-候选人技能与岗位存在一定匹配度，建议进一步确认后端技术栈。
-
-**下一步建议**
-
-确认工作经历和求职意向
-
-**沟通草稿**
-
-由 AI 生成，等待人工审核
-
-待确认
-
-真实实现中，三栏应支持独立滚动和宽度调整。
-
-候选人详情增加顶部 Tab：
-
-- 概览
-- 沟通记录
-- 跟进任务
-- AI 分析
-- 活动审计
-
-这样既保留三栏高效工作模式，也能容纳更多详细信息。
-
-### **4. 岗位管理：引入招聘 Pipeline**
-
-岗位页面建议从简单数据表改成岗位工作区。
-
-[Recruitment CRM and ATS with built in AI | itris CRM Software](https://images.openai.com/static-rsc-4/pOwbjPhESnTHlYh3gEnusQyMc5k-3RsfTjVXRMKmj3yHqsQOmhlNnnRIFdcqD1WA4GvZ4hTG8aWfZd2aiH6DG1DPTEJYIQWl7cfsyAzBHSviv0JZdcifl_mnUhWnfj1bHs0gqDTVEnikiCgMNozIt332-vhlMqDGEyJ1AVnBw9E?purpose=inline)
-
-[itris.co.uk](https://www.itris.co.uk/?utm_source=chatgpt.com)
-
-岗位详情应包含：
-
-| 区域    | 内容            |
-| ----- | ------------- |
-| 岗位信息  | 名称、地点、薪资、职位描述 |
-| 招聘要求  | 技能、经验、学历等     |
-| 候选人   | 关联候选人及招聘阶段    |
-| 任务    | 当前跟进及待处理工作    |
-| AI 分析 | 岗位要求结构化及匹配建议  |
-
-特别注意：AI 匹配结果只能作为辅助判断，不能直接替代招聘者的决策，也不能未经确认修改候选人档案。
-
-### **5. 沟通工作区：统一人工沟通和 AI 辅助**
-
-建议采用左右双栏：
-
-[Intercom | The only helpdesk designed for the AI Agent era](https://images.openai.com/static-rsc-4/fqRZKSkfAC5d8jPY0oIpApBFViIDPfZobTlJqbR-kvLI7LYIrCGzsMDXodBTyvCJmpOAHKxZUwXRxCwXNS92TMooeE4V8mwfxoBFBmjJ7b6GpvYweS9TvLpV9PmLJTlCYil4lp77mRwi5YtEkEpLOesxFASOTHsAmpbtynruYaE?purpose=inline)
-
-[intercom.com](https://www.intercom.com/?utm_source=chatgpt.com)
-
-- 左栏：候选人会话列表、岗位筛选、未读状态。
-- 右栏：完整沟通时间线、沟通记录录入、AI 摘要、话术建议。
-- 右侧可选面板：候选人档案和跟进任务。
-
-核心操作：
-
-1. 导入或粘贴聊天文本。
-2. AI 解析沟通内容。
-3. 显示解析预览。
-4. 用户确认。
-5. ICA Core 写入沟通记录。
-6. Agent 根据授权上下文提供后续建议。
-
-首期仍保留人工复制、粘贴和发送，不将 BOSS 等平台的自动发送作为默认能力。
-
-## **五、Hermes Agent Runtime：新增 AI 工作台**
-
-这一部分是 ICA 这次升级的核心。
-
-我不建议简单地把 Hermes 对话框放在界面右侧，而是建设一个独立的 Agent 工作台。
-
-它需要管理 Agent 的任务、运行状态、执行过程和结果。
-
-### **1. AI 工作台布局**
-
-[AI & Automation | Kinso Labs](https://images.openai.com/static-rsc-4/ypoVwUQkck-wIUr1J1h_0u0TEhjaZzE2ryxGzCshgxbyHhePZ4rjATfseEFgwTIINyjfn7phSBdcEREaquaftLg-ZWGZRQih_qeC5eXfVQ3CTL_r9C-uXoigQAMqf8U85gE9f0mzDgwRT_G4_sd9HOIM5y_1NW3_cN9ZSi5qa8Q?purpose=inline)
-
-[kinsolabs.com](https://kinsolabs.com/services/ai?utm_source=chatgpt.com)
-
-建议采用三栏布局：
-
-| 区域 | 功能                 |
-| -- | ------------------ |
-| 左栏 | Agent 会话、任务历史、任务分类 |
-| 中栏 | AI 对话、任务执行过程、结果展示  |
-| 右栏 | 当前候选人、岗位、上下文、审批信息  |
-
-### **2. Agent 任务类型**
-
-建议先定义有限的招聘业务 Agent 能力：
-
-| Agent 能力                | 职责      | 权限      |
-| ----------------------- | ------- | ------- |
-| Candidate Analysis      | 候选人资料分析 | 只读      |
-| Job Matching            | 岗位匹配建议  | 只读      |
-| Communication Assistant | 沟通摘要与话术 | 生成草稿    |
-| Follow-up Assistant     | 跟进建议    | 创建待确认建议 |
-| Browser Assistant       | 浏览器辅助操作 | 受控执行    |
-| Recruitment Assistant   | 招聘工作流协调 | 受限调度    |
-
-不建议一开始就为每个功能创建一个独立 Hermes Agent。首期可以通过一个招聘主 Agent 配合不同 Skill 和受控工具实现，后续根据实际负载再拆分。
-
-### **3. Agent 执行状态**
-
-统一展示以下状态：
-
-## **Agent 任务生命周期**
-
-1. **Created · 已创建**
-
-   用户发起任务，ICA 记录任务上下文
-2. **Queued · 排队中**
-
-   等待 Runtime 调度
-3. **Running · 执行中**
-
-   Hermes 执行分析或调用授权工具
-4. **Waiting Approval · 等待审批**
-
-   涉及需要人工确认的操作
-5. **Completed · 已完成**
-
-   返回结果，由 ICA 持久化业务结果
-
-其他终态：Failed、Cancelled、Expired。暂停和恢复作为运行控制状态处理。
-
-UI 应显示：
-
-- 当前任务。
-- Agent 名称。
-- 运行时间。
-- 当前步骤。
-- 工具调用记录。
-- 等待审批的原因。
-- 执行结果。
-- 错误与重试信息。
-
-这里有一个非常重要的设计区别：
-
-**Hermes 的运行状态与 ICA 的业务状态必须分开。**
+AI 不是独立附加功能，而是融入业务工作流的协作能力。
 
 例如：
 
-- Hermes：候选人分析任务 Completed。
-- ICA：候选人状态仍然是 New。
+- 在候选人页面调用 AI 分析。
+- 在岗位页面调用 AI 分析 JD。
+- 在沟通记录中生成回复草稿。
+- 在跟进任务中生成行动建议。
 
-AI 完成分析，并不意味着候选人的招聘流程自动推进。
+### P3：Human-in-the-loop
 
-## **六、Browser Subsystem：独立浏览器工作区**
+所有具有外部影响或业务写入风险的操作必须保留人工控制。
 
-浏览器子系统不能只是一个嵌入式网页窗口。
+特别是：
 
-它需要承担浏览器会话、页面观察、受控交互、任务执行和操作审批等职责。
+- 候选人信息修改。
+- 招聘沟通内容发送。
+- 招聘状态变更。
+- Agent 执行外部操作。
 
-结合已经确认的方向：
+### P4：Local-first
 
-- Managed Browser 为默认模式。
-- External Browser 为可选连接方式。
-- 默认使用内置 Chromium + Playwright。
-- 外部 Chrome / Edge 通过可选连接能力接入。
-- DOM 优先，视觉和坐标操作作为兜底。
-- 每次重要操作后进行结果验证。
-- 发送消息必须由用户逐条确认。
-- Hermes 不允许绕过 ICA 审批直接发送消息。
+核心业务数据保存在本地。
 
-### **1. 浏览器工作区布局**
+AI 服务不可用时，仍应允许用户访问和管理本地业务数据。
 
-这是我建议重点建设的新页面。
+### P5：Offline-first
 
-[GPT-5.4 Computer Use Tutorial: Build a Live News Dashboard | DataCamp](https://images.openai.com/static-rsc-4/yxUSspPLqFOkkDEOTtrGim4jcu7l8QYI2yhedBJqWiTfQfLdHMu4eeXkyn75MltCZ0gT2MNlXPdI1qyGmd-ysJchfWALid30mUDsi7Uy6TPbygBAjCe9xUNP8oxZ_V95QOhfEin1DCU72aIAUFB2rezfvBO2VRQ5nIRHK7qtfNg?purpose=inline)
+不依赖云端服务才能启动和使用核心功能。
 
-[datacamp.com](https://www.datacamp.com/tutorial/gpt-5-4-computer-use-tutorial?utm_source=chatgpt.com)
+在线 AI、外部 Agent 和浏览器能力属于可选扩展。
 
-推荐结构：
+### P6：Modular Architecture
 
-**Browser Workspace**
+前端按照业务模块划分，避免形成大型页面组件和全局状态耦合。
 
-Managed Browser
+### P7：Consistent Experience
 
-[https://www.zhipin.com/](https://www.zhipin.com/?utm_source=chatgpt.com)...
+统一导航、组件、状态、反馈、布局和交互方式。
 
-Session 01
+---
 
-**Browser View**
+# 3. 整体 UI 信息架构
 
-真实浏览器页面渲染区域
+## 3.1 一级导航设计
 
-用户可查看和直接操作
+建议将现有一级导航重新整理为四个功能区域。
 
-**Agent Panel**
+| 一级区域    | 页面      | 功能定位              |
+| ------- | ------- | ----------------- |
+| 工作空间    | 工作台     | 招聘工作总览            |
+| 工作空间    | 招聘项目    | 招聘任务组织（如现有业务模型支持） |
+| 工作空间    | 候选人     | 候选人信息管理           |
+| 工作空间    | 岗位管理    | 招聘岗位管理            |
+| 工作空间    | 沟通记录    | 沟通历史管理            |
+| 工作空间    | 跟进任务    | 招聘跟进管理            |
+| AI 工作空间 | AI 助手   | AI 交互与业务协作        |
+| AI 工作空间 | AI 草稿审核 | AI 生成内容审核         |
+| AI 工作空间 | 浏览器工作区  | 浏览器能力入口           |
+| 系统管理    | 系统设置    | 应用配置管理            |
+| 系统管理    | 安全与审计   | 权限和操作记录           |
 
-Runtime Online
+说明：
 
-当前任务：查看候选人资料
+1. 不应为了导航完整而提前实现尚未具备的业务功能。
+2. 招聘项目如没有独立领域模型，可以先使用现有业务页面组织方式，不应强制增加新实体。
+3. 安全与审计可以先作为系统设置中的子页面，待功能成熟后再独立导航。
 
-**页面分析**
+## 3.2 系统设置二级导航
 
-发现候选人基本信息及技能描述
+建议将现有系统设置重新组织为以下结构：
 
-**操作建议**
+### 系统配置
 
-提取候选人信息，等待用户确认导入
+| 页面      | 主要内容                      |
+| ------- | ------------------------- |
+| 通用设置    | 应用语言、主题、界面偏好              |
+| AI 服务连接 | Provider、Endpoint、API Key |
+| 模型管理    | 模型注册、能力、默认模型              |
+| 场景路由    | 业务场景与模型映射                 |
+| 隐私与安全   | 敏感信息、AI 数据传输策略            |
+| 数据与备份   | 数据存储、备份、恢复                |
 
-**Candidate Queue**
+### 运行管理
 
-候选人待处理队列
+| 页面        | 主要内容             |
+| --------- | ---------------- |
+| Agent 运行时 | Agent 状态、连接和执行管理 |
+| 浏览器管理     | 浏览器实例、会话及运行状态    |
+| 权限管理      | 工具授权和操作权限        |
+| 审计日志      | 操作事件、执行记录和异常     |
 
-李四 · 前端工程师
+Agent 运行时和浏览器管理属于后续扩展页面，首期可以仅展示已实现能力。
 
-待确认导入
+## 3.3 导航交互规范
 
-王五 · 后端工程师
+- 一级导航固定在窗口左侧。
+- 二级导航根据当前模块显示。
+- 当前页面具有明显选中状态。
+- 支持导航折叠。
+- 页面切换不应导致整个 App Shell 重新加载。
+- 支持窗口尺寸变化。
+- 支持键盘焦点和快捷导航。
+- 页面标题与面包屑保持一致。
 
-待处理
+---
 
-**Execution Timeline**
+# 4. 整体布局架构
 
-10:20 页面打开 → 10:21 DOM 分析 → 10:22 信息提取 → 等待用户确认
+## 4.1 App Shell
 
-### **2. 浏览器工作区模块**
+采用统一的桌面应用外壳。
 
-建议使用此前已经规划的七个组成部分：
+整体结构：
 
-| 组件               | 作用              |
-| ---------------- | --------------- |
-| Browser Toolbar  | 地址、导航、刷新、会话控制   |
-| Browser View     | 实际网页展示          |
-| Candidate Queue  | 候选人待处理队列        |
-| Candidate Detail | 候选人信息预览         |
-| Agent Analysis   | Agent 页面分析和操作建议 |
-| Message Composer | 沟通内容草稿          |
-| Approval Panel   | 操作审批与确认         |
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     Window / Title Bar                       │
+├───────────────┬──────────────────────────────────────────────┤
+│               │                                              │
+│               │              Page Header                     │
+│               │                                              │
+│  Primary      ├──────────────────────────────────────────────┤
+│  Sidebar      │                                              │
+│               │                                              │
+│               │              Main Content                    │
+│               │                                              │
+│               │                                              │
+│               │                                              │
+│               │                                              │
+│               │                                              │
+├───────────────┴──────────────────────────────────────────────┤
+│                    Status / Feedback Area                    │
+└──────────────────────────────────────────────────────────────┘
+```
 
-其中 Candidate Queue 和 Candidate Detail 需要通过明确的导入预览流程与 ICA 招聘域关联，不应直接将浏览器页面数据写入业务数据库。
+App Shell 负责：
 
-### **3. 浏览器独立管理页面**
+- 全局导航。
+- 页面容器。
+- 主题管理。
+- 全局快捷操作。
+- 消息通知。
+- 全局状态反馈。
+- AI 助手面板入口。
 
-Browser Workspace 是日常操作界面，浏览器管理则用于配置和运维。
+业务页面不得重复实现这些基础能力。
+
+## 4.2 三栏工作空间
+
+针对 AI 工作空间，采用可选三栏布局。
+
+```
+┌────────────┬─────────────────────────┬─────────────────────┐
+│            │                         │                     │
+│ Navigation │     Business Context    │    AI Assistant     │
+│            │                         │                     │
+│            │                         │                     │
+│            │                         │    AI Conversation  │
+│            │                         │                     │
+│            │                         │                     │
+│            │                         │    Suggestions      │
+│            │                         │                     │
+│            │                         │    Drafts            │
+│            │                         │                     │
+└────────────┴─────────────────────────┴─────────────────────┘
+```
+
+各区域职责：
+
+| 区域 | 职责         |
+| -- | ---------- |
+| 左侧 | 导航和工作入口    |
+| 中间 | 当前招聘业务内容   |
+| 右侧 | AI 助手和智能协作 |
+
+右侧 AI 面板应支持：
+
+- 展开和折叠。
+- 调整宽度。
+- 显示当前业务上下文。
+- 查看 AI 生成结果。
+- 查看工具执行结果。
+- 生成草稿。
+- 提交人工审核。
+
+普通业务页面不强制显示右侧面板，避免影响内容空间。
+
+## 4.3 布局尺寸
+
+建议采用以下初始设计参数：
+
+| 区域       | 推荐尺寸      |
+| -------- | --------- |
+| 一级导航     | 220～240px |
+| 二级导航     | 190～210px |
+| 页面内容区    | 自适应       |
+| AI 面板    | 320～400px |
+| 页面最大内容宽度 | 1320px    |
+| 页面内边距    | 24～32px   |
+| 卡片间距     | 16～24px   |
+
+尺寸为设计建议，应通过 Windows 实际窗口测试调整。
+
+---
+
+# 5. Design System 设计规范
+
+## 5.1 主题设计
+
+采用 Light Theme 作为默认主题。
+
+Dark Theme 作为可选主题，但必须共享相同的设计 Token 和组件规范。
+
+不允许在业务页面直接硬编码颜色。
+
+## 5.2 Color Tokens
+
+### Light Theme
+
+| Token             | 色值      | 用途   |
+| ----------------- | ------- | ---- |
+| primary           | #2563EB | 主操作  |
+| primary-hover     | #1D4ED8 | 主色悬停 |
+| background        | #F8FAFC | 应用背景 |
+| surface           | #FFFFFF | 卡片背景 |
+| surface-secondary | #F1F5F9 | 次级背景 |
+| text-primary      | #0F172A | 主文字  |
+| text-secondary    | #64748B | 辅助文字 |
+| border            | #E2E8F0 | 边框   |
+| success           | #16A34A | 成功   |
+| warning           | #D97706 | 警告   |
+| danger            | #DC2626 | 错误   |
+| info              | #0284C7 | 信息   |
+
+### Dark Theme
+
+| Token             | 建议色值    | 用途   |
+| ----------------- | ------- | ---- |
+| background        | #0F1117 | 应用背景 |
+| surface           | #171A22 | 卡片背景 |
+| surface-secondary | #202531 | 次级背景 |
+| text-primary      | #F8FAFC | 主文字  |
+| text-secondary    | #94A3B8 | 辅助文字 |
+| border            | #2B3240 | 边框   |
+| primary           | #60A5FA | 主操作  |
+
+颜色应通过实际对比度测试，确保文本可读性。
+
+## 5.3 Typography
+
+建议统一使用系统中文字体栈：
+
+```
+font-family:
+  "Microsoft YaHei",
+  "PingFang SC",
+  "Noto Sans CJK SC",
+  sans-serif;
+```
+
+| 类型            | 字号   | 字重  |
+| ------------- | ---- | --- |
+| Page Title    | 26px | 700 |
+| Section Title | 18px | 600 |
+| Card Title    | 16px | 600 |
+| Body          | 14px | 400 |
+| Secondary     | 13px | 400 |
+| Caption       | 12px | 400 |
+
+## 5.4 Spacing
+
+统一使用 4px 基础间距体系。
+
+```
+4px
+8px
+12px
+16px
+20px
+24px
+32px
+40px
+48px
+```
+
+## 5.5 Radius
+
+| 组件       | 圆角    |
+| -------- | ----- |
+| Button   | 8px   |
+| Input    | 8px   |
+| Card     | 12px  |
+| Dialog   | 14px  |
+| Dropdown | 8px   |
+| Badge    | 999px |
+
+## 5.6 基础组件
+
+建立统一组件库：
+
+```
+shared/design-system/
+├── tokens/
+│   ├── colors.css
+│   ├── spacing.css
+│   ├── typography.css
+│   └── radius.css
+│
+├── components/
+│   ├── Button/
+│   ├── Input/
+│   ├── Select/
+│   ├── Checkbox/
+│   ├── Radio/
+│   ├── Switch/
+│   ├── Badge/
+│   ├── Card/
+│   ├── Dialog/
+│   ├── Drawer/
+│   ├── Dropdown/
+│   ├── Tooltip/
+│   ├── Tabs/
+│   ├── Table/
+│   ├── EmptyState/
+│   ├── LoadingState/
+│   └── ErrorState/
+│
+└── index.ts
+```
+
+所有业务模块优先使用共享组件，不应各自实现相同的基础交互。
+
+---
+
+# 6. 核心页面 UI 设计
+
+## 6.1 工作台 Dashboard
+
+定位：招聘工作的统一入口。
+
+主要展示：
+
+- 当前招聘工作概览。
+- 候选人数量。
+- 待跟进任务。
+- 最近沟通记录。
+- 最近使用的岗位。
+- AI 工作建议。
+- 最近操作。
+
+页面布局：
+
+```
+┌────────────────────────────────────────────┐
+│ 工作台                  日期 / 快捷操作    │
+├────────────────────────────────────────────┤
+│ 候选人数量 │ 岗位数量 │ 待跟进 │ 待审核     │
+├──────────────────────────┬─────────────────┤
+│                          │                 │
+│ 最近招聘活动             │ AI 工作建议     │
+│                          │                 │
+├──────────────────────────┴─────────────────┤
+│ 最近候选人                                 │
+├────────────────────────────────────────────┤
+│ 最近沟通与任务                             │
+└────────────────────────────────────────────┘
+```
+
+指标必须来自真实业务数据，不能使用模拟数据冒充实际统计。
+
+## 6.2 候选人管理
+
+定位：候选人信息管理与招聘分析入口。
+
+主要区域：
+
+1. 候选人搜索和筛选。
+2. 候选人列表。
+3. 候选人基本信息。
+4. 候选人沟通记录。
+5. 候选人跟进任务。
+6. AI 辅助分析。
+
+候选人详情建议采用 Tabs：
+
+- 基本信息。
+- 工作经历。
+- 招聘沟通。
+- 跟进记录。
+- AI 分析。
+
+AI 分析必须能够区分原始数据、AI 推断和用户确认信息。
+
+## 6.3 岗位管理
+
+定位：招聘岗位需求管理。
+
+主要内容：
+
+- 岗位基本信息。
+- JD 内容。
+- 技能要求。
+- 岗位状态。
+- 关联候选人。
+- AI JD 分析。
+
+AI 分析结果应支持用户确认后再保存为正式业务数据。
+
+## 6.4 沟通记录
+
+定位：招聘沟通历史的统一管理。
+
+采用时间线或列表布局。
+
+展示：
+
+- 沟通对象。
+- 沟通时间。
+- 沟通渠道。
+- 沟通内容。
+- 关联候选人。
+- 沟通结果。
+
+AI 可以辅助总结和生成回复草稿，但不得默认发送消息。
+
+## 6.5 跟进任务
+
+定位：招聘工作执行管理。
+
+建议支持：
+
+- 待处理。
+- 进行中。
+- 已完成。
+- 已取消。
+
+提供列表视图和日历式视图的扩展能力。
+
+任务状态必须与现有 Rust 领域模型保持一致。
+
+## 6.6 AI 助手
+
+定位：跨业务模块的智能协作入口。
+
+核心能力：
+
+- 自然语言交互。
+- 当前业务上下文识别。
+- 候选人分析。
+- JD 分析。
+- 沟通草稿生成。
+- 跟进建议。
+- 工具调用。
+- 执行结果展示。
+
+AI 助手需要显示：
+
+1. 当前使用模型。
+2. 当前业务上下文。
+3. 当前任务状态。
+4. 工具调用状态。
+5. 生成结果。
+6. 人工审核入口。
+
+AI 生成内容必须具有明确的状态，例如：
+
+- Generating。
+- Completed。
+- Failed。
+- Pending Review。
+- Approved。
+- Rejected。
+
+其中 Approved 仅表示人工批准，不代表消息已经发送。
+
+## 6.7 AI 草稿审核
+
+定位：AI 生成内容的人工审核中心。
+
+推荐布局：
+
+```
+┌─────────────────────────────────────────────┐
+│ AI 草稿审核                                  │
+├─────────────────────────────────────────────┤
+│ 待审核 │ 已批准 │ 已拒绝 │ 全部             │
+├──────────────────────┬──────────────────────┤
+│ 草稿列表             │ 草稿详情             │
+│                      │                      │
+│ 候选人 A             │ 原始上下文           │
+│ 沟通回复草稿         │                      │
+│                      │ AI 生成内容          │
+│ 候选人 B             │                      │
+│ 分析草稿             │ 编辑区域             │
+│                      │                      │
+│                      │ 批准 / 拒绝          │
+└──────────────────────┴──────────────────────┘
+```
+
+必须区分：
+
+- AI 生成。
+- 人工编辑。
+- 人工批准。
+- 外部发送。
+
+MVP 阶段不开放自动发送。
+
+## 6.8 浏览器工作区
+
+浏览器工作区属于后续扩展能力。
+
+UI 可以预留独立入口，但实际操作必须依赖已经实现的 Browser Runtime。
 
 建议包含：
 
-- Browser Overview：运行概况。
-- Profiles：浏览器配置档案。
-- Sessions：浏览器会话。
-- Permissions：权限配置。
-- Automation Tasks：自动化任务。
-- Approval Center：浏览器操作审批。
+- 浏览器实例状态。
+- 当前会话。
+- 页面访问状态。
+- 操作记录。
+- 权限提示。
+- 人工确认。
+
+浏览器自动化不得绕过现有业务权限和人工审核机制。
+
+---
+
+# 7. 系统设置重构规范
+
+系统设置是本次 UI 重构的首要目标。
+
+## 7.1 设置中心总体布局
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 系统设置                                                     │
+│ 管理 ICA 的 AI 服务、隐私、安全与本地数据                    │
+├────────────────┬────────────────────────────────────────────┤
+│                │                                            │
+│ 通用设置       │              页面标题                       │
+│ AI 服务连接    │                                            │
+│ 模型管理       │              配置内容                       │
+│ 场景路由       │                                            │
+│ 隐私与安全     │                                            │
+│ 数据与备份     │                                            │
+│                │                                            │
+│ 运行时         │                                            │
+│ 浏览器管理     │                                            │
+│ 权限管理       │                                            │
+│ 审计日志       │                                            │
+└────────────────┴────────────────────────────────────────────┘
+```
+
+## 7.2 AI 服务连接
+
+拆分为独立页面。
 
-Managed Browser 和 External Browser 应在会话创建时选择，而不是将两种模式混合在一个难以区分的操作界面中。
+展示内容：
 
-## **七、统一审批中心：整个系统的安全控制入口**
+| 字段                   | 说明     |
+| -------------------- | ------ |
+| Provider             | 服务提供商  |
+| Endpoint             | API 地址 |
+| API Key              | 敏感凭据   |
+| Connection Status    | 连接状态   |
+| Configuration Source | 配置来源   |
+| Last Test            | 最近测试时间 |
 
-这是原有界面中缺失，但新架构必须具备的一级模块。
+必须支持：
 
-不能让用户分别在 AI 工作台、浏览器工作区和候选人详情中寻找所有待确认操作。
+- 新增连接。
+- 编辑连接。
+- 删除连接。
+- 测试连接。
+- 启用和禁用。
+- 配置来源展示。
 
-建议建设统一审批中心。
+安全要求：
 
-[Best Workflow Approval Software for Teams in 2026 | UI Bakery Blog](https://images.openai.com/static-rsc-4/BryfjZOSfR1R4EbT0C4FAyplqnqXQhEEl-vPCJ_FiU1iKDBP7GvLR-6qPJpJkItVzQaCBI5UliMve2utIzLlat_25iROGf8LtQfPAJxa9L3Jq0Bs2v5Ii9skt9nQjB1J6phJdKmxZOiD46fvROzoqsoadfOKsvdRA82xQTAnhR0?purpose=inline)
+- API Key 不得明文回显。
+- 日志不得输出完整凭据。
+- 前端不持久化明文密钥。
+- 密钥修改和清除应有明确确认。
+- 配置来源必须可追溯。
 
-[uibakery.io](https://uibakery.io/blog/best-workflow-approval-software?utm_source=chatgpt.com)
+## 7.3 模型管理
 
-### **审批分类**
+建议使用模型列表 + 详情面板。
 
-| 类型    | 示例           | 审批方式  |
-| ----- | ------------ | ----- |
-| AI 草稿 | 招聘沟通话术       | 查看后确认 |
-| 消息发送  | BOSS 候选人消息   | 逐条确认  |
-| 候选人导入 | 浏览器提取的候选人资料  | 预览后确认 |
-| 业务变更  | 修改候选人状态      | 人工确认  |
-| 浏览器操作 | 高影响页面操作      | 执行前确认 |
-| 权限申请  | Agent 请求额外能力 | 授权或拒绝 |
+模型元数据包括：
 
-### **审批交互**
+```
+Model
+├── id
+├── provider_id
+├── model_identifier
+├── display_name
+├── tier
+├── capabilities
+├── enabled
+├── is_default
+└── configuration_source
+```
 
-每条审批需要展示：
+以上是建议的数据概念，不代表要求直接修改现有数据库 Schema。
 
-1. 发起者：用户或 Agent。
-2. 业务对象：候选人、岗位或浏览器会话。
-3. 计划执行的操作。
-4. 操作影响范围。
-5. 原始内容或参数。
-6. 执行前后的预期变化。
-7. 确认、拒绝、取消。
+模型能力：
 
-尤其是消息发送：
+- Text Generation。
+- Tool Calling。
+- JSON Output。
+- Vision。
+- Streaming。
 
-**待发送消息审批**
+能力应来源于可信模型元数据或验证结果。
 
-等待确认
+## 7.4 场景路由
 
-候选人：李四 · 平台：BOSS
+场景路由负责将业务请求映射到模型或模型层级。
 
-您好，看到您的项目经历比较符合我们目前的岗位要求，希望进一步了解您的技术经验，方便沟通一下吗？
+建议场景：
 
-Agent 生成
+| 场景         | 推荐层级     |
+| ---------- | -------- |
+| JD 分析      | Standard |
+| 简历分析       | Standard |
+| 沟通草稿       | Economy  |
+| 深度候选人分析    | Premium  |
+| Agent 任务规划 | Premium  |
+
+上述仅为默认策略建议，最终模型选择取决于模型能力、成本和实际测试结果。
+
+UI 需要展示：
+
+- 场景名称。
+- 使用模型层级。
+- 实际解析模型。
+- 默认路由。
+- 覆盖规则。
+- 配置验证状态。
+
+空值继承默认策略时，需要明确展示继承关系。
+
+## 7.5 隐私与安全
+
+主要配置：
+
+- AI 数据出站策略。
+- 敏感信息处理。
+- 本地数据访问。
+- Agent 工具权限。
+- 操作确认策略。
+
+涉及个人信息的数据出站必须有明确的用户授权和提示。
+
+## 7.6 数据与备份
+
+主要功能：
+
+- 数据存储位置。
+- 数据库状态。
+- 创建备份。
+- 恢复备份。
+- 最近备份时间。
+- 备份校验。
+- 恢复前确认。
+
+备份恢复不能仅凭文件存在就判定成功，必须执行完整性校验。
+
+## 7.7 Agent 运行时
+
+作为未来 Hermes Agent 集成入口。
 
-未经发送
+展示：
 
-修改草稿
+- Agent 类型。
+- Runtime 状态。
+- 连接状态。
+- 当前执行任务。
+- 能力清单。
+- 工具权限。
+- 执行日志。
 
-**确认发送**
+ICA 与 Hermes 应通过正式定义的集成接口通信，不允许 UI 直接操纵 Hermes 内部数据文件。
 
-确认后由 ICA 授权浏览器执行，并返回执行结果；不能由 Hermes 绕过审批直接发送。
+---
 
-审批中心还需要支持审批超时、取消、执行失败、重复提交防护和审计追踪。
+# 8. 前端工程架构
 
-## **八、ICA、Hermes、Browser 的系统架构与 UI 对应关系**
+## 8.1 技术约束
 
-这里需要特别强调架构边界。
+保持现有技术栈：
 
-根据已经确认的 ICA 集成方向：
+- Tauri 2。
+- Rust。
+- React。
+- TypeScript。
+
+不因为 UI 重构而强制更换前端框架。
+
+## 8.2 推荐目录
+
+```
+src/
+├── app/
+│   ├── App.tsx
+│   ├── AppShell.tsx
+│   ├── navigation/
+│   ├── layout/
+│   └── providers/
+│
+├── features/
+│   ├── dashboard/
+│   ├── candidates/
+│   ├── positions/
+│   ├── communications/
+│   ├── followups/
+│   │
+│   ├── ai-workspace/
+│   ├── ai-review/
+│   ├── browser-workspace/
+│   │
+│   └── settings/
+│       ├── general/
+│       ├── ai-connections/
+│       ├── model-registry/
+│       ├── model-routing/
+│       ├── privacy/
+│       ├── backup/
+│       ├── runtime/
+│       └── audit/
+│
+├── shared/
+│   ├── components/
+│   ├── design-system/
+│   ├── hooks/
+│   ├── utils/
+│   └── types/
+│
+├── services/
+│   ├── api/
+│   ├── tauri/
+│   └── adapters/
+│
+└── styles/
+    ├── globals.css
+    └── themes/
+```
+
+## 8.3 组件设计原则
+
+### 原则一：业务组件与基础组件分离
+
+基础组件不包含招聘业务逻辑。
+
+### 原则二：页面组件不直接访问数据库
+
+页面通过 Feature Service 或统一 API Adapter 调用后端。
+
+### 原则三：统一管理 UI 状态
 
-- ICA-RUST 是唯一正式业务后端。
-- Hermes 是独立进程，通过 Tauri Host / Runtime Adapter 集成。
-- Hermes 不直接访问 ICA 数据库。
-- ICA-RUST 负责权限、审批、审计。
-- Browser Subsystem 作为受控执行环境。
+合理区分：
 
-建议形成如下结构：
+- 全局 UI 状态。
+- 页面状态。
+- 业务数据状态。
+- 异步请求状态。
 
-**ICA React UI**
+不应将所有状态都放入全局 Store。
+
+### 原则四：类型安全
 
-招聘工作台 · AI 工作台 · Browser Workspace · 审批中心
+前后端数据契约应明确，避免使用大量 `any`。
 
-Tauri IPC / Backend Client
+### 原则五：错误处理统一
 
-## **Tauri Host / Runtime Adapter**
+统一处理：
 
-**ICA Core Client**
+- Tauri Command 错误。
+- 业务验证错误。
+- 网络错误。
+- Provider 错误。
+- Runtime 错误。
 
-业务 API 与事件
+## 8.4 前后端调用关系
 
-**Hermes Adapter**
+```
+React UI
+   │
+   ▼
+Feature Service
+   │
+   ▼
+Tauri API Adapter
+   │
+   ▼
+Rust Application Layer
+   │
+   ├── Domain Services
+   │
+   ├── AI Services
+   │
+   ├── Repository
+   │
+   └── External Integrations
+          │
+          ├── AI Provider
+          ├── Hermes Agent
+          └── Browser Runtime
+```
 
-Runtime 连接、任务协调
+必须保持现有 Rust 架构边界。
 
-**Browser Adapter**
+UI 重构不应导致：
 
-浏览器会话、操作接口
+- 前端直接访问 SQLite。
+- 前端重复实现领域业务规则。
+- 绕过 Rust 权限检查。
+- 在 UI 中硬编码 Provider 密钥。
+- 将外部 Agent 的运行状态伪装为 ICA 内部状态。
 
-**Event Adapter**
+---
 
-状态事件、执行结果
+# 9. UI 交互规范
 
-## **ICA-RUST**
+## 9.1 页面状态
 
-唯一正式业务后端
+每个页面必须考虑以下状态：
 
-招聘领域服务
+| 状态       | 表现        |
+| -------- | --------- |
+| Loading  | 加载反馈      |
+| Empty    | 空状态和引导操作  |
+| Success  | 正常内容      |
+| Error    | 错误信息和恢复建议 |
+| Disabled | 禁用状态和原因   |
+| Partial  | 部分数据不可用   |
 
-业务数据与 SQLite
+不能只设计正常数据状态。
 
-权限与审批
+## 9.2 操作反馈
 
-审计与业务事件
+统一提供：
 
-## **Hermes Runtime**
+- Toast。
+- Inline Feedback。
+- Dialog。
+- Drawer。
+- Loading Indicator。
+- Progress Indicator。
 
-独立 Agent 执行进程
+反馈信息应说明实际结果。
 
-Agent 调度
+例如：
 
-Skills / Tools
+错误：保存成功。
 
-任务执行
+正确：AI 服务配置已保存，尚未完成连接验证。
 
-AI 分析与建议
+## 9.3 危险操作
 
-## **Browser Subsystem**
+以下操作必须二次确认：
 
-独立浏览器执行环境 · Managed Browser 默认 · External Browser 可选
+- 删除模型配置。
+- 删除 Provider。
+- 恢复数据库。
+- 清除数据。
+- 撤销授权。
+- 执行具有外部影响的 Agent 操作。
 
-Chromium
+## 9.4 键盘操作
 
-Playwright
+建议支持：
 
-DOM Inspection
+| 快捷键      | 操作          |
+| -------- | ----------- |
+| Ctrl + K | 全局命令搜索      |
+| Ctrl + , | 打开系统设置      |
+| Ctrl + N | 新建当前模块支持的对象 |
+| Esc      | 关闭弹窗或侧边面板   |
 
-Visual Fallback
+快捷键必须避免与 Windows 系统及输入法常用操作冲突。
 
-Session Manager
+---
 
-### **三个关键设计约束**
+# 10. AI 与 Agent 交互设计
 
-**1. UI 不直接依赖 Hermes 内部接口**
+## 10.1 AI 助手与业务上下文
 
-React 只调用统一的前端 API。Runtime Adapter 负责 Hermes 进程通信和协议适配，避免未来替换 Agent Runtime 时影响整个 UI。
+AI 助手应能够感知当前业务上下文。
 
-**2. Hermes 不直接访问业务数据库**
+例如：
 
-Agent 获取候选人、岗位和沟通记录时，必须经过 ICA-RUST 授权的业务 API 或受控工具。
+```
+当前页面：候选人详情
+当前对象：Candidate #123
+当前操作：分析候选人
 
-**3. 浏览器操作必须受 ICA 权限控制**
+AI Context
+├── Candidate Information
+├── Position Information
+├── Communication History
+└── User Instructions
+```
 
-Agent 可以提出操作请求，但高影响操作必须先经过 ICA-RUST 的审批流程。浏览器执行器只能执行经过授权的请求。
+上下文传递应遵循最小必要原则。
 
-还应明确一个实现细节：审批凭证必须绑定具体操作、业务对象和参数，不能只依靠一个通用的 `approved=true` 标志。发送前还应验证审批没有过期、没有被撤销，且内容未发生变化。
+不得默认将全部招聘数据库内容发送给 AI Provider。
 
-## **九、设计系统与视觉规范**
+## 10.2 AI 操作权限分级
 
-现有 UI 不需要彻底推翻视觉风格，可以保留浅色、蓝色主色调和卡片式设计，但需要提高信息层次和交互密度。
+建议建立以下操作等级：
 
-建议设计规范：
+| 等级 | 操作       | 处理方式    |
+| -- | -------- | ------- |
+| L0 | 信息读取     | 按授权读取   |
+| L1 | 分析与总结    | 展示结果    |
+| L2 | 生成业务草稿   | 人工审核    |
+| L3 | 修改本地业务数据 | 明确确认    |
+| L4 | 外部系统操作   | 单独授权和确认 |
 
-| 项目   | 建议           |
-| ---- | ------------ |
-| 主色   | 蓝色 `#2563EB` |
-| 背景   | `#F5F7FA`    |
-| 卡片   | `#FFFFFF`    |
-| 正文   | `#1F2937`    |
-| 辅助文字 | `#64748B`    |
-| 成功   | `#16A34A`    |
-| 警告   | `#D97706`    |
-| 危险   | `#DC2626`    |
-| 圆角   | 8–12px       |
-| 左侧导航 | 220–240px    |
-| 顶部栏  | 56–64px      |
-| 页面间距 | 16–24px      |
+此分级为 UI 与权限设计建议，实际执行必须由 Rust 后端进行授权校验。
 
-### **组件统一**
+## 10.3 Hermes Agent 集成
 
-建议建设 ICA Design System：
+未来采用 Embedded + Hybrid 的集成方向。
 
-- AppShell
-- Sidebar
-- TopBar
-- PageHeader
-- DataTable
-- CandidateCard
-- CandidateProfile
-- ActivityTimeline
-- TaskCard
-- AgentPanel
-- AgentRunStatus
-- BrowserToolbar
-- BrowserView
-- ApprovalCard
-- PermissionDialog
-- AuditTimeline
+UI 负责：
 
-尤其建议将 AgentPanel、ApprovalCard、ActivityTimeline 做成全局可复用组件，而不是在每个页面重新实现。
+- 展示 Agent 状态。
+- 发起经过授权的任务。
+- 显示任务执行过程。
+- 展示工具调用结果。
+- 提供中止和确认入口。
 
-### **状态展示统一**
+Rust 负责：
 
-业务状态、Agent 状态、浏览器状态必须采用不同的状态体系。
+- Agent 集成接口。
+- 任务生命周期管理。
+- 权限检查。
+- 数据传递。
+- 执行结果处理。
 
-| 对象       | 状态示例                |
-| -------- | ------------------- |
-| 候选人      | 新建、已联系、面试中、已淘汰      |
-| Agent    | 排队、运行、等待审批、完成、失败    |
-| Browser  | 已连接、空闲、执行中、暂停、异常    |
-| Approval | 待审批、已批准、已拒绝、已撤销、已过期 |
+Hermes 负责：
 
-避免全部使用 New、Running、Completed 这样的通用英文标签，造成用户无法分辨状态属于哪个系统。
+- Agent 任务执行。
+- Skill 调用。
+- 工具编排。
+- 任务推理。
 
-## **十、分阶段实施计划**
+不应将 Hermes 的内部运行机制直接耦合到 React 组件中。
 
-不建议一次性同时重做所有页面、Agent Runtime 和 Browser Subsystem。应该先统一业务模型与 UI 契约，再逐步接入执行能力。
+---
 
-## **ICA UI R2.0 实施路线图**
+# 11. UI 测试与验收规范
 
-1. **阶段 0：现有架构与 UI 基线审计**
+## 11.1 功能验收
 
-   前置阶段
-   - 审计最新 main 分支。
-   - 核验 ICA-RUST API 与数据库模型。
-   - 核验现有 React 页面及组件。
-   - 梳理 Browser V2.0 边界记录。
-   - 核对现有 12 张 Browser 表的复用情况。
-   - 解决 W7 与 B4 的架构冲突。
-   - 明确 39 条 Browser 路由的归属。
+- 所有现有功能入口正常。
+- 导航切换正常。
+- 页面状态正确。
+- 表单校验正确。
+- 配置保存正常。
+- 配置重新读取正常。
+- AI 服务连接测试正常。
+- 模型启用和禁用正常。
+- 模型默认设置正常。
+- 场景路由解析正确。
+- 数据备份和恢复正常。
 
-   交付：UI 差异审计、模块边界、API 契约、迁移清单。
-2. **阶段 1：统一 UI Shell 与 Design System**
-   - 重构 Sidebar、TopBar、PageLayout。
-   - 统一色彩、字体、间距和组件。
-   - 实现全局状态栏。
-   - 建立右侧上下文面板。
-   - 实现响应式布局。
+## 11.2 视觉验收
 
-   交付：ICA 新版 UI 框架。
-3. **阶段 2：招聘业务工作区**
-   - 工作台重构。
-   - 候选人列表及详情重构。
-   - 岗位管理重构。
-   - 沟通记录工作区。
-   - 跟进任务统一管理。
+- 所有页面使用统一设计 Token。
+- Light Theme 正常。
+- Dark Theme 正常（如纳入本次交付）。
+- 字体和间距统一。
+- 卡片和表格风格统一。
+- 状态颜色统一。
+- 图标体系统一。
+- 窗口缩放正常。
+- 不存在严重布局溢出。
 
-   交付：完整的招聘业务工作台。
-4. **阶段 3：Hermes Agent 工作台**
-   - Runtime Adapter。
-   - Agent 会话管理。
-   - 任务生命周期管理。
-   - 执行事件展示。
-   - AI 结果与业务对象关联。
-   - Agent 运行诊断。
+## 11.3 安全验收
 
-   交付：可观测、可控制的 Agent 工作台。
-5. **阶段 4：Browser Workspace**
-   - Managed Browser。
-   - External Browser 连接。
-   - 浏览器会话管理。
-   - 页面预览和操作。
-   - Candidate Queue。
-   - Agent Browser 协同。
+- API Key 不明文展示。
+- API Key 不进入普通日志。
+- 前端权限控制不能替代后端鉴权。
+- Agent 操作经过权限校验。
+- 外部操作具有确认机制。
+- 敏感数据出站具有明确策略。
+- 审计记录完整。
 
-   交付：统一浏览器工作区。
-6. **阶段 5：审批与安全体系**
-   - 统一审批中心。
-   - 消息逐条审批。
-   - 浏览器操作审批。
-   - 权限策略。
-   - 执行审计。
-   - 失败恢复与操作追踪。
+## 11.4 工程验收
 
-   交付：完整的人机协同闭环。
-7. **阶段 6：集成验收**
-   - 招聘业务回归测试。
-   - Hermes Runtime 集成测试。
-   - Browser 自动化测试。
-   - 权限绕过测试。
-   - 审批与审计一致性测试。
-   - Windows / macOS 桌面验收。
+- TypeScript 类型检查通过。
+- ESLint 检查通过。
+- 前端单元测试通过。
+- Rust 相关测试通过。
+- Tauri 构建通过。
+- Windows 桌面安装包验证通过。
+- 现有业务回归测试通过。
 
-   交付：ICA R2.0 可交付版本。
+---
 
-### **建议的模块优先级**
+# 12. 分阶段重构实施计划
 
-| 模块                | 优先级 | 原因           |
-| ----------------- | --- | ------------ |
-| UI Shell          | P0  | 全部页面基础       |
-| 招聘工作区             | P0  | ICA 核心业务     |
-| Agent 工作台         | P1  | 核心差异化能力      |
-| 审批中心              | P1  | Agent 安全执行前提 |
-| Browser Workspace | P1  | 浏览器协同能力      |
-| Agent 高级编排        | P2  | 后续扩展         |
-| 高级自动化流程           | P2  | 业务闭环成熟后再建设   |
+## Phase 0：现状审计与设计基线
 
-这里有一个实施顺序上的细节：Browser 的架构审计属于阶段 0，但完整 Browser Workspace 的 UI 和执行能力属于后续阶段。不能因为界面暂时不开发，就推迟解决数据库和路由边界问题。
+目标：确认当前前端结构和现有功能契约。
 
-## **十一、最终建议：ICA 应形成三个工作空间**
+工作内容：
 
-我认为新版 ICA 最有价值的设计不是增加多少菜单，而是将产品重新组织成三个相互协作的工作空间。
+1. 审计现有 React 页面。
+2. 审计路由和导航。
+3. 审计现有组件。
+4. 审计 Tauri Command。
+5. 审计 Rust API 契约。
+6. 识别可复用组件。
+7. 建立 UI 页面与后端功能映射。
 
-## **01 · Recruitment Workspace**
+交付物：
 
-业务核心
+- UI 现状审计报告。
+- 页面清单。
+- 组件清单。
+- API 契约映射。
+- UI 重构任务清单。
 
-[Kula - The Modern All-In-One ATS](https://images.openai.com/static-rsc-4/grcs9K3S1IeTkqQB8cpk1XurpqW1CXBln8XOlqdVcn98tw-q3R9AoUVl8jDjiSvxJbM0E_NuXwMNYE5l5Kk9QtFsNrDJpl0LOCy1f66zxkYS5FH0pPRH7GIlleoq2GCOScRZ7l_z2mT3KfPrh_BAgbvQYRjelRXEM2R9_8bFmy8?purpose=inline)
+## Phase 1：Design System 与 App Shell
 
-[kula.ai](https://www.kula.ai/applicant-tracking-system?utm_source=chatgpt.com)
+目标：建立统一设计体系。
 
-**解决招聘者的日常业务问题**
+工作内容：
 
-- 候选人管理
-- 岗位管理
-- 沟通记录
-- 跟进任务
-- 招聘进度
+1. 建立 Color Tokens。
+2. 建立 Typography。
+3. 建立 Spacing。
+4. 建立基础组件。
+5. 重构 App Shell。
+6. 重构主导航。
+7. 实现统一主题。
 
-## **02 · Agent Workspace**
+验收：
 
-智能核心
+- 统一布局正常。
+- 导航状态正确。
+- 组件样式统一。
+- 现有业务入口不丢失。
 
-[Gemini 3.5 Flash API for Multimodal Reasoning and Agentic AI | Kie.ai](https://images.openai.com/static-rsc-4/-HxbQ7FRgO1R21A0cKhtJe2UJVutQP6uDeOw-CyODFYgjlTBi_p7xpMIAmkCxXB7ZA-mwrChd8HKZ5PPgSMGJQZtL1yqrZRoHNXhCqQmsDPViH6g4dnjzs21Kvwabc4nCqwgGsZQe_p8sECrBY_i1HUZuzS3PH4eKVYY3CPtPiI?purpose=inline)
+## Phase 2：系统设置重构
 
-[kie.ai](https://kie.ai/gemini-3-5-flash?utm_source=chatgpt.com)
+目标：完成设置中心升级。
 
-**解决 AI 分析与任务执行问题**
+实施顺序：
 
-- Hermes Runtime
-- Agent 会话
-- AI 分析
-- Skill / Tool 调用
-- 执行监控
+1. 通用设置。
+2. AI 服务连接。
+3. 模型管理。
+4. 场景路由。
+5. 隐私与安全。
+6. 数据与备份。
+7. 审计日志。
 
-## **03 · Browser Workspace**
+验收：
 
-执行核心
+- 原有配置能力完整保留。
+- 配置读写正常。
+- 敏感信息安全。
+- 配置状态准确。
+- 配置来源可追踪。
 
-[Microsoft Edge browser gains Copilot Mode: All-seeing AI that researches, assists, and soon shops for you - Notebookcheck News](https://images.openai.com/static-rsc-4/XD_8d3qzrPASkopKEbQUcAsnLOSFJPPGoHOdwNTFFexFCV2_w8nikF80Oj20-ll8zEtFcoLAaMs0Y4lmifdNA-R4Gwgr6MPOXknwcg78d6wTYUy0OjwoxD26fVQG5vyRlZGUQ20ub_gGpn7rX6UathM3eITJ2pT73sN-ixqIDus?purpose=inline)
+## Phase 3：招聘业务页面重构
 
-[notebookcheck.net](https://www.notebookcheck.net/Microsoft-Edge-browser-gains-Copilot-Mode-All-seeing-AI-that-researches-assists-and-soon-shops-for-you.1071576.0.html?utm_source=chatgpt.com)
+目标：统一核心业务页面体验。
 
-**解决外部招聘平台交互问题**
+实施顺序：
 
-- 内置浏览器
-- 外部浏览器
-- 页面解析
-- 受控自动化
-- 用户确认与执行
+1. 工作台。
+2. 候选人。
+3. 岗位管理。
+4. 沟通记录。
+5. 跟进任务。
 
-三个工作空间通过统一的审批中心、权限体系和业务数据模型协作，而不是各自维护一套候选人、任务和操作记录。
+验收：
 
-## **十二、我建议最终确定的 UI 产品方向**
+- 原有业务功能完整。
+- 数据展示准确。
+- 交互统一。
+- 业务状态正确。
 
-# **ICA Personal R2.0**
+## Phase 4：AI 工作空间
 
-## AI-Native Recruitment Workspace
+目标：将 AI 能力融入招聘业务。
 
-面向个人招聘者的本地优先、AI 驱动、人机协同招聘工作台。
+实施内容：
 
-**业务层**
+1. AI 助手。
+2. 业务上下文。
+3. AI 生成结果。
+4. AI 草稿审核。
+5. 任务执行状态。
+6. 工具调用结果展示。
 
-# **ICA Core**
+验收：
 
-候选人、岗位、沟通、跟进
+- AI 操作有明确上下文。
+- 生成内容可审核。
+- 人工操作边界清晰。
+- AI 服务不可用时业务页面仍可使用。
 
-**智能层**
+## Phase 5：Agent 与浏览器工作区
 
-# **Hermes**
+目标：为外部 Agent 和浏览器能力提供统一交互入口。
 
-Agent、Skills、任务执行
+实施内容：
 
-**执行层**
+1. Agent Runtime 页面。
+2. Hermes 集成状态。
+3. Agent 任务展示。
+4. 工具权限展示。
+5. 浏览器会话管理。
+6. 浏览器操作审计。
 
-# **Browser**
+该阶段以实际后端能力为前提，不得仅实现无实际功能的展示页面。
 
-页面观察、浏览器操作
+## Phase 6：整体质量优化
 
-**治理层**
+工作内容：
 
-# **Approval**
+- 性能优化。
+- 键盘操作。
+- 无障碍优化。
+- 窗口适配。
+- 异常处理。
+- 自动化测试。
+- Windows 安装包验收。
 
-权限、人工审批、审计
+---
 
-**核心产品原则**
+# 13. 重构风险与控制措施
 
-- Local-first：数据本地优先。
-- AI-native：AI 深度融入业务工作流。
-- Human-in-the-loop：关键操作人工确认。
-- Modular Runtime：Agent 和 Browser 独立演进。
-- Security-first：权限、审批和审计由 ICA 控制。
+| 风险           | 影响 | 控制措施           |
+| ------------ | -- | -------------- |
+| UI 重构破坏现有功能  | 高  | 先建立功能回归清单      |
+| 前后端契约变化      | 高  | 保持 Rust API 契约 |
+| 配置迁移异常       | 高  | 不擅自改变数据库结构     |
+| 密钥泄漏         | 高  | 敏感数据独立处理       |
+| 全局状态复杂化      | 中  | 按 Feature 管理状态 |
+| Agent 能力过早引入 | 中  | 分阶段实施          |
+| 设计系统过度复杂     | 中  | 优先实现必要基础组件     |
+| 页面组件重复       | 中  | 建立共享组件库        |
 
-### **最终判断**
+## 13.1 重构实施约束
 
-我建议保留现有 React 技术栈和 Tauri 桌面外壳，不需要为了 UI 重构而再次迁移前端技术栈。
+1. 不自动提交 Git。
+2. 不自动推送远端。
+3. 不自动合并分支。
+4. 不自动发布版本。
+5. 不擅自删除现有功能。
+6. 不擅自修改数据库 Schema。
+7. 不擅自改变 Rust 业务接口。
+8. 所有结构性调整先形成实施方案。
+9. 每个阶段独立验证。
+10. 保留可回滚的代码变更。
 
-这次真正需要改变的是：
+---
 
-1. 从七个分散功能入口转为三个核心工作空间。
-2. 从传统 CRUD 页面转为招聘业务工作流。
-3. 从简单 AI 对话框转为 Hermes Agent 工作台。
-4. 从浏览器自动化入口转为完整 Browser Workspace。
-5. 从分散的人工确认转为统一审批中心。
-6. 从页面级状态管理转为跨 ICA、Hermes、Browser 的统一运行状态展示。
+# 14. 最终交付物
 
-**一个重要取舍：** 不要让 ICA 变成 Hermes 的 GUI，也不要让 Browser 变成整个产品的中心。ICA 的核心价值仍然是招聘业务数据、上下文、工作流和决策管理；Hermes 与 Browser 是增强这一核心价值的两个执行能力层。
+| 编号  | 交付物              | 阶段 |
+| --- | ---------------- | -- |
+| D01 | UI 现状审计报告        | P0 |
+| D02 | UI 页面与功能映射表      | P0 |
+| D03 | Design System 规范 | P1 |
+| D04 | App Shell 实现     | P1 |
+| D05 | 系统设置 UI 重构       | P2 |
+| D06 | 招聘业务页面重构         | P3 |
+| D07 | AI 工作空间          | P4 |
+| D08 | Agent 与浏览器工作区    | P5 |
+| D09 | UI 自动化测试         | P6 |
+| D10 | UI 2.0 验收报告      | P6 |
 
-### **下一步建议**
+---
 
-建议先形成正式的 **《ICA R2.0 UI/UX Architecture & Design Specification》**，然后基于最新 main 进行 UI 与架构差异审计，再输出可直接交给 Hermes 多 Agent 团队执行的任务包。
+# 15. 最终设计决策
 
-这份规范应包含：
+## 15.1 已确定的设计基线
 
-- 完整页面信息架构和导航树。
-- 关键页面高保真设计。
-- React 组件及 Design System 规范。
-- ICA-RUST API / Tauri IPC 接口映射。
-- Hermes Runtime 交互契约。
-- Browser Workspace 交互契约。
-- 权限、审批与审计交互规范。
-- 分阶段实施及验收标准。
+| 决策项      | 设计决策                                |
+| -------- | ----------------------------------- |
+| 产品形态     | Desktop-first                       |
+| 技术栈      | Tauri 2 + Rust + React + TypeScript |
+| 默认主题     | Light Theme                         |
+| 整体风格     | AI-native Workspace                 |
+| 信息架构     | 业务工作空间 + AI 工作空间 + 系统管理             |
+| 页面布局     | Sidebar + Main Content              |
+| AI 交互    | 可选右侧 Copilot Panel                  |
+| 前端架构     | Feature-based                       |
+| 后端边界     | 保持 Rust 业务层                         |
+| 数据模式     | Local-first                         |
+| 离线要求     | Offline-first                       |
+| AI 操作    | Human-in-the-loop                   |
+| Agent 集成 | 独立运行时集成                             |
 
-实施时继续遵循不自动 commit、push、merge 和 release 的工程约束。
+## 15.2 待验证事项
+
+以下内容在正式进入实施前必须通过现有仓库审计确认：
+
+- 当前 React 路由实现。
+- 当前组件库及样式体系。
+- 当前系统设置的数据契约。
+- AI Provider 配置的实际持久化方式。
+- 模型注册和场景路由的真实实现。
+- Rust Command 的模块边界。
+- 当前数据库结构。
+- 当前测试覆盖率。
+- 当前 Hermes 集成进度。
+- 当前浏览器子系统实现进度。
+
+不得将设计建议误认为现有代码已经具备的能力。
+
+## 15.3 最终目标
+
+ICA Personal UI 2.0 的最终目标是：
+
+**构建一个以招聘业务为核心、以 AI 为协作能力、以人工审核为控制机制、以本地数据为基础的桌面智能工作空间。**
+
+UI 2.0 不只是让 ICA 看起来更加现代化，而是建立一套能够承载业务增长、AI 能力扩展和 Agent 集成的长期交互架构。
+
+---
+
+**文档结束**
+
+
+
+## **后续工程实施建议**
+
+建议在 ICA-RUST 仓库中按照以下目录管理本规范：
+
+```
+docs/
+└── design/
+    └── ui-ux/
+        ├── README.md
+        ├── ICA-Personal-UI-UX-2.0-R1.0.md
+        ├── design-system/
+        ├── information-architecture/
+        ├── page-designs/
+        └── implementation/
+```
+
+建议后续按以下顺序推进：
+
+1. **R1.0：总体设计规范**（本文档）。
+2. **R1.0：UI 现状审计与差距分析**，基于 ICA-RUST 当前实际代码。
+3. **R1.0：核心页面高保真设计**，先完成工作台、候选人、AI 助手、AI 草稿审核、系统设置。
+4. **R1.0：Design System 技术实施规范**。
+5. **R1.0：UI 2.0 分阶段实施任务清单**。
+
+特别建议：先不要直接开始大规模 React 重构。应先完成现有页面、组件和 Rust API 契约审计，确保 UI 2.0 是建立在真实实现基础上的演进，而不是重新设计一套与当前后端脱节的产品。

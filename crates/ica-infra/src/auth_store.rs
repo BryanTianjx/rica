@@ -46,22 +46,24 @@ const USER_COLUMNS: &str = "id, tenant_id, email, password_hash, display_name, r
 #[async_trait::async_trait]
 impl AuthRepository for SqliteStore {
     async fn get_user(&self, id: &str) -> Result<Option<UserData>, RepositoryError> {
-        let row: Option<UserRow> =
-            sqlx::query_as(&format!("SELECT {USER_COLUMNS} FROM users WHERE id = ?"))
-                .bind(id)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(repo_error)?;
+        let row: Option<UserRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "SELECT {USER_COLUMNS} FROM users WHERE id = ?"
+        )))
+        .bind(id)
+        .fetch_optional(self.pool())
+        .await
+        .map_err(repo_error)?;
         Ok(row.map(UserRow::into_data))
     }
 
     async fn find_user_by_email(&self, email: &str) -> Result<Option<UserData>, RepositoryError> {
-        let row: Option<UserRow> =
-            sqlx::query_as(&format!("SELECT {USER_COLUMNS} FROM users WHERE email = ?"))
-                .bind(email)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(repo_error)?;
+        let row: Option<UserRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "SELECT {USER_COLUMNS} FROM users WHERE email = ?"
+        )))
+        .bind(email)
+        .fetch_optional(self.pool())
+        .await
+        .map_err(repo_error)?;
         Ok(row.map(UserRow::into_data))
     }
 

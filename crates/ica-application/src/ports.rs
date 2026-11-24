@@ -311,6 +311,17 @@ pub trait CandidateRepository: Send + Sync {
     /// One candidate with its derived counters, or ``None``.
     async fn find(&self, id: &str) -> Result<Option<Candidate>, RepositoryError>;
 
+    /// SEC-04 remediation: same lookup, but a real identity may only see rows
+    /// in its own tenant (and, for members, rows it owns). The default keeps
+    /// legacy Local-mode test doubles working; the SQLite adapter overrides it.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<Candidate>, RepositoryError> {
+        self.find(id).await
+    }
+
     /// The full position row a candidate is linked to, with `candidate_count`.
     ///
     /// Used by the detail response: mapping the position independently is what
@@ -319,13 +330,41 @@ pub trait CandidateRepository: Send + Sync {
 
     async fn create(&self, new: NewCandidate) -> Result<Candidate, RepositoryError>;
 
+    /// SEC-04 remediation: insert with the authenticated actor's ownership.
+    async fn create_scoped(
+        &self,
+        new: NewCandidate,
+        _scope: &crate::Scope,
+    ) -> Result<Candidate, RepositoryError> {
+        self.create(new).await
+    }
+
     async fn update(
         &self,
         id: &str,
         patch: CandidatePatch,
     ) -> Result<Option<Candidate>, RepositoryError>;
 
+    /// SEC-04 remediation: patch only a row inside the caller's scope.
+    async fn update_scoped(
+        &self,
+        id: &str,
+        patch: CandidatePatch,
+        _scope: &crate::Scope,
+    ) -> Result<Option<Candidate>, RepositoryError> {
+        self.update(id, patch).await
+    }
+
     async fn delete(&self, id: &str) -> Result<bool, RepositoryError>;
+
+    /// SEC-04 remediation: delete only a row inside the caller's scope.
+    async fn delete_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<bool, RepositoryError> {
+        self.delete(id).await
+    }
 }
 
 /// Read and write access to conversations.
@@ -340,6 +379,15 @@ pub trait ConversationRepository: Send + Sync {
 
     async fn find(&self, id: &str) -> Result<Option<Conversation>, RepositoryError>;
 
+    /// SEC-04: same lookup, invisible outside the caller's tenant/ownership.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<Conversation>, RepositoryError> {
+        self.find(id).await
+    }
+
     /// The candidate's most recent active conversation
     /// (`last_message_at DESC NULLS LAST`, first row), if any.
     async fn find_active_for_candidate(
@@ -347,7 +395,25 @@ pub trait ConversationRepository: Send + Sync {
         candidate_id: &str,
     ) -> Result<Option<Conversation>, RepositoryError>;
 
+    /// SEC-04: the same lookup with the caller's scope enforced in SQL.
+    async fn find_active_for_candidate_scoped(
+        &self,
+        candidate_id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<Conversation>, RepositoryError> {
+        self.find_active_for_candidate(candidate_id).await
+    }
+
     async fn create(&self, new: NewConversation) -> Result<Conversation, RepositoryError>;
+
+    /// SEC-04: insert with the authenticated actor's ownership.
+    async fn create_scoped(
+        &self,
+        new: NewConversation,
+        _scope: &crate::Scope,
+    ) -> Result<Conversation, RepositoryError> {
+        self.create(new).await
+    }
 
     /// Create a conversation row **without** an audit event.
     ///
@@ -360,6 +426,16 @@ pub trait ConversationRepository: Send + Sync {
         candidate_id: &str,
         channel: &str,
     ) -> Result<Conversation, RepositoryError>;
+
+    /// SEC-04: implicit creation with the authenticated actor's ownership.
+    async fn create_implicit_scoped(
+        &self,
+        candidate_id: &str,
+        channel: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Conversation, RepositoryError> {
+        self.create_implicit(candidate_id, channel).await
+    }
 }
 
 /// Read and write access to messages.
@@ -381,6 +457,16 @@ pub trait MessageRepository: Send + Sync {
         conversation_id: &str,
     ) -> Result<Message, RepositoryError>;
 
+    /// SEC-04: insert with the authenticated actor's ownership.
+    async fn create_scoped(
+        &self,
+        new: NewMessage,
+        conversation_id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Message, RepositoryError> {
+        self.create(new, conversation_id).await
+    }
+
     /// The candidate's messages oldest-first (`message_time ASC NULLS LAST`,
     /// then `created_at ASC`), capped at `limit` — the AI context builder's
     /// read (W3).
@@ -389,6 +475,16 @@ pub trait MessageRepository: Send + Sync {
         candidate_id: &str,
         limit: i64,
     ) -> Result<Vec<Message>, RepositoryError>;
+
+    /// SEC-04: same context read, but only for a candidate inside the scope.
+    async fn context_messages_scoped(
+        &self,
+        candidate_id: &str,
+        limit: i64,
+        _scope: &crate::Scope,
+    ) -> Result<Vec<Message>, RepositoryError> {
+        self.context_messages(candidate_id, limit).await
+    }
 }
 
 /// Read and write access to manual send records.
@@ -404,17 +500,44 @@ pub trait SendRecordRepository: Send + Sync {
     /// Append one record and its `send.recorded` audit event atomically.
     async fn create(&self, new: NewSendRecord) -> Result<SendRecord, RepositoryError>;
 
+    /// SEC-04: insert with the authenticated actor's ownership.
+    async fn create_scoped(
+        &self,
+        new: NewSendRecord,
+        _scope: &crate::Scope,
+    ) -> Result<SendRecord, RepositoryError> {
+        self.create(new).await
+    }
+
     /// Candidate a follow-up task belongs to, or `None` when it does not exist.
     ///
     /// A narrow read of the W2 table: `POST /api/send-records` has to reject a
     /// task that belongs to another candidate, and that check needs one column.
     async fn follow_up_candidate(&self, task_id: &str) -> Result<Option<String>, RepositoryError>;
 
+    /// SEC-04: the same narrow read with the tenant/owner predicate in SQL.
+    async fn follow_up_candidate_scoped(
+        &self,
+        task_id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<String>, RepositoryError> {
+        self.follow_up_candidate(task_id).await
+    }
+
     /// `(candidate_id, status)` of a draft, or `None` when it does not exist.
     async fn draft_candidate_status(
         &self,
         draft_id: &str,
     ) -> Result<Option<(String, String)>, RepositoryError>;
+
+    /// SEC-04: the same narrow read with the tenant/owner predicate in SQL.
+    async fn draft_candidate_status_scoped(
+        &self,
+        draft_id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<(String, String)>, RepositoryError> {
+        self.draft_candidate_status(draft_id).await
+    }
 }
 
 /// One row of `follow_up_policies` as the application sees it.
@@ -441,8 +564,30 @@ pub trait FollowUpRepository: Send + Sync {
         limit: usize,
     ) -> Result<(Vec<FollowUpTask>, usize), RepositoryError>;
 
+    /// SEC-04: list with the caller's tenant/owner predicate in SQL. Kept as
+    /// a separate method (rather than a filter field) so existing Local-mode
+    /// callers' filter literals stay source-compatible.
+    async fn list_scoped(
+        &self,
+        filter: FollowUpTaskFilter,
+        offset: usize,
+        limit: usize,
+        _scope: &crate::Scope,
+    ) -> Result<(Vec<FollowUpTask>, usize), RepositoryError> {
+        self.list(filter, offset, limit).await
+    }
+
     /// One task by id, or `None`.
     async fn find(&self, id: &str) -> Result<Option<FollowUpTask>, RepositoryError>;
+
+    /// SEC-04: same lookup, invisible outside the caller's tenant/ownership.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.find(id).await
+    }
 
     /// The candidate's open task — not terminal, not blocked — newest first.
     /// Task creation returns this row instead of a duplicate.
@@ -451,8 +596,26 @@ pub trait FollowUpRepository: Send + Sync {
         candidate_id: &str,
     ) -> Result<Option<FollowUpTask>, RepositoryError>;
 
+    /// SEC-04: the same lookup with the caller's scope enforced in SQL.
+    async fn find_open_for_candidate_scoped(
+        &self,
+        candidate_id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.find_open_for_candidate(candidate_id).await
+    }
+
     /// Insert one task and its `follow_up.task_created` audit atomically.
     async fn create(&self, new: NewFollowUpTaskRow) -> Result<FollowUpTask, RepositoryError>;
+
+    /// SEC-04: insert with the authenticated actor's ownership.
+    async fn create_scoped(
+        &self,
+        new: NewFollowUpTaskRow,
+        _scope: &crate::Scope,
+    ) -> Result<FollowUpTask, RepositoryError> {
+        self.create(new).await
+    }
 
     /// Write the `follow_up.task_reused` audit for an existing open task and
     /// return the row.
@@ -470,6 +633,16 @@ pub trait FollowUpRepository: Send + Sync {
         patch: FollowUpTaskPatch,
     ) -> Result<Option<FollowUpTask>, RepositoryError>;
 
+    /// SEC-04: patch only a row inside the caller's scope.
+    async fn update_scoped(
+        &self,
+        id: &str,
+        patch: FollowUpTaskPatch,
+        _scope: &crate::Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.update(id, patch).await
+    }
+
     /// Cancel with the machine check already applied; write
     /// `follow_up.task_cancelled`. `Some(reason)` replaces the task reason.
     async fn cancel(
@@ -478,12 +651,32 @@ pub trait FollowUpRepository: Send + Sync {
         reason: Option<String>,
     ) -> Result<Option<FollowUpTask>, RepositoryError>;
 
+    /// SEC-04: cancel only a row inside the caller's scope.
+    async fn cancel_scoped(
+        &self,
+        id: &str,
+        reason: Option<String>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.cancel(id, reason).await
+    }
+
     /// Complete; write `follow_up.task_completed`.
     async fn complete(
         &self,
         id: &str,
         completed_at: DateTime<Utc>,
     ) -> Result<Option<FollowUpTask>, RepositoryError>;
+
+    /// SEC-04: complete only a row inside the caller's scope.
+    async fn complete_scoped(
+        &self,
+        id: &str,
+        completed_at: DateTime<Utc>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.complete(id, completed_at).await
+    }
 
     /// Record a result, write `follow_up.result_recorded`, and — when the
     /// caller built one — append the send record with its `send.recorded`
@@ -494,6 +687,30 @@ pub trait FollowUpRepository: Send + Sync {
         patch: FollowUpResultPatch,
         send_record: Option<NewSendRecord>,
     ) -> Result<Option<FollowUpTask>, RepositoryError>;
+
+    /// SEC-04: record a result only for a task inside the caller's scope.
+    async fn record_result_scoped(
+        &self,
+        id: &str,
+        patch: FollowUpResultPatch,
+        send_record: Option<NewSendRecord>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.record_result(id, patch, send_record).await
+    }
+
+    /// Shared implementation of the two result writes. The scope only decides
+    /// the ownership stamp on a send-record row appended in the same
+    /// transaction; the default keeps legacy Local-mode doubles working.
+    async fn record_result_with_owner(
+        &self,
+        id: &str,
+        patch: FollowUpResultPatch,
+        send_record: Option<NewSendRecord>,
+        _scope: Option<&crate::Scope>,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.record_result(id, patch, send_record).await
+    }
 
     /// Expire every task past `expires_at` whose state legally reaches
     /// `Expired`, stamp `updated_at`, and write the single
@@ -510,6 +727,17 @@ pub trait FollowUpRepository: Send + Sync {
         target: FollowUpTaskStatus,
         reason: Option<String>,
     ) -> Result<Option<FollowUpTask>, RepositoryError>;
+
+    /// SEC-04: advance only a task inside the caller's scope.
+    async fn advance_scoped(
+        &self,
+        id: &str,
+        target: FollowUpTaskStatus,
+        reason: Option<String>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<FollowUpTask>, RepositoryError> {
+        self.advance(id, target, reason).await
+    }
 
     /// The candidate's latest message
     /// (`message_time DESC NULLS LAST`, then `created_at DESC`).
@@ -643,11 +871,43 @@ pub trait DraftRepository: Send + Sync {
         limit: usize,
     ) -> Result<(Vec<GeneratedDraft>, usize), RepositoryError>;
 
+    /// SEC-04: list with the caller's tenant/owner predicate in SQL. Kept as
+    /// a separate method (rather than a filter field) so existing Local-mode
+    /// callers' filter literals stay source-compatible.
+    async fn list_scoped(
+        &self,
+        filter: DraftFilter,
+        offset: usize,
+        limit: usize,
+        _scope: &crate::Scope,
+    ) -> Result<(Vec<GeneratedDraft>, usize), RepositoryError> {
+        self.list(filter, offset, limit).await
+    }
+
     /// One draft by id, or `None`.
     async fn find(&self, id: &str) -> Result<Option<GeneratedDraft>, RepositoryError>;
 
+    /// SEC-04: same lookup, invisible outside the caller's tenant/ownership.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        self.find(id).await
+    }
+
     /// Every draft of one comparison group (unordered; the use case sorts).
     async fn find_group(&self, group_id: &str) -> Result<Vec<GeneratedDraft>, RepositoryError>;
+
+    /// SEC-04: the same group read with the caller's scope in SQL, so a foreign
+    /// group id cannot be probed through a known draft id.
+    async fn find_group_scoped(
+        &self,
+        group_id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Vec<GeneratedDraft>, RepositoryError> {
+        self.find_group(group_id).await
+    }
 
     /// The egress-consent switch (`app_settings.key = 'ai.egress_consent'`);
     /// defaults to allowed when nothing is recorded (PRIV-07).
@@ -662,6 +922,17 @@ pub trait DraftRepository: Send + Sync {
         objective: Option<String>,
     ) -> Result<Option<GeneratedDraft>, RepositoryError>;
 
+    /// SEC-04: edit only a draft inside the caller's scope.
+    async fn update_scoped(
+        &self,
+        id: &str,
+        message_text: Option<String>,
+        objective: Option<String>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        self.update(id, message_text, objective).await
+    }
+
     /// Mark approved (`approved_at` stamped) and write `draft.approved` with
     /// the request note as metadata (kept even when null, like the baseline).
     async fn approve(
@@ -671,6 +942,17 @@ pub trait DraftRepository: Send + Sync {
         note: Option<String>,
     ) -> Result<Option<GeneratedDraft>, RepositoryError>;
 
+    /// SEC-04: approve only a draft inside the caller's scope.
+    async fn approve_scoped(
+        &self,
+        id: &str,
+        approved_at: DateTime<Utc>,
+        note: Option<String>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        self.approve(id, approved_at, note).await
+    }
+
     /// Mark rejected (`rejected_at` stamped) and write `draft.rejected`.
     async fn reject(
         &self,
@@ -678,12 +960,32 @@ pub trait DraftRepository: Send + Sync {
         rejected_at: DateTime<Utc>,
     ) -> Result<Option<GeneratedDraft>, RepositoryError>;
 
+    /// SEC-04: reject only a draft inside the caller's scope.
+    async fn reject_scoped(
+        &self,
+        id: &str,
+        rejected_at: DateTime<Utc>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        self.reject(id, rejected_at).await
+    }
+
     /// Mark copied (`copied_at` stamped) and write `draft.copied`.
     async fn copy(
         &self,
         id: &str,
         copied_at: DateTime<Utc>,
     ) -> Result<Option<GeneratedDraft>, RepositoryError>;
+
+    /// SEC-04: copy only a draft inside the caller's scope.
+    async fn copy_scoped(
+        &self,
+        id: &str,
+        copied_at: DateTime<Utc>,
+        _scope: &crate::Scope,
+    ) -> Result<Option<GeneratedDraft>, RepositoryError> {
+        self.copy(id, copied_at).await
+    }
 
     /// Mark every **other** group member rejected with `rejected_at` and one
     /// `draft.rejected` audit each (metadata `superseded_by`/`reason`).
@@ -694,6 +996,18 @@ pub trait DraftRepository: Send + Sync {
         selected_id: &str,
         rejected_at: DateTime<Utc>,
     ) -> Result<Vec<GeneratedDraft>, RepositoryError>;
+
+    /// SEC-04: supersede only drafts inside the caller's scope.
+    async fn supersede_others_scoped(
+        &self,
+        group_id: &str,
+        selected_id: &str,
+        rejected_at: DateTime<Utc>,
+        _scope: &crate::Scope,
+    ) -> Result<Vec<GeneratedDraft>, RepositoryError> {
+        self.supersede_others(group_id, selected_id, rejected_at)
+            .await
+    }
 }
 
 // ── Import sessions, OCR and data snapshots (W4) ───────────────────────────
@@ -760,6 +1074,24 @@ pub trait ImportRepository: Send + Sync {
     /// Whether a candidate exists — `preview` validates it before writing.
     async fn candidate_exists(&self, id: &str) -> Result<bool, RepositoryError>;
 
+    /// SEC-04: existence check restricted to the caller's tenant/ownership.
+    async fn candidate_exists_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<bool, RepositoryError> {
+        self.candidate_exists(id).await
+    }
+
+    /// Shared existence read with an optional scope (Local mode passes None).
+    async fn candidate_exists_scoped_impl(
+        &self,
+        id: &str,
+        _scope: Option<&crate::Scope>,
+    ) -> Result<bool, RepositoryError> {
+        self.candidate_exists(id).await
+    }
+
     /// `content_hash -> message id` for the candidate's existing messages, the
     /// input to duplicate detection.
     async fn message_hashes(
@@ -774,8 +1106,36 @@ pub trait ImportRepository: Send + Sync {
         new: NewImportSessionRow,
     ) -> Result<ica_domain::ImportSession, RepositoryError>;
 
+    /// SEC-04: persist a preview with the authenticated actor's ownership.
+    async fn create_preview_scoped(
+        &self,
+        new: NewImportSessionRow,
+        _scope: &crate::Scope,
+    ) -> Result<ica_domain::ImportSession, RepositoryError> {
+        self.create_preview(new).await
+    }
+
+    /// Shared preview write; the scope only chooses the ownership stamps.
+    /// The default keeps legacy Local-mode doubles working.
+    async fn create_preview_with_scope(
+        &self,
+        new: NewImportSessionRow,
+        _scope: Option<&crate::Scope>,
+    ) -> Result<ica_domain::ImportSession, RepositoryError> {
+        self.create_preview(new).await
+    }
+
     /// One session with its records, or `None`.
     async fn find(&self, id: &str) -> Result<Option<ica_domain::ImportSession>, RepositoryError>;
+
+    /// SEC-04: same lookup, invisible outside the caller's tenant/ownership.
+    async fn find_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<ica_domain::ImportSession>, RepositoryError> {
+        self.find(id).await
+    }
 
     /// Confirm a session: write one `messages` row per record that is neither
     /// skipped nor an unflagged duplicate, stamp the session confirmed, and
@@ -789,12 +1149,59 @@ pub trait ImportRepository: Send + Sync {
         corrections: Vec<ImportRecordCorrection>,
     ) -> Result<ImportConfirmOutcome, RepositoryError>;
 
+    /// SEC-04: confirm only a session inside the caller's scope, into a
+    /// candidate inside the same scope.
+    async fn confirm_scoped(
+        &self,
+        session_id: &str,
+        candidate_id: &str,
+        conversation_id: Option<String>,
+        corrections: Vec<ImportRecordCorrection>,
+        _scope: &crate::Scope,
+    ) -> Result<ImportConfirmOutcome, RepositoryError> {
+        self.confirm(session_id, candidate_id, conversation_id, corrections)
+            .await
+    }
+
+    /// Shared confirm write with an optional ownership stamp for the new
+    /// messages and conversation.
+    async fn confirm_with_scope(
+        &self,
+        session_id: &str,
+        candidate_id: &str,
+        conversation_id: Option<String>,
+        corrections: Vec<ImportRecordCorrection>,
+        _scope: Option<&crate::Scope>,
+    ) -> Result<ImportConfirmOutcome, RepositoryError> {
+        self.confirm(session_id, candidate_id, conversation_id, corrections)
+            .await
+    }
+
     /// Reject a session: set `rejected`, clear `raw_text`, write
     /// `import.rejected`.
     ///
     /// Note the baseline still lets a rejected session be confirmed afterwards
     /// (its confirm guards `confirmed` only); this port copies that.
     async fn reject(&self, id: &str) -> Result<Option<ica_domain::ImportSession>, RepositoryError>;
+
+    /// SEC-04: reject only a session inside the caller's scope.
+    async fn reject_scoped(
+        &self,
+        id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<ica_domain::ImportSession>, RepositoryError> {
+        self.reject(id).await
+    }
+
+    /// Shared reject write with an optional scope guard (the default keeps
+    /// legacy Local-mode doubles working).
+    async fn reject_with_scope(
+        &self,
+        id: &str,
+        _scope: Option<&crate::Scope>,
+    ) -> Result<Option<ica_domain::ImportSession>, RepositoryError> {
+        self.reject(id).await
+    }
 }
 
 /// Local OCR, used only by `POST /imports/ocr`.
@@ -979,6 +1386,25 @@ pub trait BrowserExtractionRepository: Send + Sync {
         session_id: &str,
     ) -> Result<Option<ExtractionDraft>, RepositoryError>;
 
+    /// SEC-04: the same draft lookup with the caller's tenant/owner predicate
+    /// in SQL, so a foreign extraction cannot be confirmed through its id.
+    async fn find_by_import_session_scoped(
+        &self,
+        session_id: &str,
+        _scope: &crate::Scope,
+    ) -> Result<Option<ExtractionDraft>, RepositoryError> {
+        self.find_by_import_session(session_id).await
+    }
+
+    /// Shared extraction lookup with an optional scope.
+    async fn find_extraction(
+        &self,
+        session_id: &str,
+        _scope: Option<&crate::Scope>,
+    ) -> Result<Option<ExtractionDraft>, RepositoryError> {
+        self.find_by_import_session(session_id).await
+    }
+
     /// Audit + commit a refused duplicate confirmation (`EVENT_DUPLICATE_BLOCKED`).
     /// The baseline COMMITS the block audit before raising, so the refusal is
     /// queryable after the fact.
@@ -999,6 +1425,30 @@ pub trait BrowserExtractionRepository: Send + Sync {
         draft: &ExtractionDraft,
         request: CandidateConfirm,
     ) -> Result<CandidateConfirmOutcome, RepositoryError>;
+
+    /// SEC-04: commit an approved draft only for a scoped session, stamping the
+    /// new candidate with the authenticated actor's ownership.
+    async fn confirm_candidate_scoped(
+        &self,
+        session_id: &str,
+        draft: &ExtractionDraft,
+        request: CandidateConfirm,
+        _scope: &crate::Scope,
+    ) -> Result<CandidateConfirmOutcome, RepositoryError> {
+        self.confirm_candidate(session_id, draft, request).await
+    }
+
+    /// Shared confirm write with an optional scope for the new candidate's
+    /// ownership and the linked position guard.
+    async fn confirm_candidate_with_scope(
+        &self,
+        session_id: &str,
+        draft: &ExtractionDraft,
+        request: CandidateConfirm,
+        _scope: Option<&crate::Scope>,
+    ) -> Result<CandidateConfirmOutcome, RepositoryError> {
+        self.confirm_candidate(session_id, draft, request).await
+    }
 }
 
 /// The audit trail, read back (W5 `GET /api/audit-events`).

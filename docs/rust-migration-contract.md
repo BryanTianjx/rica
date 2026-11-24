@@ -3,9 +3,14 @@
 This document is the map for moving the ICA Personal backend HTTP/data plane
 from Python (FastAPI + SQLAlchemy) to Rust (axum + sqlx), one wave at a time.
 
-- **Contract authority**: the Python baseline at `/mnt/o/ica` @ `d39e321`. Where
-  this document and the Python code disagree, the Python code wins until a wave
-  explicitly changes it.
+- **Contract authority**: the frozen Python baseline anchor is `9ed173c`
+  ("freeze: Python 基线终态", ADR-0006 D-1 / `docs/migration/snapshot-r1.md:14`).
+  `d39e321` is the *pre-reanchor* hash kept here only for historical diff
+  (`docs/migration/baseline-diff-report-r1.md`); it is no longer the authority.
+  The local baseline checkout is `/home/bryan/projects/ica` @ `9ed173c`; the
+  legacy `/mnt/o/ica` path is a non-git mirror without the 68-route source.
+  Where this document and the Python code disagree, the Python code wins until
+  a wave explicitly changes it.
 - **R0 (done)**: the skeleton plus three read-only endpoints
   (`GET /health`, `GET /api/positions`, `GET /api/positions/{id}`), 98 tests,
   HEAD `b262c33`.
@@ -63,7 +68,8 @@ Excluded from the 68 (deliberately, not forgotten):
 
 ### 1.1 Scope and exclusions under baseline drift
 
-The 68 is the count at the **frozen mirror** `/mnt/o/ica` @ `d39e321`. ICA's
+The 68 is the count at the **frozen baseline** `9ed173c` (ADR-0006 D-1;
+previously written as `d39e321`). ICA's
 main checkout has since gained a browser subsystem (`d96bb05`, six commits,
 34 routes under `/api/browser/v1/` + 10 `browser_*` tables; uncommitted
 BROWSER-04 work adds 6 more routes and 2 more tables). The non-browser route
@@ -121,9 +127,12 @@ unchanged, and the browser subsystem is **excluded from this migration**:
   confirming the fast-forwarded commit still exists in `/home/bryan/ica` so
   nothing was lost; re-measured 68 routes / 0 browser, `status` clean,
   `ica.db` sha256 `466aa3fc…18e1`, and `contract_verify.sh` back to exit 0.
-  **Therefore: verify `git -C /mnt/o/ica rev-parse --short HEAD` is `d39e321`
-  before starting any wave, and treat a route count other than 68 (browser
-  count other than 0) as a drifted baseline rather than a code defect.**
+  **Historical procedure (superseded 2026-11-24):** the text above recorded the
+  then-authority `d39e321` and the old `/mnt/o/ica` mirror. ADR-0006 D-1 later
+  re-anchored the contract baseline to `9ed173c`; current verification must use
+  `/home/bryan/projects/ica` @ `9ed173c` and check it is clean. Treat a route
+  count other than 68 (browser count other than 0) as a drifted baseline rather
+  than a code defect. See `docs/adr/adr-alignment-assessment.md:510` (G0-02).
 
 ## 2. Endpoint → crate/module map
 
@@ -277,8 +286,8 @@ Every wave uses the same gate; only the endpoint set differs.
 
 The W1 rows above are only meaningful if the "Python behaviour" they are
 compared against is measured, not assumed. Three facts were re-measured against
-the running baseline (`/mnt/o/ica` @ `d39e321`) with the shared seed, and the
-captures in `docs/contract-baseline/` are the record:
+the running baseline (`9ed173c`, re-anchored by ADR-0006 D-1) with the shared
+seed, and the captures in `docs/contract-baseline/` are the record:
 
 | Observation | Python (measured) | Why it matters |
 | --- | --- | --- |
