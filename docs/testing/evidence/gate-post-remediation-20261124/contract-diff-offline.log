@@ -1,0 +1,340 @@
+layers:
+  L1: HTTP responses (status / headers / body) + declared improvements
+  L4: Persistence (final SQLite state, JSON columns byte-for-byte)
+
+layer L1 (HTTP):
+PASS ai_budget_get
+PASS ai_budget_patch
+PASS ai_budget_patch_bad_threshold
+PASS ai_egress_consent_grant
+PASS ai_egress_consent_missing
+PASS ai_egress_consent_revoke
+PASS ai_egress_read
+PASS ai_key_put
+PASS ai_models_list
+PASS ai_routing_patch
+PASS ai_routing_patch_unknown_type
+PASS ai_usage_get
+PASS audit_events_w6
+PASS auth_login
+PASS auth_login_wrong_password
+PASS auth_logout_idempotent
+PASS auth_logout_revokes
+PASS auth_me_local
+PASS auth_refresh_after_logout
+PASS auth_refresh_replay_is_single_use
+PASS auth_refresh_rotates
+PASS auth_register_bad_email
+PASS auth_register_duplicate_email
+PASS auth_register_owner
+PASS auth_register_short_password
+PASS auth_register_unknown_tenant
+PASS backups_create
+PASS backups_list
+PASS backups_list_final
+PASS candidate_create
+PASS candidate_delete
+PASS candidate_delete_with_children
+PASS candidate_detail
+PASS candidate_detail_after_delete
+PASS candidate_detail_after_position_delete
+PASS candidate_detail_created
+PASS candidate_detail_missing
+PASS candidate_detail_second
+PASS candidate_patch
+PASS candidate_patch_missing
+PASS candidate_patch_null_name
+PASS candidate_patch_null_position
+PASS candidates_bad_status
+PASS candidates_default
+PASS candidates_final
+PASS candidates_include_archived
+PASS candidates_limit2
+PASS candidates_limit_over_max
+PASS candidates_page2
+PASS candidates_position_filter
+PASS candidates_search_case
+PASS candidates_search_miss
+PASS candidates_search_name
+PASS candidates_status_empty
+PASS candidates_status_filter
+PASS confirm_candidate_already_confirmed
+PASS confirm_candidate_bad_status
+PASS confirm_candidate_duplicate_blocked
+PASS confirm_candidate_duplicate_override
+PASS confirm_candidate_extraction_not_found
+PASS confirm_candidate_happy
+PASS confirm_candidate_position_missing
+PASS confirm_candidate_review_required
+PASS confirm_candidate_review_stale
+PASS confirm_candidate_status_and_note
+PASS confirm_candidate_unknown_session
+PASS confirm_candidate_wrong_import_type
+PASS confirm_message_guard_browser_session
+PASS context_preview
+PASS context_preview_missing
+PASS conversation_create
+PASS conversation_create_missing_candidate
+PASS conversations_after_cascade
+PASS conversations_after_writes
+PASS conversations_by_candidate
+PASS conversations_default
+PASS conversations_limit2
+PASS conversations_unknown_candidate
+PASS dashboard_after_drafts
+PASS dashboard_default
+PASS draft_approve
+PASS draft_approve_rejected
+PASS draft_copy
+PASS draft_copy_rejected
+PASS draft_detail_approved
+PASS draft_detail_missing
+PASS draft_detail_routed
+PASS draft_group_get
+PASS draft_group_get_after_select
+PASS draft_group_missing
+PASS draft_group_select
+PASS draft_group_select_not_member
+PASS draft_group_select_rejected_member
+PASS draft_patch_after_approve
+PASS draft_patch_approved
+PASS draft_patch_empty_text
+PASS draft_patch_null_objective
+PASS draft_patch_text
+PASS draft_reject
+PASS draft_reject_copied
+PASS drafts_default
+PASS drafts_filter_candidate
+PASS drafts_filter_candidate_deleted
+PASS drafts_filter_status_approved
+PASS drafts_filter_status_generated
+PASS drafts_filter_status_invalid
+PASS drafts_final
+PASS drafts_head_not_allowed
+PASS drafts_limit2
+PASS drafts_limit_over_max
+PASS drafts_limit_zero
+PASS drafts_offset_beyond_total
+PASS drafts_offset_negative
+PASS drafts_page2
+PASS drafts_trailing_slash
+PASS export_bad_key
+PASS export_plaintext
+PASS export_sealed
+PASS export_short_key
+PASS follow_up_cancel
+PASS follow_up_cancel_again
+PASS follow_up_complete_wrong
+PASS follow_up_create_bob
+PASS follow_up_create_bob_again
+PASS follow_up_create_frank
+PASS follow_up_evaluate_bob
+PASS follow_up_evaluate_closed_position
+PASS follow_up_evaluate_frank
+PASS follow_up_evaluate_unknown
+PASS follow_up_get_missing
+PASS follow_up_patch_approved_direct
+PASS follow_up_patch_drafting
+PASS follow_up_patch_illegal
+PASS follow_up_patch_invalid_status
+PASS follow_up_patch_reject
+PASS follow_up_patch_reviewing
+PASS follow_up_policy_get
+PASS follow_up_policy_patch
+PASS follow_up_policy_patch_invalid
+PASS follow_up_policy_patch_null
+PASS follow_up_policy_restore
+PASS follow_up_record_result
+PASS follow_up_record_result_again
+PASS follow_up_record_result_bob
+PASS follow_ups_list_default
+PASS follow_ups_list_final
+PASS generate_bad_message_type
+PASS generate_max_length_too_large
+PASS generate_max_length_too_small
+PASS generate_missing_candidate_id
+PASS generate_no_key
+PASS generate_unknown_candidate
+PASS health
+PASS import_lww_append_only_send_record
+PASS import_lww_bare_date_wins
+PASS import_lww_equal_differs
+PASS import_lww_newer_wins
+PASS import_lww_no_timestamp_differs
+PASS import_lww_no_timestamp_identical
+PASS import_lww_numeric_bool_no_conflict
+PASS import_lww_older_differs
+PASS import_positions_bad_archived
+PASS import_positions_bad_location
+PASS import_positions_bad_status
+PASS import_positions_dump_archived_ok
+PASS import_positions_name_too_long
+PASS import_positions_negative_salary
+PASS import_row_empty_id_mints_uuid
+PASS import_row_not_an_object
+PASS import_row_null_id_mints_uuid
+PASS import_snapshot
+PASS import_snapshot_empty
+PASS import_snapshot_no_data
+PASS import_snapshot_null_data
+PASS import_snapshot_unknown_table
+PASS import_table_not_a_list
+PASS imports_confirm
+PASS imports_confirm_after_reject
+PASS imports_confirm_missing_candidate_field
+PASS imports_confirm_twice
+PASS imports_confirm_unknown_candidate
+PASS imports_get
+PASS imports_get_after_reject
+PASS imports_get_missing
+PASS imports_ocr_missing_file
+PASS imports_ocr_no_path
+PASS imports_ocr_not_an_image
+PASS imports_ocr_outside_directory
+PASS imports_ocr_real_image
+PASS imports_ocr_wide_image
+PASS imports_preview
+PASS imports_preview_empty
+PASS imports_preview_no_candidate
+PASS imports_preview_other_candidate
+PASS imports_preview_to_reject
+PASS imports_preview_unknown_candidate
+PASS imports_preview_whitespace_only
+PASS imports_reject
+PASS imports_reject_missing
+PASS message_create_auto_conversation
+PASS message_create_empty_content
+PASS message_create_explicit_conversation
+PASS message_create_missing_candidate
+PASS message_create_missing_conversation
+PASS message_create_wrong_conversation
+PASS messages_after_cascade
+PASS messages_after_writes
+PASS messages_by_candidate
+PASS messages_by_conversation
+PASS messages_by_empty_candidate
+PASS messages_default
+PASS messages_limit2 (items only: total is declared)
+PASS messages_limit2_offset1 (items only: total is declared)
+PASS messages_limit_over_max
+PASS messages_offset_beyond_total
+PASS position_create
+PASS position_delete
+PASS position_delete_missing
+PASS position_delete_set_null
+PASS position_detail
+PASS position_detail_after_delete
+PASS position_detail_archived
+PASS position_detail_created
+PASS position_detail_missing
+PASS position_detail_trailing_slash
+PASS position_patch
+PASS position_patch_archived
+PASS position_patch_clear_nullable
+PASS position_patch_missing
+DECL position_patch_null_archived (asserted in the improvements section)
+DECL position_patch_null_name (asserted in the improvements section)
+PASS position_patch_status_null
+PASS positions_default
+PASS positions_duplicate_limit
+PASS positions_final
+PASS positions_head_not_allowed
+PASS positions_include_archived
+PASS positions_include_archived_bool1
+PASS positions_include_archived_padded
+PASS positions_limit2
+PASS positions_limit_max
+PASS positions_limit_over_max
+PASS positions_limit_zero
+PASS positions_offset_beyond_i64
+PASS positions_offset_beyond_total
+DECL positions_offset_beyond_u64 (asserted in the improvements section)
+PASS positions_offset_negative
+PASS positions_offset_underscore
+PASS positions_options_not_allowed
+PASS positions_page2
+PASS positions_put_not_allowed
+PASS positions_search_case_insensitive
+PASS positions_search_hit
+PASS positions_search_hit_with_archived
+PASS positions_search_miss
+PASS positions_search_padded
+PASS positions_search_too_long
+PASS positions_trailing_slash
+PASS positions_trailing_slash_query
+PASS reject_browser_session_marks_draft
+PASS send_record_bad_status
+PASS send_record_create
+PASS send_record_create_explicit_time
+PASS send_record_draft_not_sendable
+PASS send_record_missing_task
+PASS send_record_task_conflict
+PASS send_records_after_cascade
+PASS send_records_after_writes
+PASS send_records_bad_status
+PASS send_records_by_candidate
+PASS send_records_by_status
+PASS send_records_default
+PASS send_records_limit2
+PASS settings_after_key
+PASS settings_read
+PASS shares_create
+PASS shares_create_self
+PASS shares_create_unknown_recipient
+PASS shares_delete_missing
+PASS shares_list
+PASS shares_upgrade
+PASS timeline_after_cascade
+PASS timeline_after_writes
+PASS timeline_default
+PASS timeline_limit2
+PASS timeline_missing_candidate
+
+improvements:
+  IMP-1 messages.total is the real count: python total=2 (truncated to limit+offset), rust total=5 (5 matching rows)
+  IMP-1 has_more: python=False (unreachable), rust=True
+  IMP-2 position_patch_null_name: python status=500 code=internal_error, rust status=422 code=validation_error
+  IMP-2 position_patch_null_archived: python status=500 code=internal_error, rust status=422 code=validation_error
+  IMP-3 positions_limit2: python total=6, rust total=6
+  IMP-3 candidates_limit2: python total=5, rust total=5
+  IMP-3 conversations_limit2: python total=2, rust total=2
+  IMP-3 send_records_limit2: python total=4, rust total=4
+  IMP-3 messages_limit2: python total=2, rust total=5
+  IMP-4 positions_offset_beyond_u64: python status=200 offset=18446744073709551616, rust status=422 code=validation_error
+
+database state:
+PASS db.ai_model_routing (2 rows)
+PASS db.app_settings (3 rows)
+PASS db.audit_events (79 rows)
+PASS db.browser_candidate_extractions (7 rows)
+PASS db.candidates (10 rows)
+PASS db.conversations (3 rows)
+PASS db.follow_up_policies (1 rows)
+PASS db.follow_up_tasks (3 rows)
+PASS db.generated_drafts (4 rows)
+PASS db.import_records (9 rows)
+PASS db.import_sessions (16 rows)
+PASS db.messages (5 rows)
+PASS db.positions (8 rows)
+PASS db.refresh_tokens (2 rows)
+PASS db.send_records (4 rows)
+PASS db.shares (1 rows)
+PASS db.tenants (1 rows)
+PASS db.users (2 rows)
+
+286/286 cases matched, 0 failure(s)
+
+UNCOVERED 364 path(s) — coverage boundary (machine-checkable):
+  UNCOVERED #1 GET /api/ai/models — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #2 GET /api/ai/routing — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #3 PATCH /api/ai/routing — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #4 GET /api/ai/usage — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #5 GET /api/ai/budget — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #6 PATCH /api/ai/budget — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #7 POST /api/auth/register — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #8 POST /api/auth/login — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #9 POST /api/auth/refresh — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #10 POST /api/auth/logout — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #11 GET /api/auth/me — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED #12 POST /api/shares — 边界未覆盖: CASES 清单中没有该契约的 limit/offset/search/状态等边界探针
+  UNCOVERED … and 352 more path(s); full machine-readable list: docs/contract-baseline/contract-coverage.json

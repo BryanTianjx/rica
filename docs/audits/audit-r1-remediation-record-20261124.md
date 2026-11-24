@@ -36,8 +36,8 @@
 |---|---|---|
 | P1-01 其余实体（conversations/messages/drafts/follow-ups/imports/audit/settings/AI/backups/browser） | 未整改 | 本轮只覆盖 candidates；需按同一模式分批推进，并为每类实体补跨租户负向测试 |
 | P1-03 当前 HEAD 全栈门禁 | 部分完成 | 已在整改工作区重跑门禁；但 HEAD 未变、证据不绑定新 commit。需在改动提交后用新 commit 重跑并归档 |
-| P1-04 Python/Rust 契约对拍 | 阻塞 | 本机无冻结 Python baseline（`/mnt/o/ica/backend` 不存在），历史基线 commit 也存在 `d39e321`/`9ed173c` 矛盾，需负责人提供并裁决 |
-| P1-05 Windows 桌面回归 | 阻塞 | Phase 6 声称的 NSIS 产物仅存在于未提交工作区（`index.html` + `assets/`），HEAD 仍为 placeholder；无原始日志、无签名、无 release tag，需人工实机验收 |
+| P1-04 Python/Rust 契约对拍 | 部分完成 | 发现 WSL 中的真实基线 `/home/bryan/projects/ica` @ `9ed173c`；离线 `contract_diff` 286/286 通过并归档 (`contract-parity-20261124.md`)；`d39e321`/`9ed173c` 矛盾按 ADR-0006 D-1 裁决为 9ed173c 并回写契约文档。待完成：用当前 HEAD 跑完整 `contract_verify.py` 并绑定 SHA |
+| P1-05 Windows 桌面回归 | 阻塞（已补本地证据） | Phase 6 UI bundle 哈希与清单不匹配（`ui-integrity-20261124.md`）；已有 2026-11-23/24 原始日志与 7/9 验收记录，但 NSIS 安装包本体不存在、W4/W5 未执行、无签名/无 tag，需人工实机验收 |
 | P2-02 Rust lint 债务 | 未整改 | `missing_docs/unwrap_used/expect_used` 仍为 allow；约 661 处 unwrap/expect，收紧需分 crate 清理 |
 | P2-03 Browser POC 跳过 | 未整改 | 3 项测试仍按函数名被门禁排除，需可启动 Chromium 的隔离环境排查挂起 |
 | P2-04 核心业务 E2E | 未整改 | 仓库无 E2E harness，门禁仍 BLOCKED；需新建测试工程与 CI 数据夹具 |

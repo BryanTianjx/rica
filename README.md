@@ -243,11 +243,12 @@ PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH \
   and [`docs/audits/sec-04-bc-delivery-record.md`](docs/audits/sec-04-bc-delivery-record.md).
 - **Verification evidence is version-bound.** The last full-stack gate report
   is [`docs/testing/test-report-arch-p6.md`](docs/testing/test-report-arch-p6.md)
-  at HEAD `40575e1`; later UI phases recorded frontend-only numbers. Full
-  Python/Rust contract parity at the current HEAD has not been executed, and
-  the frozen Python baseline commit is still ambiguous (`d39e321` vs
-  `9ed173c`). Three Browser POC tests remain excluded, and there is no E2E
-  harness for the recruiting loop.
+  at HEAD `40575e1`; later UI phases recorded frontend-only numbers. A frozen
+  offline contract comparison passes 286/286 cases, but it is bound to the
+  2026-11-22 captures, not to the current working tree. The Python baseline
+  anchor is now resolved to `9ed173c` (ADR-0006 D-1; `d39e321` is the
+  pre-reanchor hash). Three Browser POC tests remain excluded, and there is no
+  E2E harness for the recruiting loop.
 - **Desktop acceptance is partial.** Windows 11 evidence at
   [`docs/testing/desktop-release-acceptance.md`](docs/testing/desktop-release-acceptance.md)
   is 7/9 items (W4/W5 not executed, W9 partial, installer unsigned, no release
