@@ -1,0 +1,15 @@
+id,severity,title,status,evidence,impact,remediation,acceptance_criteria
+RICA-P1-01,P1,多租户资源级授权覆盖不足,部分证据确认且需逐实体验证,"routes.rs 中可见 Scope 使用；SEC-04-B/C 交付记录提示其他资源仍需覆盖",MultiUser 模式下关联资源可能存在越权访问风险,"建立实体级授权矩阵；Repository 强制 Scope；校验关联资源归属",所有受保护实体的 GET/POST/PATCH/DELETE 均有跨租户负向测试且通过；未授权统一 403/404 策略
+RICA-P1-02,P1,管理员权限与高风险操作负向测试证据不足,待验证,"本轮未取得完整 Admin API 权限测试报告",管理操作的越权风险无法充分排除,"列举管理员 API/命令；构建角色矩阵和未授权测试",普通用户对所有管理员操作均被拒绝；合法管理员操作通过
+RICA-P1-03,P1,当前 HEAD 缺少完整全栈重新验收证据,已确认证据缺口,"c3749018 与历史 ARCH-P6 报告绑定的 40575e1 不同；Phase 2 只记录前端验收",无法证明当前版本整体质量,"以 c3749018 为基线重新运行统一门禁并归档日志",Rust/Frontend/Build/Lint/Clippy/契约/安全扫描均有绑定 commit 的结果
+RICA-P1-04,P1,Python/Rust 全量契约对拍缺少当前基线结果,已确认证据缺口,"历史 ARCH-P6 报告记录 Python baseline parity 未执行",接口兼容性不能仅凭路由数量确认,"固定 Python 基线和 Rust HEAD；执行全部接口与边界行为对拍",全部契约逐项对拍通过；差异有批准的兼容性决策
+RICA-P1-05,P1,Windows Phase 2 桌面回归未执行,已确认,"UI Phase 2 验收报告明确记录未执行 Windows 桌面回归",最新桌面版本缺少实机回归证据,"重建当前安装包并执行 Windows 安装/升级/运行/恢复测试",验收矩阵全部通过且制品 SHA256 可追溯
+RICA-P2-01,P2,README 与阶段实现状态存在文档漂移,已确认,"README Known limitations 与当前路由/安全/AI/桌面文档存在冲突",开发者可能依据过时信息做错误判断,"按当前代码和证据更新 README 并记录状态来源",README 每项能力标注实现/测试/产品验收状态且与代码一致
+RICA-P2-02,P2,Rust 严格 lint 与错误处理治理不足,已确认配置债务,"Cargo Workspace 中 missing_docs、unwrap_used、expect_used 规则仍为 allow；历史统计记录相关债务",可维护性与错误处理一致性不足,"按 crate 分层启用 warn/deny；逐步清理 unwrap/expect 并补公开 API 文档",目标 crate 达到约定 lint 基线且 CI 强制执行
+RICA-P2-03,P2,Browser POC 测试跳过及稳定性证据不足,历史证据确认,"历史测试报告记录 3 项 Browser POC 测试 skipped",浏览器进程与自动化链路故障可能漏检,"补充隔离测试环境、启动超时、进程清理和恢复测试",关键 Browser 场景不再无理由 skip；失败有可诊断日志
+RICA-P2-04,P2,核心业务 E2E 覆盖不足,历史证据确认,"历史 ARCH-P6 报告 E2E BLOCKED",无法证明招聘业务完整闭环,"建立岗位至候选人、沟通、跟进、AI 草稿、审核、持久化 E2E",核心业务主路径和关键失败路径在 CI 可重复通过
+RICA-P2-05,P2,UI Reuse 质量指标尚未全部通过,已确认,"Phase 2 报告记录 C3/C5/C8 failing；regression=0",状态映射、组件复用与页面状态字面量仍有技术债,"建立状态词表和共享组件；按指标分批治理","C3/C5/C8 达到项目定义阈值；回归门保持通过"
+RICA-P2-06,P2,备份恢复与数据库故障场景缺少本轮验证,待验证,"本轮未执行数据库故障注入和恢复测试",异常环境下可能发生恢复失败或数据不一致","测试备份一致性、校验、恢复回滚、磁盘满和只读场景","备份可校验；恢复后数据与审计状态一致；失败不破坏原数据
+RICA-P2-07,P2,依赖安全扫描未获得当前 HEAD 结果,历史证据确认,"ARCH-P6 报告记录 dependency scan BLOCKED；旧报告提及 SQLite advisory",可能遗漏已知漏洞或错误判断已修复状态,"对当前 Cargo.lock/npm lock 执行 advisory 扫描并复核受影响版本","当前依赖扫描无未接受的 Critical/High；例外有风险接受记录
+RICA-P2-08,P2,安装包签名与发布追溯需形成闭环,待验证,"本轮未取得当前发布制品签名/校验和验收证据","用户无法充分验证制品来源与完整性","建立版本、commit、构建环境、签名、SHA256 与发布记录关联","每个正式制品均有签名、SHA256、commit 和可复现构建记录
+RICA-INFO-01,INFO,SQLite advisory 需按当前锁文件复核,待验证,"历史缺陷记录提及 RUSTSEC-2026-0459 与 libsqlite3-sys 版本；本轮未核验当前 Cargo.lock","可能把已修复问题误报为现存漏洞，或遗漏新版本风险","重新扫描当前锁文件并核对 advisory 官方状态","缺陷台账记录受影响依赖、修复版本、扫描时间和 commit
