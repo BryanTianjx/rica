@@ -5,6 +5,12 @@
 //! sensitive is written to disk, and the defaults are the loopback host and
 //! port the desktop shell already probes.
 
+// P2-02: this binary crate has no public items to document and no production
+// unwrap/expect sites, so it can be held to the strict target lint baseline
+// without touching the workspace-wide deferred allowances.
+#![deny(missing_docs)]
+#![deny(clippy::unwrap_used, clippy::expect_used)]
+
 use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -470,6 +476,7 @@ async fn shutdown_signal() {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
