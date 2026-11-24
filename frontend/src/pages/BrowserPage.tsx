@@ -15,6 +15,7 @@ import { PermissionsPanel } from '../components/browser/PermissionsPanel';
 import { ApprovalsPanel } from '../components/browser/ApprovalsPanel';
 import { TasksPanel } from '../components/browser/TasksPanel';
 import { ExtractionsPanel } from '../components/browser/ExtractionsPanel';
+import { AuditPanel } from '../components/browser/AuditPanel';
 import { PageHeader } from '../app/layout/PageHeader';
 
 export function BrowserPage() {
@@ -56,6 +57,13 @@ export function BrowserPage() {
           <h2>权限</h2>
         </div>
         <PermissionsPanel />
+      </section>
+
+      <section className="card">
+        <div className="card-head">
+          <h2>操作审计</h2>
+        </div>
+        <AuditPanel />
       </section>
 
       <section className="card">
