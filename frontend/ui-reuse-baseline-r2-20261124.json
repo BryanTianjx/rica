@@ -1,0 +1,517 @@
+{
+  "tool": "check-ui-reuse",
+  "version": "1.2.0",
+  "generated_at": "2026-11-24T00:49:38.925Z",
+  "base": "worktree",
+  "scope": {
+    "source_files": 51,
+    "test_files": 31,
+    "css_class_selectors": 109,
+    "className_usages": 479
+  },
+  "checks": [
+    {
+      "id": "C1",
+      "title": "className tokens and variant literals resolve to a CSS rule",
+      "status": "pass",
+      "measured": {
+        "undefined_class_sites": 0,
+        "compound_mismatch_sites": 0,
+        "unresolved_tone_sites": 0,
+        "needs_manual_review_sites": 0
+      },
+      "threshold": {
+        "undefined_class_sites": 0,
+        "compound_mismatch_sites": 0,
+        "unresolved_tone_sites": 0,
+        "needs_manual_review_sites": 0
+      },
+      "violations": {
+        "undefined_classes": [],
+        "compound_mismatch": [],
+        "unresolved_tones": [],
+        "needs_manual_review": []
+      }
+    },
+    {
+      "id": "C2",
+      "title": "error regions carry role=\"alert\"",
+      "status": "pass",
+      "measured": {
+        "bare_error_regions": 0
+      },
+      "threshold": {
+        "bare_error_regions": 0
+      },
+      "violations": []
+    },
+    {
+      "id": "C3",
+      "title": "status values are union-typed and fully toned",
+      "status": "fail",
+      "measured": {
+        "union_values": 33,
+        "toned_values": 18,
+        "unmapped_values": [
+          "New",
+          "Contacted",
+          "ReadNoReply",
+          "Replied",
+          "Draft",
+          "OnHold",
+          "Eligible",
+          "Drafting",
+          "Reviewing",
+          "Copied",
+          "AwaitingResult",
+          "Passed",
+          "Candidate",
+          "Recruiter",
+          "System"
+        ],
+        "status_props_typed_as_string": 1
+      },
+      "threshold": {
+        "unmapped_values": 0,
+        "status_props_typed_as_string": 0
+      },
+      "violations": {
+        "unmapped": [
+          "New",
+          "Contacted",
+          "ReadNoReply",
+          "Replied",
+          "Draft",
+          "OnHold",
+          "Eligible",
+          "Drafting",
+          "Reviewing",
+          "Copied",
+          "AwaitingResult",
+          "Passed",
+          "Candidate",
+          "Recruiter",
+          "System"
+        ],
+        "stringStatusProps": [
+          {
+            "where": "src/components/ui.tsx:27"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C4",
+      "title": "no static inline styles",
+      "status": "pass",
+      "measured": {
+        "inline_styles_total": 0,
+        "inline_styles_static": 0
+      },
+      "threshold": {
+        "inline_styles_static": 0
+      },
+      "violations": {
+        "static": [],
+        "all": []
+      }
+    },
+    {
+      "id": "C5",
+      "title": "page-pair duplication under threshold",
+      "status": "fail",
+      "measured": {
+        "pairs_evaluated": 55,
+        "worst_pair": {
+          "pair": [
+            "src/pages/CandidateDetailPage.tsx",
+            "src/pages/SettingsPage.tsx"
+          ],
+          "identical_substantial_lines": 44,
+          "shorter_substantial_lines": 328,
+          "share_pct": 13.4,
+          "duplicate_blocks_ge4": 0
+        }
+      },
+      "threshold": {
+        "max_share_pct": 10,
+        "max_identical_substantial_lines": 30,
+        "max_duplicate_blocks_ge4": 2
+      },
+      "violations": {
+        "failing_pairs": [
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/SettingsPage.tsx"
+            ],
+            "identical_substantial_lines": 44,
+            "shorter_substantial_lines": 328,
+            "share_pct": 13.4,
+            "duplicate_blocks_ge4": 0
+          }
+        ],
+        "top_pairs": [
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/SettingsPage.tsx"
+            ],
+            "identical_substantial_lines": 44,
+            "shorter_substantial_lines": 328,
+            "share_pct": 13.4,
+            "duplicate_blocks_ge4": 0
+          },
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/DraftsPage.tsx"
+            ],
+            "identical_substantial_lines": 30,
+            "shorter_substantial_lines": 109,
+            "share_pct": 27.5,
+            "duplicate_blocks_ge4": 0
+          },
+          {
+            "pair": [
+              "src/pages/CandidatesPage.tsx",
+              "src/pages/PositionsPage.tsx"
+            ],
+            "identical_substantial_lines": 29,
+            "shorter_substantial_lines": 148,
+            "share_pct": 19.6,
+            "duplicate_blocks_ge4": 0
+          },
+          {
+            "pair": [
+              "src/pages/CandidateDetailPage.tsx",
+              "src/pages/ConversationsPage.tsx"
+            ],
+            "identical_substantial_lines": 25,
+            "shorter_substantial_lines": 158,
+            "share_pct": 15.8,
+            "duplicate_blocks_ge4": 1
+          },
+          {
+            "pair": [
+              "src/pages/ConversationsPage.tsx",
+              "src/pages/SettingsPage.tsx"
+            ],
+            "identical_substantial_lines": 25,
+            "shorter_substantial_lines": 158,
+            "share_pct": 15.8,
+            "duplicate_blocks_ge4": 0
+          },
+          {
+            "pair": [
+              "src/pages/PositionsPage.tsx",
+              "src/pages/SettingsPage.tsx"
+            ],
+            "identical_substantial_lines": 22,
+            "shorter_substantial_lines": 220,
+            "share_pct": 10,
+            "duplicate_blocks_ge4": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "C6",
+      "title": "shared primitives are imported by a test",
+      "status": "pass",
+      "measured": {
+        "shared_exports": 9,
+        "untested": []
+      },
+      "threshold": {
+        "untested": 0
+      },
+      "violations": []
+    },
+    {
+      "id": "C7",
+      "title": "no dead shared exports",
+      "status": "pass",
+      "measured": {
+        "dead_exports": 0
+      },
+      "threshold": {
+        "dead_exports": 0
+      },
+      "violations": []
+    },
+    {
+      "id": "C8",
+      "title": "status vocabulary is not duplicated in pages",
+      "status": "fail",
+      "measured": {
+        "page_lines_with_status_literals": 52
+      },
+      "threshold": {
+        "page_lines_with_status_literals": 0
+      },
+      "violations": [
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:11",
+          "literal": "New"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:12",
+          "literal": "Contacted"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:13",
+          "literal": "ReadNoReply"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:14",
+          "literal": "Replied"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:15",
+          "literal": "Active"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:16",
+          "literal": "Interview"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:17",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:18",
+          "literal": "Withdrawn"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:19",
+          "literal": "Closed"
+        },
+        {
+          "where": "src/pages/CandidateDetailPage.tsx:814",
+          "literal": "generated"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:13",
+          "literal": "New"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:14",
+          "literal": "Contacted"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:15",
+          "literal": "ReadNoReply"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:16",
+          "literal": "Replied"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:17",
+          "literal": "Active"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:18",
+          "literal": "Interview"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:19",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:20",
+          "literal": "Withdrawn"
+        },
+        {
+          "where": "src/pages/CandidatesPage.tsx:21",
+          "literal": "Closed"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:11",
+          "literal": "Pending"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:12",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:13",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:14",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:15",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:16",
+          "literal": "Approved"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:17",
+          "literal": "Copied"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:18",
+          "literal": "AwaitingResult"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:19",
+          "literal": "Completed"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:20",
+          "literal": "Cancelled"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:21",
+          "literal": "Expired"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:22",
+          "literal": "Blocked"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:44",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:45",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:46",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:54",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:63",
+          "literal": "Pending"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:64",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:65",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:66",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:67",
+          "literal": "Approved"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:68",
+          "literal": "Copied"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:69",
+          "literal": "AwaitingResult"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:77",
+          "literal": "Pending"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:78",
+          "literal": "Eligible"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:79",
+          "literal": "Drafting"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:80",
+          "literal": "Reviewing"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:81",
+          "literal": "Rejected"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:82",
+          "literal": "Approved"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:83",
+          "literal": "Copied"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:84",
+          "literal": "AwaitingResult"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:85",
+          "literal": "Blocked"
+        },
+        {
+          "where": "src/pages/FollowUpsPage.tsx:89",
+          "literal": "Completed"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "C1": {
+      "undefined_class_sites": 0,
+      "compound_mismatch_sites": 0,
+      "unresolved_tone_sites": 0,
+      "needs_manual_review_sites": 0
+    },
+    "C2": {
+      "bare_error_regions": 0
+    },
+    "C3": {
+      "unmapped_union_values": 15,
+      "status_props_typed_as_string": 1,
+      "toned_union_values": 18
+    },
+    "C4": {
+      "inline_styles_total": 0,
+      "inline_styles_static": 0
+    },
+    "C5": {
+      "worst_pair_identical_substantial_lines": 44,
+      "worst_pair_share_pct": 13.4,
+      "worst_pair_duplicate_blocks_ge4": 0
+    },
+    "C6": {
+      "untested_shared_exports": 0
+    },
+    "C7": {
+      "dead_exports": 0
+    },
+    "C8": {
+      "page_lines_with_status_literals": 52
+    }
+  },
+  "failed": [
+    "C3",
+    "C5",
+    "C8"
+  ],
+  "passed": [
+    "C1",
+    "C2",
+    "C4",
+    "C6",
+    "C7"
+  ],
+  "verdict": {
+    "checks_total": 8,
+    "checks_failed": 3,
+    "all_checks_pass": false,
+    "regression_gate": "not-evaluated"
+  }
+}
