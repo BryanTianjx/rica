@@ -398,6 +398,7 @@ describe('SettingsPage — AI Key 配置', () => {
       .mockResolvedValue({ ai_enabled: false, key_masked: null });
     const input = await openAiCard();
     fireEvent.click(screen.getByRole('button', { name: '清除密钥' }));
+    fireEvent.click(await screen.findByRole('button', { name: '确认清除' }));
 
     await waitFor(() => {
       expect(mockClear).toHaveBeenCalled();
@@ -801,5 +802,28 @@ describe('SettingsPage — AI 自配置（生效来源提示）', () => {
         /修改 backend\/\.env 的 AI_MODEL \/ AI_BASE_URL 不会改变这里的生效值/,
       ),
     ).toBeInTheDocument();
+  });
+});
+
+// ── Phase 2: grouped settings + section view ────────────────────────────────
+describe('SettingsPage — Phase 2 grouped sections', () => {
+  it('renders grouped navigation with both groups', async () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: '系统设置' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: '设置分区' })).toHaveTextContent('系统配置');
+    expect(screen.getByRole('navigation', { name: '设置分区' })).toHaveTextContent('运行管理');
+  });
+
+  it('?section=general shows general settings only', async () => {
+    render(<MemoryRouter initialEntries={['/settings?section=general']}><SettingsPage /></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: '通用设置' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '审计记录' })).toBeNull();
+  });
+
+  it('?section=routing exposes the routing editor from the real backend contract', async () => {
+    vi.spyOn(backend.ai, 'getRouting').mockResolvedValue({ routing: { message_new: 'standard' } });
+    render(<MemoryRouter initialEntries={['/settings?section=routing']}><SettingsPage /></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: '场景路由' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '场景 message_new 的模型层级' })).toHaveValue('standard');
   });
 });

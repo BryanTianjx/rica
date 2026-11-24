@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { SETTINGS_GROUPS, SECTION_ANCHOR, isSettingsSection, type SettingsSection } from '../app/navigation/settingsSections';
 import { PageHeader } from '../app/layout/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
@@ -6,6 +8,7 @@ import { Badge, EmptyState, ErrorBox, Loading, LocalTime } from '../components/u
 import { ConfirmBar } from '../components/ConfirmBar';
 import { AiModelConfigPanel } from '../components/AiModelConfigPanel';
 import { redactionLabel } from '../privacyLabels';
+import { getStoredTheme, applyTheme, persistTheme, systemTheme, type Theme } from '../theme';
 
 type PolicyDraft = {
   first_follow_up_delay_hours: number;
@@ -15,6 +18,15 @@ type PolicyDraft = {
 };
 
 export function SettingsPage() {
+  const [searchParams] = useSearchParams();
+  const rawSection = searchParams.get('section');
+  const section: SettingsSection | null = isSettingsSection(rawSection) ? rawSection : null;
+  const show = (key: SettingsSection) => !section || SECTION_ANCHOR[key] === SECTION_ANCHOR[section];
+  const [theme, setTheme] = useState<Theme>(() => getStoredTheme() ?? systemTheme());
+  const routing = useAsync(() => backend.ai.getRouting(), []);
+  const [routingDraft, setRoutingDraft] = useState<Record<string, string> | null>(null);
+  const [savingRouting, setSavingRouting] = useState(false);
+  const [confirmClearKey, setConfirmClearKey] = useState(false);
   const settings = useAsync(() => backend.settings.get(), []);
   const policy = useAsync(() => backend.followUps.getPolicy(), []);
   const backups = useAsync(() => backend.settings.listBackups(), []);
@@ -184,14 +196,119 @@ export function SettingsPage() {
 
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="设置分区">
-          <a href="#sec-ai">AI 接入</a>
-          <a href="#sec-privacy">隐私与 AI 出网</a>
-          <a href="#sec-policy">跟进策略</a>
-          <a href="#sec-backup">本地备份</a>
-          <a href="#sec-audit">审计记录</a>
+          {SETTINGS_GROUPS.map((group) => (
+            <div className="settings-nav-group" key={group.label}>
+              <div className="settings-nav-label">{group.label}</div>
+              {group.items.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.href}
+                  className={section === item.key && item.href.startsWith('/settings') ? 'settings-nav-link active' : 'settings-nav-link'}
+                  aria-current={section === item.key && item.href.startsWith('/settings') ? 'page' : undefined}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          ))}
         </nav>
 
         <div className="settings-main">
+          {show('general') && (
+          <section id="sec-general" className="settings-section">
+            <div className="card">
+              <div className="card-head"><h2>通用设置</h2></div>
+              <div className="form-row">
+                <label htmlFor="settings-theme">界面主题</label>
+                <select
+                  id="settings-theme"
+                  value={theme}
+                  onChange={(event) => {
+                    const next = event.target.value as Theme;
+                    setTheme(next); applyTheme(next); persistTheme(next);
+                  }}
+                >
+                  <option value="light">浅色</option>
+                  <option value="dark">深色</option>
+                </select>
+              </div>
+              <p className="muted small">设置与侧栏主题切换共享同一偏好；离线可用。</p>
+              <div className="form-row">
+                <span className="muted small">应用</span>
+                <span>{settings.data?.app_name ?? 'ICA Personal'}（本地模式）</span>
+              </div>
+              <div className="form-row">
+                <span className="muted small">数据库位置</span>
+                <span className="small">{settings.data?.database_url ?? '读取中…'}</span>
+              </div>
+              <div className="form-row">
+                <span className="muted small">备份目录 / 保留数</span>
+                <span className="small">
+                  {settings.data?.backup_dir ?? '读取中…'} · {settings.data?.backup_keep_count ?? '—'} 份
+                </span>
+              </div>
+            </div>
+          </section>
+          )}
+
+          {show('routing') && (
+          <section id="sec-routing" className="settings-section">
+            <div className="card">
+              <div className="card-head"><h2>场景路由</h2></div>
+              {routing.loading && <Loading />}
+              {routing.error && <ErrorBox message={routing.error} />}
+              {routing.data && (
+                <>
+                  <table>
+                    <thead><tr><th>业务场景</th><th>模型层级</th></tr></thead>
+                    <tbody>
+                      {Object.entries(routingDraft ?? routing.data.routing).map(([scene, tier]) => (
+                        <tr key={scene}>
+                          <td>{scene}</td>
+                          <td>
+                            <select
+                              aria-label={`场景 ${scene} 的模型层级`}
+                              value={tier}
+                              onChange={(event) =>
+                                setRoutingDraft({ ...(routingDraft ?? routing.data!.routing), [scene]: event.target.value })
+                              }
+                            >
+                              <option value="economy">economy</option>
+                              <option value="standard">standard</option>
+                              <option value="premium">premium</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="actions">
+                    <button
+                      className="primary"
+                      disabled={savingRouting || !routingDraft}
+                      onClick={async () => {
+                        if (!routingDraft) return;
+                        setSavingRouting(true); setError(null); setNotice(null);
+                        try {
+                          const result = await backend.ai.updateRouting(routingDraft);
+                          setNotice('场景路由已保存');
+                          setRoutingDraft(result.routing);
+                          routing.reload();
+                        } catch (caught: unknown) {
+                          setError(caught instanceof Error ? caught.message : '保存路由失败');
+                        } finally { setSavingRouting(false); }
+                      }}
+                    >
+                      保存路由
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+          )}
+
+          {show('ai-connections') && (
           <section id="sec-ai" className="settings-section">
             <div className="card">
               <div className="card-head">
@@ -264,10 +381,23 @@ export function SettingsPage() {
                       >
                         保存密钥
                       </button>
-                      {(aiKeyTarget || settings.data.ai_enabled) && (
-                        <button disabled={busy} onClick={clearAiKey}>
+                      {(aiKeyTarget || settings.data.ai_enabled) && !confirmClearKey && (
+                        <button disabled={busy} onClick={() => setConfirmClearKey(true)}>
                           清除密钥
                         </button>
+                      )}
+                      {confirmClearKey && (
+                        <ConfirmBar
+                          message="确定清除 API Key？清除后 AI 功能将停用，模型回落到安装级/env 配置；已生成的草稿不受影响。"
+                          confirmLabel="确认清除"
+                          busyLabel="清除中…"
+                          busy={busy}
+                          onCancel={() => setConfirmClearKey(false)}
+                          onConfirm={async () => {
+                            setConfirmClearKey(false);
+                            await clearAiKey();
+                          }}
+                        />
                       )}
                     </div>
                     <div className="muted small mt-10">
@@ -290,7 +420,9 @@ export function SettingsPage() {
               )}
             </div>
           </section>
+          )}
 
+          {show('privacy') && (
           <section id="sec-privacy" className="settings-section">
             <div className="card">
               <div className="card-head">
@@ -357,7 +489,9 @@ export function SettingsPage() {
               )}
             </div>
           </section>
+          )}
 
+          {show('general') && (
           <section id="sec-policy" className="settings-section">
             <div className="card">
               <div className="card-head">
@@ -433,7 +567,9 @@ export function SettingsPage() {
               </div>
             </div>
           </section>
+          )}
 
+          {show('data-backup') && (
           <section id="sec-backup" className="settings-section">
             <div className="card">
               <div className="card-head">
@@ -493,7 +629,9 @@ export function SettingsPage() {
               )}
             </div>
           </section>
+          )}
 
+          {show('audit') && (
           <section id="sec-audit" className="settings-section">
             <div className="card">
               <div className="card-head">
@@ -560,6 +698,7 @@ export function SettingsPage() {
               )}
             </div>
           </section>
+          )}
         </div>
       </div>
     </>
