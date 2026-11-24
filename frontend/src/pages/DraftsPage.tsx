@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '../app/layout/PageHeader';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
@@ -71,12 +72,10 @@ export function DraftsPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>AI 草稿审核</h1>
-          <p>审核、编辑、批准或拒绝草稿。批准与复制都不会发送任何消息。</p>
-        </div>
-      </div>
+      <PageHeader
+        title="AI 草稿审核"
+        description={<p>审核、编辑、批准或拒绝草稿。批准与复制都不会发送任何消息。</p>}
+      />
 
       {notice && (
         <div className="notice" aria-live="polite">

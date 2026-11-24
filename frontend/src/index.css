@@ -1220,3 +1220,5 @@ ul.plain li {
 .partial-notice li {
   margin: 4px 0;
 }
+
+.settings-main { min-width: 0; }

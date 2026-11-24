@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { PageHeader } from '../app/layout/PageHeader';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { backend, describeApiError } from '../services/backend';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { PartialNotice } from '../shared/components/PartialNotice';
+import { useToast } from '../shared/components/ToastViewport';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
 import type { Candidate, CandidateStatus } from '../types';
 
@@ -44,6 +46,7 @@ export function CandidatesPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const toast = useToast();
 
   const candidates = useAsync(
     () => backend.candidates.list({ search, status: status || undefined }),
@@ -65,6 +68,7 @@ export function CandidatesPage() {
       setPositionId('');
       setShowForm(false);
       setSaved(true);
+      toast.push('候选人已创建', 'ok');
       candidates.reload();
     } catch (caught: unknown) {
       setFormError(describeApiError(caught, '创建失败'));
@@ -150,17 +154,15 @@ export function CandidatesPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>候选人</h1>
-          <p>管理候选人档案、岗位关联与状态。状态只能由你手动变更。</p>
-        </div>
-        <div className="actions">
+      <PageHeader
+        title="候选人"
+        description={<p>管理候选人档案、岗位关联与状态。状态只能由你手动变更。</p>}
+        actions={
           <button onClick={() => setShowForm((value) => !value)}>
             {showForm ? '取消' : '新增候选人'}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {saved && (
         <div className="notice" aria-live="polite">

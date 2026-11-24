@@ -9,25 +9,23 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorBox } from '../components/ui';
+import { useMutation } from '../hooks/useAsync';
 
 export function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation(async (mail: string, secret: string) => login(mail, secret));
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
+    if (mutation.loading) return;
     setError(null);
     try {
-      await login(email, password);
+      await mutation.run(email, password);
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : '登录失败，请重试');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -65,8 +63,8 @@ export function LoginPage() {
             />
           </div>
           <div className="actions">
-            <button type="submit" disabled={submitting}>
-              {submitting ? '登录中…' : '登录'}
+            <button type="submit" disabled={mutation.loading}>
+              {mutation.loading ? '登录中…' : '登录'}
             </button>
           </div>
         </form>

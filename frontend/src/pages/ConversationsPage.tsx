@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { PageHeader } from '../app/layout/PageHeader';
 import { Link } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
 import { EmptyState, ErrorBox, Loading, LocalTime } from '../components/ui';
+import { PartialNotice } from '../shared/components/PartialNotice';
 import type { Conversation } from '../types';
 
 export function ConversationsPage() {
@@ -85,7 +87,6 @@ export function ConversationsPage() {
   if (candidates.loading || conversations.loading) return <Loading />;
   if (candidates.error) return <ErrorBox message={candidates.error} />;
   if (conversations.error) return <ErrorBox message={conversations.error} />;
-  if (messageList.error) return <ErrorBox message={messageList.error} />;
 
   const selectedConversation = selectedConversationId
     ? conversations.data?.items.find((c) => c.id === selectedConversationId) ?? null
@@ -102,21 +103,19 @@ export function ConversationsPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>沟通记录</h1>
-          <p>按会话查看沟通时间线，或手动补充一条记录。</p>
-        </div>
-        <div className="actions">
-          {selectedConversation ? (
+      <PageHeader
+        title="沟通记录"
+        description={<p>按会话查看沟通时间线，或手动补充一条记录。</p>}
+        actions={
+          selectedConversation ? (
             <Link className="btn" to={`/candidates/${selectedConversation.candidate_id}`}>
               打开候选人页
             </Link>
           ) : (
             <span className="muted small">请选择会话</span>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {error && <ErrorBox message={error} />}
       {notice && (
@@ -259,7 +258,11 @@ export function ConversationsPage() {
                   </form>
                 </div>
 
-                {!timelinePage ? (
+                {messageList.error ? (
+                  <PartialNotice
+                    sources={[{ name: '沟通时间线', error: messageList.error, retry: messageList.reload }]}
+                  />
+                ) : !timelinePage ? (
                   <Loading />
                 ) : timelinePage.items.length === 0 ? (
                   <EmptyState message="该会话还没有消息" />

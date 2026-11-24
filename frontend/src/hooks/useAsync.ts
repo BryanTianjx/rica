@@ -81,7 +81,7 @@ export function useMutation<TArgs extends unknown[], TResult>(
         setError(
           caught instanceof Error ? caught.message : 'Something went wrong',
         );
-        return null;
+        throw caught;
       } finally {
         setLoading(false);
       }

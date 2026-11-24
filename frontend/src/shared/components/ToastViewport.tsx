@@ -34,10 +34,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 }
 
+const NOOP_TOAST: ToastApi = {
+  toasts: [],
+  push: () => {},
+  dismiss: () => {},
+};
+
+/**
+ * Pages rendered on their own (unit tests, Storybook) have no ToastProvider;
+ * degrade to a no-op so they stay renderable. Inside the App shell the real
+ * provider supplies the global feedback surface.
+ */
 export function useToast(): ToastApi {
-  const context = useContext(ToastContext);
-  if (!context) throw new Error('useToast must be used inside ToastProvider');
-  return context;
+  return useContext(ToastContext) ?? NOOP_TOAST;
 }
 
 export function ToastViewport() {

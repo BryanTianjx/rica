@@ -15,6 +15,7 @@ import { PermissionsPanel } from '../components/browser/PermissionsPanel';
 import { ApprovalsPanel } from '../components/browser/ApprovalsPanel';
 import { TasksPanel } from '../components/browser/TasksPanel';
 import { ExtractionsPanel } from '../components/browser/ExtractionsPanel';
+import { PageHeader } from '../app/layout/PageHeader';
 
 export function BrowserPage() {
   // 页面级拉一次运行时状态，下发给会话台（ready 状态 / 会话上限）。
@@ -24,13 +25,15 @@ export function BrowserPage() {
 
   return (
     <div>
-      <div className="page-head">
-        <h1>浏览器自动化</h1>
-        <p>
-          运行时、会话、权限、审批、AI 任务与候选人提取。未授权域名的访问会被拒绝，
-          不可逆操作必须人工审批。
-        </p>
-      </div>
+      <PageHeader
+        title="浏览器自动化"
+        description={
+          <p>
+            运行时、会话、权限、审批、AI 任务与候选人提取。未授权域名的访问会被拒绝，
+            不可逆操作必须人工审批。
+          </p>
+        }
+      />
 
       {runtime.error && <ErrorBox message={`运行时状态读取失败：${runtime.error}`} />}
 

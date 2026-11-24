@@ -66,9 +66,15 @@ export function MonthCalendar({ calendar }: { calendar: DashboardCalendar | null
           ) : (
             <div
               key={cell.key}
-              className={`cal-day${cell.key === today ? ' today' : ''}${
-                hasEvent(cell.key) ? ' has-event' : ''
-              }`}
+              className={
+                cell.key === today && hasEvent(cell.key)
+                  ? 'cal-day today has-event'
+                  : cell.key === today
+                    ? 'cal-day today'
+                    : hasEvent(cell.key)
+                      ? 'cal-day has-event'
+                      : 'cal-day'
+              }
               title={
                 [
                   messages_by_day[cell.key] ? `沟通 ${messages_by_day[cell.key]} 条` : '',
