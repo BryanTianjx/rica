@@ -211,6 +211,8 @@ MultiUser 模式的实际门禁由下表定义（Local 模式仍保持原行为�
 | 身份 | `RequestContext` 注入 request extensions | `/auth/me` 与 shares 端点从 JWT claims 取真实 actor/tenant/role，不再合成 Local 身份 |
 | 权限 | `ica_application::authorize(ctx, Permission)` | 角色门槛（admin/member）与资源归属分离；`forbidden` 403 与 `unauthorized` 401 分列 |
 | 资源 | `Scope::from_context` + `PositionFilter.scope` | positions 的 list/get/create/update/delete 强制 tenant 过滤，member 限 owner；跨租户返回 404 |
+| 资源（2026-11-24 整改） | `CandidateFilter.scope` + `CandidateRepository::{find,create,update,delete}_scoped` | candidates 的 list/get/create/update/delete 同样强制 tenant/owner 过滤；关联 position 也按同域校验；跨租户/越权返回 404 |
+| 管理员操作（2026-11-24 整改） | `Permission::AdminOperation` 于 HTTP handler | AI 预算/路由/Key、AI 出网同意、导入导出、备份创建与恢复要求 admin 角色；member 返回 403 |
 | 模式 | `ICA_AUTH_MODE=local\|multiuser` | Local 保持单用户边界；MultiUser 拒绝匿名/伪造 token |
 
 ### SEC-04-B/C 机器可读的公开端点（源码断言读取此块，与 `auth::PUBLIC_PATHS` 双向一致）

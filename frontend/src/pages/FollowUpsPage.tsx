@@ -6,6 +6,10 @@ import { PartialNotice } from '../shared/components/PartialNotice';
 import {
   FOLLOW_UP_STATUSES as TASK_STATUSES,
   FOLLOW_UP_TERMINAL_STATUSES as TERMINAL_STATUSES,
+  FOLLOW_UP_ADVANCE_TARGETS as ADVANCE_TARGETS,
+  FOLLOW_UP_REJECT_TARGETS as REJECT_TARGETS,
+  FOLLOW_UP_RESULT_COMPLETABLE_STATUSES as RESULT_COMPLETABLE_STATUSES,
+  FOLLOW_UP_CANCELLABLE_STATUSES as CANCELLABLE_STATUSES,
   RESULT_OPTIONS,
 } from '../shared/statusVocabulary';
 import { backend } from '../services/backend';
@@ -16,60 +20,7 @@ import type { FollowUpTaskStatus, ResultType } from '../types';
 
 
 
-/**
- * 「推进」按钮的目标状态。
- *
- * 只列出服务端允许手动设置的状态，与后端状态机保持一致
- * （backend/app/domain/follow_up.py 的 ALLOWED_TRANSITIONS 与
- * MANUAL_SETTABLE_STATUSES）。Approved / Copied / Completed 由「批准草稿」
- * 「复制草稿」「记录结果」三个动作写入，直接设置会被服务端拒绝。
- */
-const ADVANCE_TARGETS: Partial<Record<FollowUpTaskStatus, FollowUpTaskStatus>> = {
-  Pending: 'Eligible',
-  Eligible: 'Drafting',
-  Drafting: 'Reviewing',
-};
-
-/**
- * 「拒绝」按钮的目标状态：只有待审核的草稿可以手动拒绝。
- * 其余状态服务端不接受 Rejected 转换。
- */
-const REJECT_TARGETS: Partial<Record<FollowUpTaskStatus, FollowUpTaskStatus>> = {
-  Reviewing: 'Rejected',
-};
-
-/**
- * 可以记录结果的状态 —— 与后端 RESULT_COMPLETABLE_STATUSES 一致。
- * 终态（Completed / Cancelled / Expired）与 Blocked 不在其中：已关闭的任务
- * 保持关闭，被阻止的任务也不能绕过阻止条件被完成。
- */
-const RESULT_COMPLETABLE_STATUSES: FollowUpTaskStatus[] = [
-  'Pending',
-  'Eligible',
-  'Drafting',
-  'Reviewing',
-  'Approved',
-  'Copied',
-  'AwaitingResult',
-];
-
-/**
- * 可以取消的状态 —— 终态（Completed / Cancelled / Expired）已关闭，
- * 服务端不接受再取消。
- */
-const CANCELLABLE_STATUSES: FollowUpTaskStatus[] = [
-  'Pending',
-  'Eligible',
-  'Drafting',
-  'Reviewing',
-  'Rejected',
-  'Approved',
-  'Copied',
-  'AwaitingResult',
-  'Blocked',
-];
-
-/** 终态任务（完成/取消/过期）已关闭，不再提供目标编辑。 */
+/** 状态机表与终态定义统一由 shared/statusVocabulary 提供（C8）。 */
 
 
 /** 每个状态在界面上的一句说明，告诉用户现在该做什么。 */

@@ -4,8 +4,9 @@ import { Link, useParams } from 'react-router-dom';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime, StatusBadge } from '../components/ui';
+import { Actions, Card, FormRow, Notice } from '../shared/components/PagePrimitives';
 import { redactionLabel } from '../privacyLabels';
-import { CANDIDATE_STATUSES as STATUSES } from '../shared/statusVocabulary';
+import { CANDIDATE_STATUSES as STATUSES, DRAFT_STATUS } from '../shared/statusVocabulary';
 import type { CandidateStatus, MessageType, Tone } from '../types';
 
 
@@ -291,20 +292,13 @@ export function CandidateDetailPage() {
       />
 
       {actionError && <ErrorBox message={actionError} />}
-      {notice && (
-        <div className="notice" aria-live="polite">
-          {notice}
-        </div>
-      )}
+      {notice && <Notice>{notice}</Notice>}
 
       <div className="grid cols-2">
-        <div className="card">
-          <div className="card-head">
-            <h2>档案</h2>
-            {!editingProfile && (
-              <button onClick={startEditProfile}>编辑</button>
-            )}
-          </div>
+        <Card
+          title="档案"
+          aside={!editingProfile && <button onClick={startEditProfile}>编辑</button>}
+        >
           {profileError && <ErrorBox message={profileError} />}
           {editingProfile ? (
             <table>
@@ -428,25 +422,24 @@ export function CandidateDetailPage() {
               </button>
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="card">
-          <div className="card-head">
-            <h2>跟进判断</h2>
-            {decision.data && (
-              <Badge
-                tone={
-                  decision.data.outcome === 'eligible'
-                    ? 'ok'
-                    : decision.data.outcome === 'blocked'
-                      ? 'bad'
-                      : 'warn'
-                }
-              >
-                {decision.data.outcome}
-              </Badge>
-            )}
-          </div>
+        <Card
+          title="跟进判断"
+          aside={decision.data && (
+            <Badge
+              tone={
+                decision.data.outcome === 'eligible'
+                  ? 'ok'
+                  : decision.data.outcome === 'blocked'
+                    ? 'bad'
+                    : 'warn'
+              }
+            >
+              {decision.data.outcome}
+            </Badge>
+          )}
+        >
           {decision.loading && <Loading />}
           {decision.data && (
             <>
@@ -489,16 +482,15 @@ export function CandidateDetailPage() {
               </div>
             </>
           )}
-        </div>
+        </Card>
       </div>
 
-      <div className="card">
-        <div className="card-head">
-          <h2>手动导入沟通记录</h2>
-          <span className="muted small">粘贴 BOSS 聊天文本 → 预览 → 确认后才会写入</span>
-        </div>
+      <Card
+        title="手动导入沟通记录"
+        aside={<span className="muted small">粘贴 BOSS 聊天文本 → 预览 → 确认后才会写入</span>}
+      >
         <form onSubmit={runPreview}>
-          <div className="form-row">
+          <FormRow>
             <label htmlFor="raw-text">聊天文本</label>
             <textarea
               id="raw-text"
@@ -507,12 +499,12 @@ export function CandidateDetailPage() {
               placeholder={'10:23 我：您好，看到您投递了后端工程师岗位，方便聊聊吗？\n10:25 候选人：您好，我目前在职，主要做 Python 后端。'}
               rows={6}
             />
-          </div>
-          <div className="actions">
+          </FormRow>
+          <Actions>
             <button className="primary" type="submit" disabled={busy || !rawText.trim()}>
               解析预览
             </button>
-          </div>
+          </Actions>
         </form>
 
         {preview && (
@@ -557,12 +549,9 @@ export function CandidateDetailPage() {
             </div>
           </>
         )}
-      </div>
+      </Card>
 
-      <div className="card">
-        <div className="card-head">
-          <h2>沟通时间线</h2>
-        </div>
+      <Card title="沟通时间线">
         {timeline.loading && <Loading />}
         {timeline.data && timeline.data.length === 0 && (
           <EmptyState message="还没有沟通记录" />
@@ -584,15 +573,14 @@ export function CandidateDetailPage() {
             <div className="message-body">{entry.content}</div>
           </div>
         ))}
-      </div>
+      </Card>
 
-      <div className="card">
-        <div className="card-head">
-          <h2>AI 话术生成</h2>
-          <span className="muted small">AI 只起草；发送由你在 BOSS 直聘手动完成</span>
-        </div>
+      <Card
+        title="AI 话术生成"
+        aside={<span className="muted small">AI 只起草；发送由你在 BOSS 直聘手动完成</span>}
+      >
         {egress.data && (
-          <div className="notice" aria-live="polite" data-testid="ai-egress-notice">
+          <Notice testId="ai-egress-notice">
             出网告知：点击生成后，上方脱敏过的候选人上下文会发送至{' '}
             <strong>{egress.data.provider}</strong>（模型 {egress.data.model}
             ，端点 <span className="mono">{egress.data.base_url}</span>）。脱敏项：
@@ -600,9 +588,9 @@ export function CandidateDetailPage() {
             {egress.data.consent_granted
               ? ' 可在设置页随时关闭 AI 出网。'
               : ' AI 出网当前已关闭，生成会被拒绝。'}
-          </div>
+          </Notice>
         )}
-        <div className="form-row two">
+        <FormRow two>
           <div>
             <label htmlFor="msg-type">沟通目标</label>
             <select
@@ -634,8 +622,8 @@ export function CandidateDetailPage() {
               <option value="warm">亲和</option>
             </select>
           </div>
-        </div>
-        <div className="form-row">
+        </FormRow>
+        <FormRow>
           <label htmlFor="instruction">补充要求（唯一会被执行的指令来源）</label>
           <textarea
             id="instruction"
@@ -644,8 +632,8 @@ export function CandidateDetailPage() {
             rows={3}
             placeholder="例如：询问对方是否方便本周三下午线上面试。"
           />
-        </div>
-        <div className="form-row">
+        </FormRow>
+        <FormRow>
           <label htmlFor="msg-max-length">消息长度（可选，50–2000 字符，留空不限制）</label>
           <input
             id="msg-max-length"
@@ -655,15 +643,15 @@ export function CandidateDetailPage() {
             value={maxLengthInput}
             onChange={(event) => setMaxLengthInput(event.target.value)}
           />
-        </div>
-        <div className="actions">
+        </FormRow>
+        <Actions>
           <button className="primary" onClick={generateDraft} disabled={busy}>
             {busy ? '生成中…' : '生成草稿'}
           </button>
           <Link className="btn" to="/drafts">
             前往审核中心
           </Link>
-        </div>
+        </Actions>
 
         {draft && (
           <div className="mt-16">
@@ -703,31 +691,34 @@ export function CandidateDetailPage() {
         )}
 
         {/* ── V2.0 A/B 对比 ─────────────────────────────────────────── */}
-        <div className="form-row mt-20">
-          <div className="actions">
+        <FormRow className="mt-20">
+          <Actions>
             <button type="button" onClick={() => setCompareOpen((open) => !open)}>
               {compareOpen ? '收起 A/B 对比' : 'A/B 多模型对比'}
             </button>
             {comparisonModels.length > 0 && (
               <span className="muted small">已选 {comparisonModels.length} 个模型</span>
             )}
-          </div>
-        </div>
+          </Actions>
+        </FormRow>
 
         {compareOpen && (
-          <div className="card mt-8">
-            <div className="card-head">
-              <h3>选择对比模型</h3>
+          <Card
+            title="选择对比模型"
+            heading="h3"
+            className="mt-8"
+            aside={
               <span className="muted small">
                 同一上下文由多个模型各生成一份草稿，并排比较后只保留一份
               </span>
-            </div>
+            }
+          >
             {models.loading && <Loading />}
             {models.data && models.data.models.filter((m) => m.enabled).length === 0 && (
               <EmptyState message="还没有可用的 AI 模型，请先在设置中配置。" />
             )}
             {models.data && models.data.models.filter((m) => m.enabled).length > 0 && (
-              <div className="actions">
+              <Actions>
                 {models.data.models
                   .filter((m) => m.enabled)
                   .map((model) => (
@@ -741,9 +732,9 @@ export function CandidateDetailPage() {
                       <span className="muted small"> · {model.quality_tier}</span>
                     </button>
                   ))}
-              </div>
+              </Actions>
             )}
-            <div className="actions mt-12">
+            <Actions className="mt-12">
               <button
                 className="primary"
                 onClick={generateComparison}
@@ -754,8 +745,8 @@ export function CandidateDetailPage() {
               {comparisonModels.length < 2 && (
                 <span className="muted small">至少选择两个模型</span>
               )}
-            </div>
-          </div>
+            </Actions>
+          </Card>
         )}
 
         {group && (
@@ -802,7 +793,7 @@ export function CandidateDetailPage() {
                       <Badge>{item.status}</Badge>
                     </td>
                     <td>
-                      {item.status === 'generated' && (
+                      {item.status === DRAFT_STATUS.Generated && (
                         <button
                           type="button"
                           onClick={() => selectFromGroup(item.id)}
@@ -821,24 +812,21 @@ export function CandidateDetailPage() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="card">
-        <div className="card-head">
-          <h2>AI 上下文预览</h2>
-          <span className="muted small">模型实际会看到的候选人与岗位信息</span>
-        </div>
+      <Card
+        title="AI 上下文预览"
+        aside={<span className="muted small">模型实际会看到的候选人与岗位信息</span>}
+      >
         {context.loading && <Loading />}
         {context.data && (
           <>
             {context.data.redaction_applied.length > 0 ? (
-              <div className="notice" aria-live="polite">
+              <Notice>
                 已脱敏字段：{context.data.redaction_applied.map(redactionLabel).join('、')}
-              </div>
+              </Notice>
             ) : (
-              <div className="notice" aria-live="polite">
-                本次上下文未包含姓名、电话等需要脱敏的身份字段。
-              </div>
+              <Notice>本次上下文未包含姓名、电话等需要脱敏的身份字段。</Notice>
             )}
             {context.data.unknowns.length > 0 && (
               <div className="warning-box">
@@ -878,7 +866,7 @@ export function CandidateDetailPage() {
             </table>
           </>
         )}
-      </div>
+      </Card>
     </>
   );
 }

@@ -10,14 +10,15 @@ import { PageHeader } from '../app/layout/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading } from '../components/ui';
+import { DRAFT_STATUS } from '../shared/statusVocabulary';
 import type { DraftStatus } from '../types';
 
 const DRAFT_FLOW: { status: DraftStatus; label: string }[] = [
-  { status: 'generated', label: '已生成 · 待审核' },
-  { status: 'edited', label: '人工编辑中' },
-  { status: 'approved', label: '已批准（未发送）' },
-  { status: 'copied', label: '已复制（发送由人完成）' },
-  { status: 'rejected', label: '已拒绝' },
+  { status: DRAFT_STATUS.Generated, label: '已生成 · 待审核' },
+  { status: DRAFT_STATUS.Edited, label: '人工编辑中' },
+  { status: DRAFT_STATUS.Approved, label: '已批准（未发送）' },
+  { status: DRAFT_STATUS.Copied, label: '已复制（发送由人完成）' },
+  { status: DRAFT_STATUS.Rejected, label: '已拒绝' },
 ];
 
 export function AiWorkspacePage() {
@@ -26,7 +27,7 @@ export function AiWorkspacePage() {
   const egress = useAsync(() => backend.settings.getAiEgress(), []);
   const drafts = useAsync(() => backend.drafts.list(), []);
 
-  const pending = drafts.data?.items.filter((draft) => draft.status === 'generated') ?? [];
+  const pending = drafts.data?.items.filter((draft) => draft.status === DRAFT_STATUS.Generated) ?? [];
   const sources = [
     { name: '模型列表', error: models.error, retry: models.reload },
     { name: '场景路由', error: routing.error, retry: routing.reload },

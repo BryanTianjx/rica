@@ -5,6 +5,7 @@ import { backend, describeApiError } from '../services/backend';
 import { positionChanged, subscribePositionChanged } from '../services/backend/events';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { EmptyState, ErrorBox, Loading, StatusBadge } from '../components/ui';
+import { Actions, FormRow, Notice } from '../shared/components/PagePrimitives';
 import type { Position, PositionStatus } from '../types';
 import { DEFAULT_POSITION_STATUS, POSITION_STATUSES } from '../positionStatuses';
 
@@ -266,11 +267,7 @@ export function PositionsPage() {
         actions={<button onClick={openCreateForm}>新增岗位</button>}
       />
 
-      {notice && (
-        <div className="notice" aria-live="polite">
-          {notice}
-        </div>
-      )}
+      {notice && <Notice>{notice}</Notice>}
       {error && <ErrorBox message={error} />}
       {rowError && <ErrorBox message={rowError} />}
 
@@ -278,7 +275,7 @@ export function PositionsPage() {
         <div className="card">
           <h2>{editingId ? '编辑岗位' : '新增岗位'}</h2>
           <form onSubmit={submitForm}>
-            <div className="form-row two">
+            <FormRow two>
               <div>
                 <label htmlFor="pos-name">岗位名称 *</label>
                 <input
@@ -296,8 +293,8 @@ export function PositionsPage() {
                   onChange={(event) => patchDraft({ location: event.target.value })}
                 />
               </div>
-            </div>
-            <div className="form-row two">
+            </FormRow>
+            <FormRow two>
               <div>
                 <label htmlFor="pos-status">岗位状态</label>
                 <select
@@ -322,8 +319,8 @@ export function PositionsPage() {
                   onChange={(event) => patchDraft({ education: event.target.value })}
                 />
               </div>
-            </div>
-            <div className="form-row">
+            </FormRow>
+            <FormRow>
               <label htmlFor="pos-description">岗位描述</label>
               <textarea
                 id="pos-description"
@@ -331,8 +328,8 @@ export function PositionsPage() {
                 onChange={(event) => patchDraft({ description: event.target.value })}
                 rows={3}
               />
-            </div>
-            <div className="form-row">
+            </FormRow>
+            <FormRow>
               <label htmlFor="pos-skills">技能要求</label>
               <textarea
                 id="pos-skills"
@@ -340,8 +337,8 @@ export function PositionsPage() {
                 onChange={(event) => patchDraft({ skills: event.target.value })}
                 rows={3}
               />
-            </div>
-            <div className="form-row">
+            </FormRow>
+            <FormRow>
               <label htmlFor="pos-experience">经验要求</label>
               <textarea
                 id="pos-experience"
@@ -349,8 +346,8 @@ export function PositionsPage() {
                 onChange={(event) => patchDraft({ experience: event.target.value })}
                 rows={2}
               />
-            </div>
-            <div className="form-row two">
+            </FormRow>
+            <FormRow two>
               <div>
                 <label htmlFor="pos-salary-min">最低薪资</label>
                 <input
@@ -373,8 +370,8 @@ export function PositionsPage() {
                   onChange={(event) => patchDraft({ salaryMax: event.target.value })}
                 />
               </div>
-            </div>
-            <div className="form-row">
+            </FormRow>
+            <FormRow>
               <label htmlFor="pos-notes">备注</label>
               <textarea
                 id="pos-notes"
@@ -382,15 +379,15 @@ export function PositionsPage() {
                 onChange={(event) => patchDraft({ notes: event.target.value })}
                 rows={2}
               />
-            </div>
-            <div className="actions">
+            </FormRow>
+            <Actions>
               <button className="primary" type="submit" disabled={saving || !draft.name.trim()}>
                 {saving ? '保存中…' : '保存'}
               </button>
               <button type="button" onClick={closeForm} disabled={saving}>
                 取消
               </button>
-            </div>
+            </Actions>
           </form>
         </div>
       )}
@@ -445,7 +442,7 @@ export function PositionsPage() {
                   </td>
                   <td>{position.candidate_count}</td>
                   <td>
-                    <div className="actions">
+                    <Actions>
                       <button onClick={() => startEdit(position)}>编辑</button>
                       <button
                         onClick={() => toggleArchive(position)}
@@ -460,7 +457,7 @@ export function PositionsPage() {
                       >
                         删除
                       </button>
-                    </div>
+                    </Actions>
                     {deletingId === position.id && (
                       <ConfirmBar
                         message={<>确定删除「{position.name}」？此操作不可恢复。</>}

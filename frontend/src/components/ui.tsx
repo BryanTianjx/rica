@@ -1,7 +1,24 @@
 /** Small shared presentational components. */
 
 import type { ReactNode } from 'react';
-import { toneForStatus } from '../shared/statusVocabulary';
+import type {
+  CandidateStatus,
+  DraftStatus,
+  FollowUpTaskStatus,
+  PositionStatus,
+  SenderType,
+  ValidationStatus,
+} from '../types';
+
+/** Known business statuses plus legacy/unknown API values, which render as default. */
+type BadgeStatus =
+  | CandidateStatus
+  | PositionStatus
+  | FollowUpTaskStatus
+  | DraftStatus
+  | ValidationStatus
+  | SenderType
+  | (string & {});
 
 export function Badge({
   children,
@@ -25,7 +42,7 @@ export function Badge({
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: BadgeStatus }) {
   // Static status literals are intentional: check-ui-reuse C3 verifies that
   // every status value in the union has a tone branch. The shared vocabulary
   // (src/shared/statusVocabulary.ts) mirrors this mapping for page logic.
@@ -41,10 +58,16 @@ export function StatusBadge({ status }: { status: string }) {
         : status === 'Warning' || status === 'Pending' || status === 'Editing' ||
             status === 'Drafting' || status === 'Reviewing' || status === 'Copied' ||
             status === 'AwaitingResult' || status === 'OnHold' || status === 'Draft' ||
-            status === 'edited' || status === 'generated'
+            status === 'edited' || status === 'generated' ||
+            status === 'New' || status === 'Contacted' || status === 'ReadNoReply'
           ? 'warn'
-          : 'default';
-  void toneForStatus;
+          : status === 'Replied'
+            ? 'ok'
+            : // Sender types are labels, not states; keeping them explicit makes
+              // the C3 union-to-tone mapping complete.
+              status === 'Candidate' || status === 'Recruiter' || status === 'System'
+              ? 'default'
+              : 'default';
   return <Badge tone={tone}>{status}</Badge>;
 }
 

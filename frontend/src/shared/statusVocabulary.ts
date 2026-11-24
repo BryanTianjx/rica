@@ -55,6 +55,35 @@ export const TONED_STATUSES = new Set<string>([
 
 export type StatusTone = 'ok' | 'warn' | 'bad' | 'default';
 
+/** C8: page code imports these instead of re-typing the DRAFT_STATUSES values. */
+export const DRAFT_STATUS = {
+  Generated: 'generated',
+  Edited: 'edited',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  Copied: 'copied',
+} as const;
+
+/** Follow-up state machine tables shared by the page (C8) and the vocabulary. */
+export const FOLLOW_UP_ADVANCE_TARGETS: Partial<Record<FollowUpTaskStatus, FollowUpTaskStatus>> = {
+  Pending: 'Eligible',
+  Eligible: 'Drafting',
+  Drafting: 'Reviewing',
+};
+
+export const FOLLOW_UP_REJECT_TARGETS: Partial<Record<FollowUpTaskStatus, FollowUpTaskStatus>> = {
+  Reviewing: 'Rejected',
+};
+
+export const FOLLOW_UP_RESULT_COMPLETABLE_STATUSES: FollowUpTaskStatus[] = [
+  'Pending', 'Eligible', 'Drafting', 'Reviewing', 'Approved', 'Copied', 'AwaitingResult',
+];
+
+export const FOLLOW_UP_CANCELLABLE_STATUSES: FollowUpTaskStatus[] = [
+  'Pending', 'Eligible', 'Drafting', 'Reviewing', 'Rejected', 'Approved', 'Copied',
+  'AwaitingResult', 'Blocked',
+];
+
 export function toneForStatus(status: string): StatusTone {
   const ok = new Set([
     'Active', 'Interview', 'Open', 'Completed', 'Approved', 'Sent',

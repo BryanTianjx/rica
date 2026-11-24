@@ -89,6 +89,29 @@ def executable(name: str) -> bool:
     return shutil.which(name) is not None
 
 
+def command_path(name: str) -> str:
+    """Resolve an executable to a path usable by subprocess on Windows.
+
+    `shutil.which` finds `npm.cmd` via PATHEXT, but CreateProcess does not apply
+    PATHEXT to a bare argv[0], so passing "npm" directly fails with WinError 2.
+    """
+    return shutil.which(name) or name
+
+
+def audit_argv() -> list[str]:
+    """Use `--locked` only when the installed cargo-audit supports it."""
+    argv = ["cargo", "audit"]
+    try:
+        help_text = subprocess.run(
+            ["cargo", "audit", "--help"], capture_output=True, text=True, timeout=60
+        ).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        help_text = ""
+    if "--locked" in help_text:
+        argv.append("--locked")
+    return argv
+
+
 def has_system_lib(pkg: str) -> bool:
     if not executable("pkg-config"):
         return False
@@ -303,7 +326,7 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
             stages.append(
                 run_stage(
                     "frontend_install",
-                    ["npm", "ci", "--prefer-offline", "--no-audit", "--no-fund"],
+                    [command_path("npm"), "ci", "--prefer-offline", "--no-audit", "--no-fund"],
                     cwd=FRONTEND,
                     env=env,
                     detail="npm ci from frontend/package-lock.json",
@@ -320,7 +343,7 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
         if executable("npm"):
             stages.append(
                 run_stage(
-                    "frontend_lint", ["npm", "run", "lint"], cwd=FRONTEND, env=env
+                    "frontend_lint", [command_path("npm"), "run", "lint"], cwd=FRONTEND, env=env
                 )
             )
         else:
@@ -331,7 +354,7 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
             stages.append(
                 run_stage(
                     "frontend_build",
-                    ["npm", "run", "build"],
+                    [command_path("npm"), "run", "build"],
                     cwd=FRONTEND,
                     env=env,
                     detail="tsc -b (typecheck) + vite build",
@@ -345,7 +368,7 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
             stages.append(
                 run_stage(
                     "frontend_test",
-                    ["npm", "run", "test"],
+                    [command_path("npm"), "run", "test"],
                     cwd=FRONTEND,
                     env=env,
                     detail="vitest run; allow >=300s for jsdom environment setup",
@@ -421,7 +444,7 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
             stages.append(
                 run_stage(
                     "security_scan",
-                    ["cargo", "audit", "--locked"],
+                    audit_argv(),
                     cwd=REPO,
                     env=env,
                     detail="cargo-audit dependency advisory scan.",
@@ -452,7 +475,7 @@ def build_stages(args: argparse.Namespace, env: dict[str, str]) -> list[dict]:
                     break
         if e2e_script:
             stages.append(
-                run_stage("e2e", ["npm", "run", e2e_script], cwd=FRONTEND, env=env)
+                run_stage("e2e", [command_path("npm"), "run", e2e_script], cwd=FRONTEND, env=env)
             )
         else:
             stages.append(

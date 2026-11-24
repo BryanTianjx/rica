@@ -5,6 +5,7 @@ import { PageHeader } from '../app/layout/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { backend } from '../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading, LocalTime } from '../components/ui';
+import { Actions, Card, FormRow, Notice } from '../shared/components/PagePrimitives';
 import { ConfirmBar } from '../components/ConfirmBar';
 import { AiModelConfigPanel } from '../components/AiModelConfigPanel';
 import { redactionLabel } from '../privacyLabels';
@@ -187,11 +188,7 @@ export function SettingsPage() {
         description={<p>跟进策略、AI 接入状态与本地数据备份。</p>}
       />
 
-      {notice && (
-        <div className="notice" aria-live="polite">
-          {notice}
-        </div>
-      )}
+      {notice && <Notice>{notice}</Notice>}
       {error && <ErrorBox message={error} />}
 
       <div className="settings-layout">
@@ -216,9 +213,8 @@ export function SettingsPage() {
         <div className="settings-main">
           {show('general') && (
           <section id="sec-general" className="settings-section">
-            <div className="card">
-              <div className="card-head"><h2>通用设置</h2></div>
-              <div className="form-row">
+            <Card title="通用设置">
+              <FormRow>
                 <label htmlFor="settings-theme">界面主题</label>
                 <select
                   id="settings-theme"
@@ -231,30 +227,29 @@ export function SettingsPage() {
                   <option value="light">浅色</option>
                   <option value="dark">深色</option>
                 </select>
-              </div>
+              </FormRow>
               <p className="muted small">设置与侧栏主题切换共享同一偏好；离线可用。</p>
-              <div className="form-row">
+              <FormRow>
                 <span className="muted small">应用</span>
                 <span>{settings.data?.app_name ?? 'ICA Personal'}（本地模式）</span>
-              </div>
-              <div className="form-row">
+              </FormRow>
+              <FormRow>
                 <span className="muted small">数据库位置</span>
                 <span className="small">{settings.data?.database_url ?? '读取中…'}</span>
-              </div>
-              <div className="form-row">
+              </FormRow>
+              <FormRow>
                 <span className="muted small">备份目录 / 保留数</span>
                 <span className="small">
                   {settings.data?.backup_dir ?? '读取中…'} · {settings.data?.backup_keep_count ?? '—'} 份
                 </span>
-              </div>
-            </div>
+              </FormRow>
+            </Card>
           </section>
           )}
 
           {show('routing') && (
           <section id="sec-routing" className="settings-section">
-            <div className="card">
-              <div className="card-head"><h2>场景路由</h2></div>
+            <Card title="场景路由">
               {routing.loading && <Loading />}
               {routing.error && <ErrorBox message={routing.error} />}
               {routing.data && (
@@ -282,7 +277,7 @@ export function SettingsPage() {
                       ))}
                     </tbody>
                   </table>
-                  <div className="actions">
+                  <Actions>
                     <button
                       className="primary"
                       disabled={savingRouting || !routingDraft}
@@ -301,22 +296,23 @@ export function SettingsPage() {
                     >
                       保存路由
                     </button>
-                  </div>
+                  </Actions>
                 </>
               )}
-            </div>
+            </Card>
           </section>
           )}
 
           {show('ai-connections') && (
           <section id="sec-ai" className="settings-section">
-            <div className="card">
-              <div className="card-head">
-                <h2>AI 接入</h2>
+            <Card
+              title="AI 接入"
+              aside={
                 <span className="muted small">
                   Provider / 端点 / 模型 / Key 都在这里配置；保存后立即生效
                 </span>
-              </div>
+              }
+            >
               {settings.loading && <Loading />}
               {settings.error && <ErrorBox message={settings.error} />}
               {settings.data && (
@@ -342,7 +338,7 @@ export function SettingsPage() {
 
                   <div className="subpanel">
                     <h3>API Key</h3>
-                    <div className="form-row two">
+                    <FormRow two>
                       <div>
                         <label htmlFor="ai-key-target">作用范围</label>
                         <select
@@ -372,8 +368,8 @@ export function SettingsPage() {
                           onChange={(event) => setAiKeyInput(event.target.value)}
                         />
                       </div>
-                    </div>
-                    <div className="actions">
+                    </FormRow>
+                    <Actions>
                       <button
                         className="primary"
                         disabled={busy || !aiKeyInput.trim()}
@@ -399,7 +395,7 @@ export function SettingsPage() {
                           }}
                         />
                       )}
-                    </div>
+                    </Actions>
                     <div className="muted small mt-10">
                       当前密钥状态：
                       {keyConfigured ? '已配置（接口与界面均不回显完整密钥）' : '未配置'}
@@ -418,17 +414,16 @@ export function SettingsPage() {
                   )}
                 </>
               )}
-            </div>
+            </Card>
           </section>
           )}
 
           {show('privacy') && (
           <section id="sec-privacy" className="settings-section">
-            <div className="card">
-              <div className="card-head">
-                <h2>隐私与 AI 出网</h2>
-                <span className="muted small">数据去哪里、脱敏了什么、如何停止</span>
-              </div>
+            <Card
+              title="隐私与 AI 出网"
+              aside={<span className="muted small">数据去哪里、脱敏了什么、如何停止</span>}
+            >
               {egress.loading && <Loading />}
               {egress.error && <ErrorBox message={egress.error} />}
               {egress.data && (
@@ -472,7 +467,7 @@ export function SettingsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="actions">
+                  <Actions>
                     <button
                       type="button"
                       onClick={() => toggleEgress(!egress.data!.consent_granted)}
@@ -480,27 +475,26 @@ export function SettingsPage() {
                     >
                       {egress.data.consent_granted ? '关闭 AI 出网' : '允许 AI 出网'}
                     </button>
-                  </div>
+                  </Actions>
                   <p className="muted small mt-10">
                     关闭后，后端会在构建上下文之前拒绝生成，任何候选人字段都不会发往供应商。
                     每次发送（<span className="mono">ai.egress</span>）与每次开关变更都会写入审计事件。
                   </p>
                 </>
               )}
-            </div>
+            </Card>
           </section>
           )}
 
           {show('general') && (
           <section id="sec-policy" className="settings-section">
-            <div className="card">
-              <div className="card-head">
-                <h2>跟进策略</h2>
-                <span className="muted small">策略由后端评估；此处只改参数</span>
-              </div>
+            <Card
+              title="跟进策略"
+              aside={<span className="muted small">策略由后端评估；此处只改参数</span>}
+            >
               {policy.loading && <Loading />}
               {policy.data && (
-                <div className="form-row two">
+                <FormRow two>
                   <div>
                     <label htmlFor="p-delay">首次跟进等待（小时）</label>
                     <input
@@ -558,26 +552,23 @@ export function SettingsPage() {
                       }
                     />
                   </div>
-                </div>
+                </FormRow>
               )}
-              <div className="actions">
+              <Actions>
                 <button className="primary" onClick={savePolicy} disabled={busy || !draftPolicy}>
                   保存策略
                 </button>
-              </div>
-            </div>
+              </Actions>
+            </Card>
           </section>
           )}
 
           {show('data-backup') && (
           <section id="sec-backup" className="settings-section">
-            <div className="card">
-              <div className="card-head">
-                <h2>本地备份</h2>
-                <button onClick={createBackup} disabled={busy}>
-                  立即备份
-                </button>
-              </div>
+            <Card
+              title="本地备份"
+              aside={<button onClick={createBackup} disabled={busy}>立即备份</button>}
+            >
               {backups.loading && <Loading />}
               {backups.data && backups.data.length === 0 && (
                 <EmptyState message="还没有备份" />
@@ -627,18 +618,17 @@ export function SettingsPage() {
                   </tbody>
                 </table>
               )}
-            </div>
+            </Card>
           </section>
           )}
 
           {show('audit') && (
           <section id="sec-audit" className="settings-section">
-            <div className="card">
-              <div className="card-head">
-                <h2>审计记录</h2>
-                <span className="muted small">最新在前；仅记录元数据，不含聊天正文与密钥</span>
-              </div>
-              <div className="form-row two">
+            <Card
+              title="审计记录"
+              aside={<span className="muted small">最新在前；仅记录元数据，不含聊天正文与密钥</span>}
+            >
+              <FormRow two>
                 <div>
                   <label htmlFor="audit-event-type">事件类型筛选</label>
                   <input
@@ -657,7 +647,7 @@ export function SettingsPage() {
                     onChange={(event) => setAuditEntityType(event.target.value)}
                   />
                 </div>
-              </div>
+              </FormRow>
               {audit.loading && <Loading />}
               {audit.error && <ErrorBox message={audit.error} />}
               {audit.data && audit.data.length === 0 && (
@@ -696,7 +686,7 @@ export function SettingsPage() {
                   </table>
                 </div>
               )}
-            </div>
+            </Card>
           </section>
           )}
         </div>
