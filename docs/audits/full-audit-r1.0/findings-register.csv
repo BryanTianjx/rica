@@ -8,7 +8,7 @@ RICA-P2-01,P2,README 与阶段实现状态存在文档漂移,已确认,"README K
 RICA-P2-02,P2,Rust 严格 lint 与错误处理治理不足,已确认配置债务,"Cargo Workspace 中 missing_docs、unwrap_used、expect_used 规则仍为 allow；历史统计记录相关债务",可维护性与错误处理一致性不足,"按 crate 分层启用 warn/deny；逐步清理 unwrap/expect 并补公开 API 文档",目标 crate 达到约定 lint 基线且 CI 强制执行
 RICA-P2-03,P2,Browser POC 测试跳过及稳定性证据不足,历史证据确认,"历史测试报告记录 3 项 Browser POC 测试 skipped",浏览器进程与自动化链路故障可能漏检,"补充隔离测试环境、启动超时、进程清理和恢复测试",关键 Browser 场景不再无理由 skip；失败有可诊断日志
 RICA-P2-04,P2,核心业务 E2E 覆盖不足,历史证据确认,"历史 ARCH-P6 报告 E2E BLOCKED",无法证明招聘业务完整闭环,"建立岗位至候选人、沟通、跟进、AI 草稿、审核、持久化 E2E",核心业务主路径和关键失败路径在 CI 可重复通过
-RICA-P2-05,P2,UI Reuse 质量指标尚未全部通过,已确认,"Phase 2 报告记录 C3/C5/C8 failing；regression=0",状态映射、组件复用与页面状态字面量仍有技术债,"建立状态词表和共享组件；按指标分批治理","C3/C5/C8 达到项目定义阈值；回归门保持通过
+RICA-P2-05,P2,UI Reuse 质量指标尚未全部通过,已确认,"Phase 2 报告记录 C3/C5/C8 failing；regression=0",状态映射、组件复用与页面状态字面量仍有技术债,"建立状态词表和共享组件；按指标分批治理","C3/C5/C8 达到项目定义阈值；回归门保持通过"
 RICA-P2-06,P2,备份恢复与数据库故障场景缺少本轮验证,待验证,"本轮未执行数据库故障注入和恢复测试",异常环境下可能发生恢复失败或数据不一致","测试备份一致性、校验、恢复回滚、磁盘满和只读场景","备份可校验；恢复后数据与审计状态一致；失败不破坏原数据
 RICA-P2-07,P2,依赖安全扫描未获得当前 HEAD 结果,历史证据确认,"ARCH-P6 报告记录 dependency scan BLOCKED；旧报告提及 SQLite advisory",可能遗漏已知漏洞或错误判断已修复状态,"对当前 Cargo.lock/npm lock 执行 advisory 扫描并复核受影响版本","当前依赖扫描无未接受的 Critical/High；例外有风险接受记录
 RICA-P2-08,P2,安装包签名与发布追溯需形成闭环,待验证,"本轮未取得当前发布制品签名/校验和验收证据","用户无法充分验证制品来源与完整性","建立版本、commit、构建环境、签名、SHA256 与发布记录关联","每个正式制品均有签名、SHA256、commit 和可复现构建记录
