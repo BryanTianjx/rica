@@ -10,10 +10,10 @@ use std::sync::Arc;
 
 use ica_application::ports::{
     AiModelRepository, AiUsageRepository, AppSettingsRepository, AuditTrailRepository,
-    AuthRepository, AuthSecurity, BackupStore, BrowserExtractionRepository, CandidateRepository,
-    ConversationRepository, DashboardRepository, DataSnapshotRepository, DraftGenerator,
-    DraftRepository, ExportSealer, FollowUpRepository, ImportRepository, MessageRepository,
-    OcrEngine, PositionRepository, SecretStore, SendRecordRepository,
+    AuthRepository, AuthSecurity, AuthzDecisionRecorder, BackupStore, BrowserExtractionRepository,
+    CandidateRepository, ConversationRepository, DashboardRepository, DataSnapshotRepository,
+    DraftGenerator, DraftRepository, ExportSealer, FollowUpRepository, ImportRepository,
+    MessageRepository, OcrEngine, PositionRepository, SecretStore, SendRecordRepository,
 };
 use ica_application::{AiBudgetSettings, AppRuntime};
 
@@ -25,6 +25,9 @@ pub type AppConfig = ica_application::RuntimeConfig;
 #[derive(Clone)]
 pub struct AppState {
     runtime: AppRuntime,
+    /// SEC-P1 §10: structured authorization decisions. Defaults to a no-op
+    /// recorder so existing composition roots stay source-compatible.
+    authz_decisions: Arc<dyn AuthzDecisionRecorder>,
 }
 
 impl AppState {
@@ -90,7 +93,20 @@ impl AppState {
     /// Wrap an already assembled runtime (the two transports can share the
     /// very same instance inside one process).
     pub fn from_runtime(runtime: AppRuntime) -> Self {
-        Self { runtime }
+        Self {
+            runtime,
+            authz_decisions: Arc::new(ica_application::ports::NoopAuthzDecisionRecorder),
+        }
+    }
+
+    /// Attach the Rust-owned authorization decision recorder (composition root).
+    pub fn with_authz_decisions(mut self, recorder: Arc<dyn AuthzDecisionRecorder>) -> Self {
+        self.authz_decisions = recorder;
+        self
+    }
+
+    pub fn authz_decisions(&self) -> &dyn AuthzDecisionRecorder {
+        self.authz_decisions.as_ref()
     }
 
     pub fn runtime(&self) -> &AppRuntime {

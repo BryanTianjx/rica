@@ -19,6 +19,7 @@ pub mod ai_client;
 pub mod ai_models;
 pub mod audit;
 pub mod auth_store;
+pub mod authz_decisions;
 pub mod backup;
 pub mod candidates;
 pub mod column_defaults;

@@ -44,11 +44,32 @@ pub struct Migration {
 /// (see the snapshot header), so the trail scan would read the whole table.
 /// This is a performance-only divergence from the frozen DDL: responses and
 /// rows are unchanged, which is what the contract parity compares.
-pub const CANONICAL_MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    description: "ix_audit_events_event_type for the W5 audit trail listing",
-    sql: "CREATE INDEX IF NOT EXISTS ix_audit_events_event_type ON audit_events (event_type);",
-}];
+pub const CANONICAL_MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        description: "ix_audit_events_event_type for the W5 audit trail listing",
+        sql: "CREATE INDEX IF NOT EXISTS ix_audit_events_event_type ON audit_events (event_type);",
+    },
+    Migration {
+        version: 2,
+        // SEC-P1 §10: structured authorization decisions go to a Rust-owned
+        // side table. It is deliberately absent from the frozen baseline DDL
+        // and from contract_capture.DB_TABLES, so L2/L4 parity is unaffected.
+        description: "authz_decisions side table for structured authorization decisions",
+        sql: "CREATE TABLE IF NOT EXISTS authz_decisions (\
+              id INTEGER PRIMARY KEY AUTOINCREMENT,\
+              request_id VARCHAR(128),\
+              actor_id VARCHAR(36),\
+              tenant_id VARCHAR(36),\
+              action VARCHAR(128) NOT NULL,\
+              resource_type VARCHAR(64),\
+              decision VARCHAR(16) NOT NULL,\
+              reason_code VARCHAR(64),\
+              entrypoint VARCHAR(32),\
+              scope_kind VARCHAR(16),\
+              occurred_at DATETIME NOT NULL);",
+    },
+];
 
 /// Why the runner refused to proceed.
 #[derive(Debug)]

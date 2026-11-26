@@ -166,31 +166,39 @@ impl AuditEventRow {
 impl AuditTrailRepository for SqliteStore {
     async fn recent_events(
         &self,
+        scope: Option<&ica_application::Scope>,
         filter: AuditEventFilter,
     ) -> Result<Vec<AuditEvent>, RepositoryError> {
         // Same shape as the baseline's `audit_recent`: equality filters only
-        // when present, `ORDER BY created_at DESC`, `LIMIT ?`. (The baseline
-        // has no secondary sort key either, so ties keep SQLite's scan order.)
+        // when present, `ORDER BY created_at DESC`, `LIMIT ?`. The tenant
+        // predicate is added first and cannot be overridden by a filter value.
         let mut sql = String::from(
-            "SELECT id, event_type, entity_type, entity_id, actor, summary, \
-             metadata_json, created_at FROM audit_events",
+            "SELECT a.id, a.event_type, a.entity_type, a.entity_id, a.actor, a.summary, \
+             a.metadata_json, a.created_at FROM audit_events a WHERE 1=1",
         );
         let mut binds: Vec<String> = Vec::new();
+        if let Some(scope) = scope {
+            sql.push_str(" AND a.tenant_id = ?");
+            binds.push(scope.tenant_id.clone());
+            if !scope.is_admin {
+                // Members see only their own audit events by default (plan §5.2).
+                sql.push_str(" AND a.actor_id = ?");
+                binds.push(scope.actor_id.clone());
+            }
+        }
         if let Some(value) = &filter.event_type {
-            sql.push_str(" WHERE event_type = ?");
+            sql.push_str(" AND a.event_type = ?");
             binds.push(value.clone());
         }
         if let Some(value) = &filter.entity_type {
-            sql.push_str(if binds.is_empty() { " WHERE" } else { " AND" });
-            sql.push_str(" entity_type = ?");
+            sql.push_str(" AND a.entity_type = ?");
             binds.push(value.clone());
         }
         if let Some(value) = &filter.entity_id {
-            sql.push_str(if binds.is_empty() { " WHERE" } else { " AND" });
-            sql.push_str(" entity_id = ?");
+            sql.push_str(" AND a.entity_id = ?");
             binds.push(value.clone());
         }
-        sql.push_str(" ORDER BY created_at DESC LIMIT ?");
+        sql.push_str(" ORDER BY a.created_at DESC LIMIT ?");
 
         let mut query = sqlx::query_as::<_, AuditEventRow>(sqlx::AssertSqlSafe(sql.to_owned()));
         for value in &binds {

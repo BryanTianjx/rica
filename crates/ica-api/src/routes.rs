@@ -66,6 +66,10 @@ const ROUTE_PATTERNS: &[&str] = &[
     "/api/follow-ups/{task_id}/complete",
     "/api/follow-ups/{task_id}/record-result",
     "/api/dashboard",
+    // SEC-P1 AUTH-03: platform aggregate. Contract-external (not one of the
+    // 68 frozen Python-baseline contracts), but present in the manifest so the
+    // parity middlewares see it.
+    "/api/dashboard/platform",
     "/api/drafts",
     "/api/drafts/generate",
     "/api/drafts/{draft_id}",
@@ -179,6 +183,7 @@ pub fn router_with_mode(state: AppState, mode: AuthMode) -> Router {
             post(record_follow_up_result),
         )
         .route("/api/dashboard", get(dashboard))
+        .route("/api/dashboard/platform", get(platform_dashboard_endpoint))
         .route("/api/drafts", get(list_drafts))
         // Static segments must be registered before the `{draft_id}` param
         // route for readability; axum's matcher prioritises them either way.
@@ -774,14 +779,69 @@ async fn dashboard(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<DashboardRead>, ApiError> {
-    // The dashboard is a cross-tenant aggregate (and runs maintenance sweeps),
-    // so it is an operator surface, not a per-row resource.
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    // SEC-P1 AUTH-03: the dashboard is a *tenant* aggregate. The use case
+    // applies the admin gate and derives the repository scope from the same
+    // authenticated context, so a cross-tenant filter cannot be injected here.
     use ica_domain::CandidateStatus;
-    let snapshot = ica_application::dashboard(state.dashboard()).await?;
+    let snapshot = ica_application::dashboard(state.dashboard(), &ctx).await?;
     let mut status_counts: std::collections::BTreeMap<String, i64> =
         std::collections::BTreeMap::new();
     // The baseline seeds every enumeration key with 0 before filling counts.
+    for status in [
+        CandidateStatus::New,
+        CandidateStatus::Contacted,
+        CandidateStatus::ReadNoReply,
+        CandidateStatus::Replied,
+        CandidateStatus::Active,
+        CandidateStatus::Interview,
+        CandidateStatus::Rejected,
+        CandidateStatus::Withdrawn,
+        CandidateStatus::Closed,
+    ] {
+        status_counts.insert(status.as_str().to_string(), 0);
+    }
+    for (status, count) in snapshot.candidate_status_counts {
+        status_counts.insert(status, count);
+    }
+    Ok(Json(DashboardRead {
+        candidate_total: snapshot.candidate_total,
+        candidate_status_counts: status_counts,
+        active_follow_up_count: snapshot.active_follow_up_count,
+        pending_follow_ups: snapshot
+            .pending_follow_ups
+            .into_iter()
+            .map(FollowUpTaskRead::from)
+            .collect(),
+        awaiting_result_count: snapshot.awaiting_result_count,
+        pending_draft_count: snapshot.pending_draft_count,
+        recent_messages: snapshot
+            .recent_messages
+            .into_iter()
+            .map(MessageRead::from)
+            .collect(),
+        position_total: snapshot.position_total,
+        open_position_count: snapshot.open_position_count,
+        calendar: DashboardCalendar {
+            month: snapshot.calendar_month,
+            messages_by_day: snapshot.calendar_messages_by_day.into_iter().collect(),
+            followups_by_day: snapshot.calendar_followups_by_day.into_iter().collect(),
+        },
+    }))
+}
+
+/// `GET /api/dashboard/platform` — installation-wide aggregate (SEC-P1 AUTH-03).
+///
+/// Contract-external: the 68 frozen Python-baseline contracts have no platform
+/// overview, so this route is not a matrix row. It requires an explicit
+/// platform permission and is the only path that reaches an unscoped aggregate.
+async fn platform_dashboard_endpoint(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<ica_application::RequestContext>,
+) -> Result<Json<DashboardRead>, ApiError> {
+    use ica_domain::CandidateStatus;
+    let snapshot = ica_application::platform_dashboard(state.dashboard(), &ctx).await?;
+    let mut status_counts: std::collections::BTreeMap<String, i64> =
+        std::collections::BTreeMap::new();
     for status in [
         CandidateStatus::New,
         CandidateStatus::Contacted,
@@ -1169,7 +1229,9 @@ async fn export_data(
     Extension(ctx): Extension<ica_application::RequestContext>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    // SEC-P1 AUTH-06: this endpoint returns a platform-wide snapshot. A
+    // tenant package endpoint with a whitelist is a separate future capability.
+    ica_application::authorize_platform(&ctx, ica_application::PlatformPermission::SnapshotManage)?;
     let key = headers
         .get("x-encrypt-aes-key")
         .and_then(|value| value.to_str().ok())
@@ -1217,7 +1279,7 @@ async fn import_data(
     Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<ImportResult>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(&ctx, ica_application::PlatformPermission::SnapshotManage)?;
     let raw: body::RawImportPayload = body::parse(&body)?;
     let data = body::import_payload(raw)?;
     let outcome = ica_application::import_data(state.snapshots(), data).await?;
@@ -1273,10 +1335,11 @@ async fn audit_events(
     Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<query::RawListAuditEventsQuery>,
 ) -> Result<Json<Vec<AuditEventRead>>, ApiError> {
-    // The trail spans every tenant's rows; it is an operator-only read.
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    // SEC-P1 AUTH-04: tenant-only trail. The use case gates the admin role
+    // and forces the `tenant_id` predicate in the repository query.
     let list = query::validate_audit_events(raw)?;
-    let events = ica_application::recent_audit_events(state.audit_trail(), list.into()).await?;
+    let events =
+        ica_application::recent_audit_events(state.audit_trail(), &ctx, list.into()).await?;
     Ok(Json(events.into_iter().map(AuditEventRead::from).collect()))
 }
 
@@ -1288,7 +1351,11 @@ async fn read_settings(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<SettingsRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    // SEC-P1 AUTH-07: settings are installation-wide; no tenant role may read them.
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let snapshot = state.settings_config_view().settings_snapshot();
     Ok(Json(SettingsRead {
         app_name: snapshot.app_name,
@@ -1309,7 +1376,10 @@ async fn read_ai_egress(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<AIEgressRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let disclosure =
         ica_application::read_egress_disclosure(state.settings(), &state.settings_config_view())
             .await?;
@@ -1324,7 +1394,10 @@ async fn write_ai_egress_consent(
     Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AIEgressRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let raw: body::RawAiEgressConsent = body::parse(&body)?;
     let consent = body::ai_egress_consent(raw)?;
     let disclosure = ica_application::write_egress_consent(
@@ -1343,7 +1416,10 @@ async fn list_ai_models(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<AiModelsRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let overview = ica_application::list_ai_models(
         state.ai_models(),
         state.secrets(),
@@ -1361,7 +1437,10 @@ async fn get_ai_routing(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<AiRoutingRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let routing = ica_application::get_ai_routing(state.ai_models()).await?;
     Ok(Json(AiRoutingRead { routing }))
 }
@@ -1372,7 +1451,10 @@ async fn update_ai_routing(
     Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AiRoutingRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let raw: body::RawAiRoutingPatch = body::parse(&body)?;
     let patch = body::ai_routing_patch(raw)?;
     let routing = ica_application::update_ai_routing(state.ai_models(), patch.routing).await?;
@@ -1385,7 +1467,10 @@ async fn get_ai_usage(
     Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<query::RawAiUsageQuery>,
 ) -> Result<Json<AiUsageRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let days = query::validate_ai_usage_days(raw)?;
     let today = chrono::Utc::now()
         .naive_utc()
@@ -1401,7 +1486,10 @@ async fn get_ai_budget(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<AiBudgetRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let today = chrono::Utc::now()
         .naive_utc()
         .format("%Y-%m-%d")
@@ -1420,7 +1508,10 @@ async fn update_ai_budget(
     Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AiBudgetRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let raw: body::RawAiBudgetPatch = body::parse(&body)?;
     let patch = body::ai_budget_patch(raw)?;
     state
@@ -1461,7 +1552,10 @@ async fn write_ai_key_endpoint(
     Extension(ctx): Extension<ica_application::RequestContext>,
     body: Bytes,
 ) -> Result<Json<AiKeyStatus>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let raw: body::RawAiKeyWrite = body::parse(&body)?;
     let write = body::ai_key_write(raw)?;
     let (installation, masked, model_id) = ica_application::write_ai_key(
@@ -1489,7 +1583,10 @@ async fn clear_ai_key_endpoint(
     Extension(ctx): Extension<ica_application::RequestContext>,
     ApiQuery(raw): ApiQuery<query::RawAiKeyClearQuery>,
 ) -> Result<Json<AiKeyStatus>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(
+        &ctx,
+        ica_application::PlatformPermission::AiSettingsManage,
+    )?;
     let model_id = query::validate_ai_key_clear(raw)?;
     let (installation, masked, model_id) =
         ica_application::clear_ai_key(state.secrets(), state.settings(), model_id.as_deref())
@@ -1509,8 +1606,9 @@ async fn list_backups_endpoint(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<Vec<BackupRead>>, ApiError> {
-    // Backup files are installation-wide; only an operator may enumerate them.
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    // SEC-P1 AUTH-05: backups are installation-wide. A tenant admin must not
+    // enumerate them; only an explicit platform permission allows this.
+    ica_application::authorize_platform(&ctx, ica_application::PlatformPermission::BackupManage)?;
     let records = ica_application::list_backups(state.backups()).await?;
     Ok(Json(records.into_iter().map(Into::into).collect()))
 }
@@ -1521,7 +1619,7 @@ async fn create_backup_endpoint(
     State(state): State<AppState>,
     Extension(ctx): Extension<ica_application::RequestContext>,
 ) -> Result<Json<BackupRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(&ctx, ica_application::PlatformPermission::BackupManage)?;
     let record = ica_application::create_backup(state.backups()).await?;
     Ok(Json(record.into()))
 }
@@ -1535,7 +1633,7 @@ async fn restore_backup_endpoint(
     Path(name): Path<String>,
     body: Bytes,
 ) -> Result<Json<RestoreRead>, ApiError> {
-    ica_application::authorize(&ctx, ica_application::Permission::AdminOperation)?;
+    ica_application::authorize_platform(&ctx, ica_application::PlatformPermission::BackupManage)?;
     // Business rules (confirm, file-name guard, existence pre-check) live in
     // the shared Application use case; IPC executes the identical code.
     let payload: serde_json::Value = body::parse(&body)?;
@@ -1735,12 +1833,14 @@ mod sec04_a_route_manifest_tests {
         assert_eq!(rows, 68, "the matrix must register exactly 68 contracts");
 
         // Reverse direction: no manifest entry is undocumented, apart from
-        // the liveness probe and the D-2 non-contract helper.
+        // the liveness probe, the D-2 non-contract helper and the SEC-P1
+        // platform aggregate (also contract-external).
         for pattern in ROUTE_PATTERNS {
             assert!(
                 documented.iter().any(|path| path == pattern)
                     || *pattern == "/health"
-                    || *pattern == EXTRA,
+                    || *pattern == EXTRA
+                    || *pattern == "/api/dashboard/platform",
                 "route {pattern} is missing from the authentication matrix"
             );
         }

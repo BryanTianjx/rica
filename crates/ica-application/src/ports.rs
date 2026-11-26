@@ -804,55 +804,89 @@ pub struct NewFollowUpTaskRow {
 /// baseline runs on the same read path.
 #[async_trait]
 pub trait DashboardRepository: Send + Sync {
+    /// SEC-P1 AUTH-03: every method takes the authenticated repository scope.
+    /// `None` is the documented Local mode; `Some` MUST constrain the SQL to
+    /// that tenant (and to the owner for non-admin actors). No query may read
+    /// all tenants and filter afterwards.
+    ///
     /// Message counts per UTC day for the workbench calendar
     /// (`dashboard.py` 的 `messages_by_day`): days are
     /// `date(coalesce(message_time, created_at))`, only on/after `month_start`.
     async fn messages_by_day(
         &self,
+        scope: Option<&crate::Scope>,
         month_start: chrono::DateTime<chrono::Utc>,
     ) -> Result<Vec<(String, i64)>, RepositoryError>;
 
     /// Hard-delete candidates `archived` and stale past `cutoff` (FK cascade
     /// removes their children). Returns the deleted count.
-    async fn expire_old_candidates(&self, cutoff: DateTime<Utc>) -> Result<u64, RepositoryError>;
+    async fn expire_old_candidates(
+        &self,
+        scope: Option<&crate::Scope>,
+        cutoff: DateTime<Utc>,
+    ) -> Result<u64, RepositoryError>;
 
     /// Delete audit events older than `cutoff`. Returns the deleted count.
-    async fn prune_audit_events(&self, cutoff: DateTime<Utc>) -> Result<u64, RepositoryError>;
+    async fn prune_audit_events(
+        &self,
+        scope: Option<&crate::Scope>,
+        cutoff: DateTime<Utc>,
+    ) -> Result<u64, RepositoryError>;
 
     /// Blank `raw_text` on import sessions older than `cutoff`. Returns the
     /// cleared count.
     async fn prune_stale_import_raw_text(
         &self,
+        scope: Option<&crate::Scope>,
         cutoff: DateTime<Utc>,
     ) -> Result<u64, RepositoryError>;
 
     /// Candidates with `archived = false`.
-    async fn candidate_total(&self) -> Result<i64, RepositoryError>;
+    async fn candidate_total(&self, scope: Option<&crate::Scope>) -> Result<i64, RepositoryError>;
 
     /// `(status, count)` for candidates with `archived = false`.
-    async fn candidate_status_counts(&self) -> Result<Vec<(String, i64)>, RepositoryError>;
+    async fn candidate_status_counts(
+        &self,
+        scope: Option<&crate::Scope>,
+    ) -> Result<Vec<(String, i64)>, RepositoryError>;
 
     /// Tasks in `statuses`, `recommended_at ASC NULLS LAST`, at most `limit`.
     async fn pending_tasks(
         &self,
+        scope: Option<&crate::Scope>,
         statuses: &[FollowUpTaskStatus],
         limit: usize,
     ) -> Result<Vec<FollowUpTask>, RepositoryError>;
 
     /// Tasks in `statuses`, counted.
-    async fn task_count_in(&self, statuses: &[FollowUpTaskStatus]) -> Result<i64, RepositoryError>;
+    async fn task_count_in(
+        &self,
+        scope: Option<&crate::Scope>,
+        statuses: &[FollowUpTaskStatus],
+    ) -> Result<i64, RepositoryError>;
 
     /// Drafts whose status is one of `statuses` (lower-case strings), counted.
-    async fn draft_count_in(&self, statuses: &[&str]) -> Result<i64, RepositoryError>;
+    async fn draft_count_in(
+        &self,
+        scope: Option<&crate::Scope>,
+        statuses: &[&str],
+    ) -> Result<i64, RepositoryError>;
 
     /// The `limit` newest messages (`created_at DESC`).
-    async fn recent_messages(&self, limit: usize) -> Result<Vec<Message>, RepositoryError>;
+    async fn recent_messages(
+        &self,
+        scope: Option<&crate::Scope>,
+        limit: usize,
+    ) -> Result<Vec<Message>, RepositoryError>;
 
     /// Positions with `archived = false`.
-    async fn position_total(&self) -> Result<i64, RepositoryError>;
+    async fn position_total(&self, scope: Option<&crate::Scope>) -> Result<i64, RepositoryError>;
 
     /// Positions with `archived = false` and `status = 'Open'`.
-    async fn open_position_count(&self) -> Result<i64, RepositoryError>;
+    async fn open_position_count(
+        &self,
+        scope: Option<&crate::Scope>,
+    ) -> Result<i64, RepositoryError>;
 }
 
 // ── Drafts and the AI port (W3) ────────────────────────────────────────────
@@ -1460,10 +1494,51 @@ pub trait BrowserExtractionRepository: Send + Sync {
 pub trait AuditTrailRepository: Send + Sync {
     /// The newest events first (`ORDER BY created_at DESC`), exactly the
     /// baseline's `audit_recent`.
+    ///
+    /// SEC-P1 AUTH-04: `Some(scope)` forces the tenant (and, for a non-admin,
+    /// actor) predicate in SQL. `None` is the installation-wide read and MUST
+    /// only be reached from the platform-permission use case.
     async fn recent_events(
         &self,
+        scope: Option<&crate::Scope>,
         filter: AuditEventFilter,
     ) -> Result<Vec<AuditEvent>, RepositoryError>;
+}
+
+/// One structured authorization decision (P1 plan §10).
+///
+/// Stored in a Rust-owned side table so the frozen Python-baseline
+/// `audit_events` schema and its contract capture stay byte-identical. Never
+/// contains a token, API key, cookie or request body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthzDecision {
+    pub request_id: String,
+    pub actor_id: String,
+    pub tenant_id: String,
+    pub action: String,
+    pub resource_type: String,
+    pub decision: String,
+    pub reason_code: String,
+    pub entrypoint: String,
+    pub scope_kind: String,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[async_trait]
+pub trait AuthzDecisionRecorder: Send + Sync {
+    async fn record(&self, decision: &AuthzDecision) -> Result<(), RepositoryError>;
+}
+
+/// Default recorder for adapters/tests that do not persist authorization
+/// decisions. Denials still produce the correct HTTP envelope; only the
+/// structured side record is skipped.
+pub struct NoopAuthzDecisionRecorder;
+
+#[async_trait]
+impl AuthzDecisionRecorder for NoopAuthzDecisionRecorder {
+    async fn record(&self, _decision: &AuthzDecision) -> Result<(), RepositoryError> {
+        Ok(())
+    }
 }
 
 /// The non-sensitive key/value `app_settings` store (W5 settings slice).

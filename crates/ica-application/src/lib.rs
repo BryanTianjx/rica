@@ -41,7 +41,7 @@ pub use ai_registry::{
     AiModelsOverview, AiSettingsView, AiUsageAllTime, AiUsageByModel, AiUsageRow, BudgetRead,
     RoutingDecision, TodayUsage, UsageDay, UsageOverview, DEFAULT_ROUTING, QUALITY_TIERS,
 };
-pub use audit_trail::recent_audit_events;
+pub use audit_trail::{platform_audit_events, recent_audit_events};
 pub use auth::{
     create_share, delete_share, list_shares, local_user, login, logout, me, refresh, register,
     IssuedTokens, ShareData, UserRead,
@@ -60,7 +60,7 @@ pub use conversations::{
     create_message, create_message_scoped, list_conversations, list_conversations_scoped,
     list_messages, list_messages_scoped, ListConversations, ListMessages,
 };
-pub use dashboard::{dashboard, DashboardSnapshot};
+pub use dashboard::{dashboard, platform_dashboard, DashboardSnapshot};
 pub use drafts::{
     approve_draft, approve_draft_scoped, copy_draft, copy_draft_scoped, generate, generate_scoped,
     get_draft, get_draft_group, get_draft_group_scoped, get_draft_scoped, list_drafts,
@@ -103,7 +103,10 @@ pub use positions::{
     get_position_scoped, list_positions, list_positions_scoped, update_position,
     update_position_scoped, ListPositions,
 };
-pub use request_context::{authorize, Permission, RequestContext, Scope};
+pub use request_context::{
+    authorize, authorize_platform, require_tenant_scope, AuthMethod, DenyReason, Permission,
+    PlatformPermission, PrincipalKind, RequestContext, Scope, TenantRole,
+};
 pub use runtime::{AppRuntime, RuntimeConfig, RuntimeLifecycle, RuntimePhase};
 pub use send_records::{
     list_send_records, list_send_records_scoped, record_send, record_send_scoped, ListSendRecords,

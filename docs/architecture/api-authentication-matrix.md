@@ -234,3 +234,19 @@ SEC04-BC-PUBLIC-PATHS-END -->
 `contract_authorization_trace_is_complete` 与前述 68 行矩阵共同 pin 住；
 负向用例见同文件的 `anonymous_and_forged_bearers_are_rejected_with_baseline_code`、
 `cross_tenant_reads_are_invisible`、`write_and_delete_obey_identity_and_ownership`。
+
+### 2026-11-25 P1 多租户授权边界更新（RICA-SEC-P1-TENANT-AUTH-R1.0）
+
+上一行表中的 `Permission::AdminOperation` 描述已过期：以下表面现改为平台级门禁，租户管理员（旧 `admin`）返回 403 + `AUTH_PLATFORM_PERMISSION_REQUIRED`：
+
+| 表面 | 新门禁 |
+| --- | --- |
+| `GET /api/settings`、`GET/PATCH /api/settings/ai-egress`、`GET/PUT/DELETE /api/settings/ai-key` | `PlatformPermission::AiSettingsManage` |
+| `GET /api/ai/models`、`GET/PATCH /api/ai/routing`、`GET /api/ai/usage`、`GET/PATCH /api/ai/budget` | `PlatformPermission::AiSettingsManage` |
+| `GET /api/backups`、`POST /api/backups`、`POST /api/backups/{name}/restore` | `PlatformPermission::BackupManage` |
+| `POST /api/export`、`POST /api/import` | `PlatformPermission::SnapshotManage` |
+| `GET /api/dashboard`、`GET /api/audit-events` | 租户管理员门禁 + SQL 层 tenant_id 过滤（不再是跨租户聚合） |
+
+其它变化：`RequestContext` 使用强类型 `TenantRole`/`PlatformPermission`；MultiUser 下每次请求重载用户状态、租户归属与角色；Local 模式合成安装所有者显式持有平台权限。完整记录见 `docs/security/RICA-P1-租户授权边界整改实施记录-R1.0.md`。
+
+**契约外平台路由（不计入 68 条）**：`GET /api/dashboard/platform` 是 SEC-P1 AUTH-03 新增的安装实例级聚合，仅 `platform_admin` 可达（403 + `AUTH_PLATFORM_PERMISSION_REQUIRED`），Python 基线没有对应端点，故不追加矩阵行；它已登记在 `routes.rs::ROUTE_PATTERNS` 中，以便在反向路由清单测试中作为显式豁免项。

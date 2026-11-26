@@ -371,7 +371,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .parse()
                 .map_err(|error| format!("BCRYPT_COST is not an integer: {error}"))?,
         },
-    );
+    )
+    // SEC-P1 §10: authorization decisions go to a Rust-owned side table.
+    .with_authz_decisions(Arc::new(
+        ica_infra::authz_decisions::SqliteAuthzDecisionRecorder::new(repository.pool().clone()),
+    ));
 
     // apply_stored_secrets: a UI-configured installation-wide key overrides
     // the env-only state without a restart.

@@ -1177,6 +1177,7 @@ dependencies = [
  "ica-contracts",
  "ica-domain",
  "ica-infra",
+ "jsonwebtoken",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1185,6 +1186,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

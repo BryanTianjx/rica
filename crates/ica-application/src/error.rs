@@ -172,6 +172,23 @@ impl ApplicationError {
         }
     }
 
+    /// The stable authorization denial reason carried in `details`, when the
+    /// error was produced by an authorization gate (P1 plan §10).
+    pub fn details_reason(&self) -> &str {
+        let details = match self {
+            ApplicationError::StatusWithCode { details, .. }
+            | ApplicationError::ConflictWithCode { details, .. }
+            | ApplicationError::ValidationWithCode { details, .. }
+            | ApplicationError::ConflictValue { details, .. }
+            | ApplicationError::ProviderUnavailable { details, .. } => details,
+            _ => return "",
+        };
+        details
+            .get("reason_code")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+    }
+
     /// Human-readable message, unchanged from the source that produced it.
     pub fn message(&self) -> &str {
         match self {

@@ -79,8 +79,21 @@ struct BootContext {
     unit: PathBuf,
     data_root: PathBuf,
     jwt_secret: String,
+    /// SEC-P1 AUTH-08: process-local shared secret for the signed identity
+    /// assertion attached to Python-bound requests in MultiUser mode.
+    sidecar_assertion_secret: String,
 }
 static BOOT: OnceLock<BootContext> = OnceLock::new();
+
+/// Same switch the Rust API middleware reads (`ica-api::auth::AuthMode`).
+/// The shell does not own auth policy, but it must know whether to delegate
+/// identity to the Python sidecar and enforce the internal assertion.
+fn multiuser_mode() -> bool {
+    matches!(
+        std::env::var("ICA_AUTH_MODE").as_deref(),
+        Ok("multiuser") | Ok("multi-user") | Ok("true")
+    )
+}
 
 fn log_path() -> PathBuf {
     HOST_LOG
@@ -305,12 +318,38 @@ fn ensure_rust_backend() -> u16 {
 
 /// Build the Python sidecar launch description. `None` means no bundled
 /// interpreter, which is a legitimate Rust-only unit (P1 degradation).
-fn sidecar_spec(unit: &Path, data_root: &Path, policy: &RuntimePolicy) -> Option<ProcessSpec> {
+fn sidecar_spec(
+    unit: &Path,
+    data_root: &Path,
+    policy: &RuntimePolicy,
+    assertion_secret: &str,
+    multiuser: bool,
+) -> Option<ProcessSpec> {
     let python = unit.join(SIDECAR_PY);
     if !python.is_file() {
         return None;
     }
     let entry = unit.join("sidecar/app/run_sidecar.py");
+    // SEC-P1 AUTH-08: the sidecar must know the same process-local secret in
+    // order to verify assertions. In MultiUser mode it also has to verify the
+    // caller's bearer token, so it receives the host's signing key and mode.
+    let mut env = vec![
+        ("ICA_DATA_DIR".to_string(), data_root.display().to_string()),
+        ("PORT".to_string(), "0".to_string()),
+        ("PYTHONDONTWRITEBYTECODE".to_string(), "1".to_string()),
+        (
+            "PLAYWRIGHT_BROWSERS_PATH".to_string(),
+            unit.join("browsers").display().to_string(),
+        ),
+        (
+            "ICA_SIDECAR_ASSERTION_SECRET".to_string(),
+            assertion_secret.to_string(),
+        ),
+    ];
+    if multiuser {
+        env.push(("AUTH_MODE".to_string(), "multiuser".to_string()));
+        env.push(("JWT_SECRET".to_string(), BOOT.get().map(|b| b.jwt_secret.clone()).unwrap_or_default()));
+    }
     Some(ProcessSpec {
         kind: ManagedKind::PythonSidecar,
         program: python,
@@ -320,15 +359,7 @@ fn sidecar_spec(unit: &Path, data_root: &Path, policy: &RuntimePolicy) -> Option
             entry.display().to_string(),
         ],
         current_dir: unit.to_path_buf(),
-        env: vec![
-            ("ICA_DATA_DIR".to_string(), data_root.display().to_string()),
-            ("PORT".to_string(), "0".to_string()),
-            ("PYTHONDONTWRITEBYTECODE".to_string(), "1".to_string()),
-            (
-                "PLAYWRIGHT_BROWSERS_PATH".to_string(),
-                unit.join("browsers").display().to_string(),
-            ),
-        ],
+        env,
         handshake_timeout_ms: policy.handshake_timeout_ms,
         health_timeout_ms: policy.health_timeout_ms,
         log_dir: data_root.join("logs"),
@@ -410,7 +441,7 @@ fn handle_ica(
             Backend::Rust => (ensure_rust_backend(), "ica-server"),
             Backend::Python => (PY_PORT.load(Ordering::SeqCst), "sidecar"),
         };
-        let pairs: Vec<(String, String)> = headers
+        let mut pairs: Vec<(String, String)> = headers
             .iter()
             .filter_map(|(name, value)| {
                 value
@@ -419,6 +450,53 @@ fn handle_ica(
                     .map(|value| (name.as_str().to_string(), value.to_string()))
             })
             .collect();
+
+        // SEC-P1 AUTH-08: for Python-bound routes the host verifies the access
+        // bearer and mints a short-lived, bearer-bound assertion. The webview
+        // cannot forge it because the secret never leaves the host process.
+        if backend == Backend::Python && multiuser_mode() {
+            let boot = BOOT.get().expect("boot context initialized");
+            let bearer = pairs
+                .iter()
+                .find(|(name, _)| name == "authorization")
+                .and_then(|(_, value)| value.strip_prefix("Bearer "))
+                .unwrap_or_default()
+                .to_string();
+            let request_id = pairs
+                .iter()
+                .find(|(name, _)| name == "x-request-id")
+                .map(|(_, value)| value.as_str())
+                .unwrap_or_default()
+                .to_string();
+            let verified = ica_desktop::internal_assertion::verify_access_bearer(
+                &bearer,
+                &boot.jwt_secret,
+            );
+            match verified.and_then(|identity| {
+                ica_desktop::internal_assertion::mint_assertion_now(
+                    &bearer,
+                    &identity,
+                    &request_id,
+                    &boot.sidecar_assertion_secret,
+                )
+            }) {
+                Ok(assertion) => pairs.push((
+                    ica_desktop::internal_assertion::ASSERTION_HEADER.to_string(),
+                    assertion,
+                )),
+                Err(_) => {
+                    return tauri::http::Response::builder()
+                        .status(401)
+                        .header("content-type", "application/json")
+                        .body(
+                            br#"{"error":{"code":"unauthorized","message":"Authentication is required"}}"#
+                                .to_vec(),
+                        )
+                        .expect("401 response");
+                }
+            }
+        }
+
         return match ica_desktop::proxy::forward(
             port,
             &method,
@@ -589,10 +667,14 @@ fn main() {
     // the in-process AppRuntime, so an IPC token verifies against the same
     // secret an HTTP token would use.
     let jwt_secret = generate_jwt_secret();
+    // Separate from the long-lived JWT key: assertions are single-request
+    // credentials and a restart simply invalidates any outstanding ones.
+    let sidecar_assertion_secret = ica_desktop::internal_assertion::generate_secret();
     let _ = BOOT.set(BootContext {
         unit: unit.clone(),
         data_root: data_root.clone(),
         jwt_secret,
+        sidecar_assertion_secret,
     });
 
     // Rust HTTP server: an explicitly adopted external port always wins;
@@ -677,7 +759,13 @@ fn main() {
         Ok(_) => 0,
         _ => {
             let boot = BOOT.get().expect("boot context initialized");
-            match sidecar_spec(&boot.unit, &boot.data_root, &policy) {
+            match sidecar_spec(
+                &boot.unit,
+                &boot.data_root,
+                &policy,
+                &boot.sidecar_assertion_secret,
+                multiuser_mode(),
+            ) {
                 None => {
                     log_line(
                         &host_log,

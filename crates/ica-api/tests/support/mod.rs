@@ -43,6 +43,13 @@ pub async fn create_schema(path: &Path) {
         .execute(&pool)
         .await
         .expect("apply baseline schema");
+    // SEC-P1 §10: canonical migrations create the authz_decisions side table.
+    // The frozen baseline SQL itself stays untouched for contract parity.
+    let mut connection = pool.acquire().await.expect("acquire migration connection");
+    ica_infra::migrations::apply_pending_migrations(&mut connection)
+        .await
+        .expect("apply canonical migrations to test database");
+    drop(connection);
     pool.close().await;
 }
 
@@ -379,6 +386,9 @@ pub async fn app_state_for(path: &Path) -> AppState {
     let pool = connect(&format!("sqlite:///{}", path.display()))
         .await
         .expect("open seeded database");
+    // SEC-P1 §10: the decision recorder shares the pool so denials are visible
+    // in the same test database used to assert tenant isolation.
+    let authz_pool = pool.clone();
     let store = SqliteStore::new(pool);
     // The real AI generator over the in-memory secret store: every AI-error
     // path (unknown model, no key) is exercised for real, byte-for-byte
@@ -477,6 +487,9 @@ pub async fn app_state_for(path: &Path) -> AppState {
             bcrypt_cost: 4,
         },
     )
+    .with_authz_decisions(Arc::new(
+        ica_infra::authz_decisions::SqliteAuthzDecisionRecorder::new(authz_pool),
+    ))
 }
 
 /// Wire the router over `path` in Local mode (the historical default).

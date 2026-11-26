@@ -146,7 +146,9 @@ fn http_and_ipc_share_and_auth_paths_use_the_same_use_cases() {
     // middleware (a real JWT when present, the synthetic local actor in Local
     // mode); IPC still constructs the trusted local actor in its own adapter.
     assert_eq!(HTTP.matches("RequestContext::local()").count(), 0);
-    assert_eq!(IPC.matches("RequestContext::local()").count(), 3);
+    // SEC-P1: dashboard and audit IPC commands also construct the trusted
+    // Local-mode context so the tenant-scoped use cases run on both adapters.
+    assert_eq!(IPC.matches("RequestContext::local()").count(), 5);
     assert!(HTTP.contains("Extension<ica_application::RequestContext>"));
     assert!(HTTP.contains("auth::authenticate"));
     for source in [HTTP, IPC] {

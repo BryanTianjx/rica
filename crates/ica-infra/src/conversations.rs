@@ -312,6 +312,9 @@ impl SqliteStore {
 }
 
 /// Insert one conversation row on an open transaction.
+// The row shape is fixed by the baseline schema; grouping into a struct would
+// add indirection without changing the SQL or the ownership stamps.
+#[allow(clippy::too_many_arguments)]
 async fn insert_conversation_row(
     connection: &mut SqliteConnection,
     id: &str,

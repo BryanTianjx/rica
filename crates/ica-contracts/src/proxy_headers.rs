@@ -37,6 +37,9 @@ pub const REQUEST_ALLOWLIST: &[&str] = &[
     "content-type",      // JSON request bodies.
     "accept",            // content negotiation.
     "x-request-id",      // correlation id forwarded by existing clients.
+    // SEC-P1 AUTH-08: host-minted identity assertion for the Python sidecar.
+    // Response allowlist is deliberately unchanged: this never leaves the host.
+    "x-ica-internal-assertion",
 ];
 
 /// Response headers copied from the backend back to the webview.
@@ -460,6 +463,7 @@ connection: close\r\n\r\n{}";
                 ("content-type", "application/json"),
                 ("accept", "application/json"),
                 ("x-request-id", "req-42"),
+                ("x-ica-internal-assertion", "header.payload.signature"),
                 // browser-only / forbidden headers
                 ("user-agent", "Mozilla/5.0"),
                 ("sec-fetch-mode", "cors"),
@@ -479,6 +483,7 @@ connection: close\r\n\r\n{}";
             "content-type: application/json",
             "accept: application/json",
             "x-request-id: req-42",
+            "x-ica-internal-assertion: header.payload.signature",
             "connection: close",
         ] {
             assert!(

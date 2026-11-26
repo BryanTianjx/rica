@@ -564,7 +564,10 @@ pub async fn follow_ups_policy_patch(
 /// `dashboard` — the aggregated workbench, after the maintenance tick.
 pub async fn dashboard(state: &DesktopState) -> Result<dto::DashboardRead, IpcError> {
     use ica_domain::CandidateStatus;
-    let snapshot = ica_application::dashboard(state.dashboard()).await?;
+    // IPC is the Local-mode adapter: the same tenant-scoped use case runs here
+    // with the synthetic local context, keeping HTTP and IPC semantics equal.
+    let ctx = ica_application::RequestContext::local();
+    let snapshot = ica_application::dashboard(state.dashboard(), &ctx).await?;
     let mut status_counts = std::collections::BTreeMap::new();
     for status in [
         CandidateStatus::New,
@@ -967,8 +970,10 @@ pub async fn audit_events_list(
         limit: None,
     })
     .map_err(fail)?;
+    let ctx = ica_application::RequestContext::local();
     let events = ica_application::recent_audit_events(
         state.audit_trail(),
+        &ctx,
         query::ListAuditEvents {
             event_type: list.event_type,
             entity_type: list.entity_type,

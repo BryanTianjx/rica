@@ -18,7 +18,8 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use ica_application::{ApplicationError, RequestContext};
+use ica_application::ports::AuthzDecision;
+use ica_application::{ApplicationError, DenyReason, RequestContext};
 use ica_contracts::error::code;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::Deserialize;
@@ -64,6 +65,18 @@ pub fn is_public(path: &str) -> bool {
     PUBLIC_PATHS.contains(&path)
 }
 
+/// High-risk installation-level surfaces whose successful use must be
+/// auditable (P1 plan §8.4). Kept here so the middleware and tests agree on
+/// the same set without duplicating router knowledge.
+pub fn is_platform_operation(path: &str) -> bool {
+    path == "/api/dashboard/platform"
+        || path == "/api/export"
+        || path == "/api/import"
+        || path.starts_with("/api/backups")
+        || path.starts_with("/api/settings")
+        || path.starts_with("/api/ai/")
+}
+
 #[derive(Debug, Deserialize)]
 struct AccessClaims {
     sub: String,
@@ -74,11 +87,26 @@ struct AccessClaims {
 }
 
 fn status_error(status: u16, code_name: &'static str, message: &str) -> crate::ApiError {
+    status_error_with_reason(status, code_name, message, None)
+}
+
+/// A denial carrying a stable reason code for structured audit logging
+/// (P1 plan §10). The response body never reveals which tenant owns a resource.
+fn status_error_with_reason(
+    status: u16,
+    code_name: &'static str,
+    message: &str,
+    reason: Option<DenyReason>,
+) -> crate::ApiError {
+    let details = match reason {
+        Some(reason) => serde_json::json!({ "reason_code": reason.as_str() }),
+        None => serde_json::json!({}),
+    };
     ApplicationError::StatusWithCode {
         status,
         code: code_name,
         message: message.to_string(),
-        details: serde_json::json!({}),
+        details,
     }
     .into()
 }
@@ -119,6 +147,59 @@ pub fn verify_access_token(token: &str, secret: &str) -> Result<RequestContext, 
     ))
 }
 
+/// AUTH-02: a signed token is necessary but not sufficient. Reload the principal
+/// from the authoritative store on every MultiUser request so that disabling an
+/// account, removing tenant membership or downgrading a role takes effect
+/// without waiting for token expiry (plan §6 / TA-017..TA-019).
+async fn revalidate_principal(
+    state: &AppState,
+    ctx: RequestContext,
+) -> Result<RequestContext, crate::ApiError> {
+    let user = state
+        .auth_repo()
+        .get_user(&ctx.actor_id)
+        .await
+        .map_err(|_| {
+            status_error_with_reason(
+                401,
+                code::UNAUTHORIZED,
+                "Unable to verify the current principal",
+                Some(DenyReason::Unauthenticated),
+            )
+        })?
+        .ok_or_else(|| {
+            status_error_with_reason(
+                401,
+                code::UNAUTHORIZED,
+                "Principal no longer exists",
+                Some(DenyReason::PrincipalInactive),
+            )
+        })?;
+
+    if !user.is_active {
+        return Err(status_error_with_reason(
+            401,
+            code::UNAUTHORIZED,
+            "Principal is disabled",
+            Some(DenyReason::PrincipalInactive),
+        ));
+    }
+    if user.tenant_id != ctx.tenant_id {
+        return Err(status_error_with_reason(
+            403,
+            code::FORBIDDEN,
+            "Tenant membership is no longer active",
+            Some(DenyReason::MembershipInactive),
+        ));
+    }
+
+    // The database row is authoritative for the role. A stale token carrying
+    // `admin` after a downgrade cannot keep using the admin gate.
+    Ok(ctx
+        .with_authoritative_role(&user.role)
+        .with_membership_active(true))
+}
+
 /// Axum middleware: inject the authenticated identity into request extensions.
 pub async fn authenticate(
     State(state): State<AppState>,
@@ -131,6 +212,13 @@ pub async fn authenticate(
         .copied()
         .unwrap_or_else(AuthMode::from_env);
     let path = request.uri().path().to_owned();
+    let method = request.method().to_string();
+    let request_id = request
+        .headers()
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
 
     let ctx = if is_public(&path) {
         RequestContext::local()
@@ -142,7 +230,7 @@ pub async fn authenticate(
             .and_then(|value| value.strip_prefix("Bearer "));
         match bearer {
             Some(token) => match verify_access_token(token, &state.config().jwt_secret) {
-                Ok(ctx) => ctx,
+                Ok(ctx) => revalidate_principal(&state, ctx).await?,
                 // Local mode preserves the documented single-user boundary:
                 // a bogus bearer cannot escalate or deny the local actor.
                 Err(error) if mode == AuthMode::MultiUser => return Err(error),
@@ -155,8 +243,66 @@ pub async fn authenticate(
         }
     };
 
+    // SEC-P1 §10: record the denial as a structured decision. The recorder is
+    // a side table, so the frozen audit_events contract stays byte-identical.
+    let actor_id = ctx.actor_id.clone();
+    let tenant_id = ctx.tenant_id.clone();
+    let scope_kind =
+        if ctx.has_platform_permission(ica_application::PlatformPermission::AuditReadAll) {
+            "platform".to_string()
+        } else {
+            "tenant".to_string()
+        };
     request.extensions_mut().insert(ctx);
-    Ok(next.run(request).await)
+    let response = next.run(request).await;
+    let status = response.status().as_u16();
+    let denied = status == 401 || status == 403;
+    // Successful high-risk platform operations also need a structured record
+    // (plan §8.4). Only the side table is written; audit_events keeps the
+    // frozen baseline shape so contract capture stays byte-identical.
+    let allowed_platform_operation = (200..300).contains(&status) && is_platform_operation(&path);
+    if !denied && !allowed_platform_operation {
+        return Ok(response);
+    }
+
+    let (parts, body) = response.into_parts();
+    let bytes = axum::body::to_bytes(body, 16 * 1024)
+        .await
+        .unwrap_or_default();
+    let reason = if denied {
+        serde_json::from_slice::<serde_json::Value>(&bytes)
+            .ok()
+            .and_then(|value| {
+                value["error"]["details"]["reason_code"]
+                    .as_str()
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| {
+                if status == 401 {
+                    "AUTH_UNAUTHENTICATED"
+                } else {
+                    "AUTH_PERMISSION_DENIED"
+                }
+                .to_string()
+            })
+    } else {
+        "ALLOWED".to_string()
+    };
+    let decision = AuthzDecision {
+        request_id,
+        actor_id,
+        tenant_id,
+        action: format!("{method} {path}"),
+        resource_type: "http_route".to_string(),
+        decision: if denied { "deny" } else { "allow" }.to_string(),
+        reason_code: reason,
+        entrypoint: "http".to_string(),
+        scope_kind,
+        occurred_at: chrono::Utc::now(),
+    };
+    // Recording must never turn a denial into a 500.
+    let _ = state.authz_decisions().record(&decision).await;
+    Ok(Response::from_parts(parts, axum::body::Body::from(bytes)))
 }
 
 #[cfg(test)]

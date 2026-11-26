@@ -23,6 +23,9 @@ serde_json.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 sha2.workspace = true
+# SEC-P1 AUTH-08: signed internal identity assertion for the Python sidecar.
+jsonwebtoken = "9"
+uuid.workspace = true
 tokio.workspace = true
 # Browser Runtime POC (B1): the worker drives Chromium over the DevTools
 # protocol on a plain local WebSocket (`ws://127.0.0.1`, no TLS).

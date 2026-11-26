@@ -12,6 +12,8 @@ use ica_domain::{CandidateStatus, FollowUpTaskStatus, Message};
 use crate::error::ApplicationError;
 use crate::follow_ups::{DATA_RETENTION_DAYS, RAW_TEXT_TTL_DAYS};
 use crate::ports::{DashboardRepository, RepositoryError};
+use crate::request_context::{authorize, authorize_platform, Permission, PlatformPermission};
+use crate::{RequestContext, Scope};
 
 /// The states whose tasks the workbench section counts and lists.
 pub const PENDING_STATUSES: [FollowUpTaskStatus; 4] = [
@@ -54,33 +56,65 @@ pub struct DashboardSnapshot {
 /// baseline would not write on this read path.
 pub async fn dashboard(
     dashboard: &dyn DashboardRepository,
+    ctx: &RequestContext,
 ) -> Result<DashboardSnapshot, ApplicationError> {
-    run_maintenance(dashboard).await?;
+    // SEC-P1 AUTH-03: this is the tenant aggregate. The gate and the scope
+    // both come from the authenticated context, never from a request field.
+    authorize(ctx, Permission::AdminOperation)?;
+    let scope = Scope::from_context(ctx);
+    aggregate(dashboard, scope.as_ref()).await
+}
 
-    let candidate_total = dashboard.candidate_total().await.map_err(unavailable)?;
+/// Installation-wide aggregate (P1 plan §5.1). Not exposed through the
+/// tenant HTTP surface: it requires an explicit platform permission, so a
+/// tenant admin cannot reach cross-tenant numbers through any entrypoint.
+pub async fn platform_dashboard(
+    dashboard: &dyn DashboardRepository,
+    ctx: &RequestContext,
+) -> Result<DashboardSnapshot, ApplicationError> {
+    authorize_platform(ctx, PlatformPermission::DashboardReadAll)?;
+    aggregate(dashboard, None).await
+}
+
+async fn aggregate(
+    dashboard: &dyn DashboardRepository,
+    scope: Option<&Scope>,
+) -> Result<DashboardSnapshot, ApplicationError> {
+    run_maintenance(dashboard, scope).await?;
+
+    let candidate_total = dashboard
+        .candidate_total(scope)
+        .await
+        .map_err(unavailable)?;
     let candidate_status_counts = dashboard
-        .candidate_status_counts()
+        .candidate_status_counts(scope)
         .await
         .map_err(unavailable)?;
     let pending_follow_ups = dashboard
-        .pending_tasks(&PENDING_STATUSES, 20)
+        .pending_tasks(scope, &PENDING_STATUSES, 20)
         .await
         .map_err(unavailable)?;
     let active_follow_up_count = dashboard
-        .task_count_in(&PENDING_STATUSES)
+        .task_count_in(scope, &PENDING_STATUSES)
         .await
         .map_err(unavailable)?;
     let awaiting_result_count = dashboard
-        .task_count_in(&[FollowUpTaskStatus::AwaitingResult])
+        .task_count_in(scope, &[FollowUpTaskStatus::AwaitingResult])
         .await
         .map_err(unavailable)?;
     let pending_draft_count = dashboard
-        .draft_count_in(&PENDING_DRAFT_STATUSES)
+        .draft_count_in(scope, &PENDING_DRAFT_STATUSES)
         .await
         .map_err(unavailable)?;
-    let recent_messages = dashboard.recent_messages(10).await.map_err(unavailable)?;
-    let position_total = dashboard.position_total().await.map_err(unavailable)?;
-    let open_position_count = dashboard.open_position_count().await.map_err(unavailable)?;
+    let recent_messages = dashboard
+        .recent_messages(scope, 10)
+        .await
+        .map_err(unavailable)?;
+    let position_total = dashboard.position_total(scope).await.map_err(unavailable)?;
+    let open_position_count = dashboard
+        .open_position_count(scope)
+        .await
+        .map_err(unavailable)?;
 
     // The workbench calendar: this UTC month, message counts per day, and the
     // pending tasks' recommended days within the month. All UTC — the message
@@ -95,7 +129,7 @@ pub async fn dashboard(
         .expect("the first day of the current month is always valid");
     let month_prefix = month_start.format("%Y-%m").to_string();
     let calendar_messages_by_day = dashboard
-        .messages_by_day(month_start)
+        .messages_by_day(scope, month_start)
         .await
         .map_err(unavailable)?;
     let calendar_followups_by_day = {
@@ -131,22 +165,25 @@ pub async fn dashboard(
 
 /// The maintenance tick: candidate expiry (hard delete, retention window),
 /// audit-trail pruning, orphaned import raw-text blanking.
-async fn run_maintenance(dashboard: &dyn DashboardRepository) -> Result<(), ApplicationError> {
+async fn run_maintenance(
+    dashboard: &dyn DashboardRepository,
+    scope: Option<&Scope>,
+) -> Result<(), ApplicationError> {
     let now = Utc::now();
     if DATA_RETENTION_DAYS > 0 {
         let cutoff = now - Duration::days(DATA_RETENTION_DAYS);
         dashboard
-            .expire_old_candidates(cutoff)
+            .expire_old_candidates(scope, cutoff)
             .await
             .map_err(unavailable)?;
         dashboard
-            .prune_audit_events(cutoff)
+            .prune_audit_events(scope, cutoff)
             .await
             .map_err(unavailable)?;
     }
     if RAW_TEXT_TTL_DAYS > 0 {
         dashboard
-            .prune_stale_import_raw_text(now - Duration::days(RAW_TEXT_TTL_DAYS))
+            .prune_stale_import_raw_text(scope, now - Duration::days(RAW_TEXT_TTL_DAYS))
             .await
             .map_err(unavailable)?;
     }

@@ -1082,82 +1082,151 @@ impl SqliteStore {
     }
 }
 
+/// SEC-P1 AUTH-03: the ordered bind values for the authenticated scope.
+/// `scope_predicates` owns the tenant/owner rule; each dashboard query spells
+/// out the same predicates explicitly so the SQL text is reviewable.
+fn scope_binds(scope: Option<&Scope>) -> Vec<String> {
+    scope_predicates(scope, "x").1
+}
+
+/// `audit_events` has `tenant_id` and `actor_id` but no `owner_id`, so the
+/// non-admin restriction uses the actor instead of the owner.
+fn audit_scope_binds(scope: Option<&Scope>) -> Vec<String> {
+    let Some(scope) = scope else {
+        return Vec::new();
+    };
+    let mut binds = vec![scope.tenant_id.clone()];
+    if !scope.is_admin {
+        binds.push(scope.actor_id.clone());
+    }
+    binds
+}
+
 #[async_trait]
 impl DashboardRepository for SqliteStore {
-    async fn expire_old_candidates(&self, cutoff: DateTime<Utc>) -> Result<u64, RepositoryError> {
+    async fn expire_old_candidates(
+        &self,
+        scope: Option<&Scope>,
+        cutoff: DateTime<Utc>,
+    ) -> Result<u64, RepositoryError> {
+        let binds = scope_binds(scope);
+        let timestamp = to_sql_timestamp(&cutoff);
+        let query = match binds.len() {
+            2 => sqlx::query("DELETE FROM candidates AS c WHERE c.tenant_id = ? AND c.owner_id = ? AND c.archived = 1 AND c.updated_at < ?")
+                .bind(&binds[0]).bind(&binds[1]).bind(timestamp),
+            1 => sqlx::query("DELETE FROM candidates AS c WHERE c.tenant_id = ? AND c.archived = 1 AND c.updated_at < ?")
+                .bind(&binds[0]).bind(timestamp),
+            _ => sqlx::query("DELETE FROM candidates AS c WHERE c.archived = 1 AND c.updated_at < ?")
+                .bind(timestamp),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let result = sqlx::query("DELETE FROM candidates WHERE archived = 1 AND updated_at < ?")
-            .bind(to_sql_timestamp(&cutoff))
-            .execute(&mut *connection)
-            .await
-            .map_err(repo_error)?;
+        let result = query.execute(&mut *connection).await.map_err(repo_error)?;
         Ok(result.rows_affected())
     }
 
-    async fn prune_audit_events(&self, cutoff: DateTime<Utc>) -> Result<u64, RepositoryError> {
+    async fn prune_audit_events(
+        &self,
+        scope: Option<&Scope>,
+        cutoff: DateTime<Utc>,
+    ) -> Result<u64, RepositoryError> {
+        let binds = audit_scope_binds(scope);
+        let timestamp = to_sql_timestamp(&cutoff);
+        let query = match binds.len() {
+            2 => sqlx::query("DELETE FROM audit_events AS a WHERE a.tenant_id = ? AND a.actor_id = ? AND a.created_at < ?")
+                .bind(&binds[0]).bind(&binds[1]).bind(timestamp),
+            1 => sqlx::query("DELETE FROM audit_events AS a WHERE a.tenant_id = ? AND a.created_at < ?")
+                .bind(&binds[0]).bind(timestamp),
+            _ => sqlx::query("DELETE FROM audit_events AS a WHERE a.created_at < ?")
+                .bind(timestamp),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let result = sqlx::query("DELETE FROM audit_events WHERE created_at < ?")
-            .bind(to_sql_timestamp(&cutoff))
-            .execute(&mut *connection)
-            .await
-            .map_err(repo_error)?;
+        let result = query.execute(&mut *connection).await.map_err(repo_error)?;
         Ok(result.rows_affected())
     }
 
     async fn prune_stale_import_raw_text(
         &self,
+        scope: Option<&Scope>,
         cutoff: DateTime<Utc>,
     ) -> Result<u64, RepositoryError> {
+        let binds = scope_binds(scope);
+        let timestamp = to_sql_timestamp(&cutoff);
+        let query = match binds.len() {
+            2 => sqlx::query("UPDATE import_sessions AS i SET raw_text = '' WHERE i.tenant_id = ? AND i.owner_id = ? AND i.created_at < ? AND i.raw_text != ''")
+                .bind(&binds[0]).bind(&binds[1]).bind(timestamp),
+            1 => sqlx::query("UPDATE import_sessions AS i SET raw_text = '' WHERE i.tenant_id = ? AND i.created_at < ? AND i.raw_text != ''")
+                .bind(&binds[0]).bind(timestamp),
+            _ => sqlx::query("UPDATE import_sessions AS i SET raw_text = '' WHERE i.created_at < ? AND i.raw_text != ''")
+                .bind(timestamp),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let result = sqlx::query(
-            "UPDATE import_sessions SET raw_text = '' WHERE created_at < ? AND raw_text != ''",
-        )
-        .bind(to_sql_timestamp(&cutoff))
-        .execute(&mut *connection)
-        .await
-        .map_err(repo_error)?;
+        let result = query.execute(&mut *connection).await.map_err(repo_error)?;
         Ok(result.rows_affected())
     }
 
     async fn messages_by_day(
         &self,
+        scope: Option<&Scope>,
         month_start: chrono::DateTime<chrono::Utc>,
     ) -> Result<Vec<(String, i64)>, RepositoryError> {
+        let binds = scope_binds(scope);
+        let timestamp = to_sql_timestamp(&month_start);
+        let query = match binds.len() {
+            2 => sqlx::query_as("SELECT date(COALESCE(m.message_time, m.created_at)) AS day, COUNT(*) FROM messages m WHERE m.tenant_id = ? AND m.owner_id = ? AND COALESCE(m.message_time, m.created_at) >= ? GROUP BY day")
+                .bind(&binds[0]).bind(&binds[1]).bind(timestamp),
+            1 => sqlx::query_as("SELECT date(COALESCE(m.message_time, m.created_at)) AS day, COUNT(*) FROM messages m WHERE m.tenant_id = ? AND COALESCE(m.message_time, m.created_at) >= ? GROUP BY day")
+                .bind(&binds[0]).bind(timestamp),
+            _ => sqlx::query_as("SELECT date(COALESCE(m.message_time, m.created_at)) AS day, COUNT(*) FROM messages m WHERE COALESCE(m.message_time, m.created_at) >= ? GROUP BY day")
+                .bind(timestamp),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        // `func.date(coalesce(...))` renders `YYYY-MM-DD`; the window filter
-        // uses the same coalesced instant the baseline groups by.
-        let rows: Vec<(String, i64)> = sqlx::query_as(
-            "SELECT date(COALESCE(message_time, created_at)) AS day, COUNT(*)              FROM messages              WHERE COALESCE(message_time, created_at) >= ?              GROUP BY day",
-        )
-        .bind(to_sql_timestamp(&month_start))
-        .fetch_all(&mut *connection)
-        .await
-        .map_err(repo_error)?;
+        let rows = query
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(repo_error)?;
         Ok(rows)
     }
 
-    async fn candidate_total(&self) -> Result<i64, RepositoryError> {
+    async fn candidate_total(&self, scope: Option<&Scope>) -> Result<i64, RepositoryError> {
+        let binds = scope_binds(scope);
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM candidates WHERE archived = 0")
-            .fetch_one(&mut *connection)
-            .await
-            .map_err(repo_error)?;
+        let count = match binds.len() {
+            2 => sqlx::query_scalar("SELECT COUNT(*) FROM candidates c WHERE c.tenant_id = ? AND c.owner_id = ? AND c.archived = 0")
+                .bind(&binds[0])
+                .bind(&binds[1]),
+            1 => sqlx::query_scalar("SELECT COUNT(*) FROM candidates c WHERE c.tenant_id = ? AND c.archived = 0")
+                .bind(&binds[0]),
+            _ => sqlx::query_scalar("SELECT COUNT(*) FROM candidates c WHERE c.archived = 0"),
+        }
+        .fetch_one(&mut *connection)
+        .await
+        .map_err(repo_error)?;
         Ok(count)
     }
 
-    async fn candidate_status_counts(&self) -> Result<Vec<(String, i64)>, RepositoryError> {
+    async fn candidate_status_counts(
+        &self,
+        scope: Option<&Scope>,
+    ) -> Result<Vec<(String, i64)>, RepositoryError> {
+        let binds = scope_binds(scope);
+        let query = match binds.len() {
+            2 => sqlx::query_as("SELECT c.status, COUNT(*) FROM candidates c WHERE c.tenant_id = ? AND c.owner_id = ? AND c.archived = 0 GROUP BY c.status")
+                .bind(&binds[0]).bind(&binds[1]),
+            1 => sqlx::query_as("SELECT c.status, COUNT(*) FROM candidates c WHERE c.tenant_id = ? AND c.archived = 0 GROUP BY c.status")
+                .bind(&binds[0]),
+            _ => sqlx::query_as("SELECT c.status, COUNT(*) FROM candidates c WHERE c.archived = 0 GROUP BY c.status"),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let rows: Vec<(String, i64)> = sqlx::query_as(
-            "SELECT status, COUNT(*) FROM candidates WHERE archived = 0 GROUP BY status",
-        )
-        .fetch_all(&mut *connection)
-        .await
-        .map_err(repo_error)?;
+        let rows = query
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(repo_error)?;
         Ok(rows)
     }
 
     async fn pending_tasks(
         &self,
+        scope: Option<&Scope>,
         statuses: &[FollowUpTaskStatus],
         limit: usize,
     ) -> Result<Vec<FollowUpTask>, RepositoryError> {
@@ -1166,83 +1235,159 @@ impl DashboardRepository for SqliteStore {
             .map(|status| format!("'{}'", status.as_str()))
             .collect::<Vec<_>>()
             .join(", ");
-        let sql = format!(
-            "{SELECT_COLUMNS} WHERE t.status IN ({list}) \
-             ORDER BY (t.recommended_at IS NULL), t.recommended_at ASC LIMIT ?"
+        let binds = scope_binds(scope);
+        let tail = format!(
+            "t.status IN ({list}) ORDER BY (t.recommended_at IS NULL), t.recommended_at ASC LIMIT ?"
         );
+        let query = match binds.len() {
+            2 => sqlx::query_as::<_, FollowUpTaskRow>(sqlx::AssertSqlSafe(format!(
+                "{SELECT_COLUMNS} WHERE t.tenant_id = ? AND t.owner_id = ? AND {tail}"
+            )))
+            .bind(&binds[0])
+            .bind(&binds[1])
+            .bind(limit as i64),
+            1 => sqlx::query_as::<_, FollowUpTaskRow>(sqlx::AssertSqlSafe(format!(
+                "{SELECT_COLUMNS} WHERE t.tenant_id = ? AND {tail}"
+            )))
+            .bind(&binds[0])
+            .bind(limit as i64),
+            _ => sqlx::query_as::<_, FollowUpTaskRow>(sqlx::AssertSqlSafe(format!(
+                "{SELECT_COLUMNS} WHERE {tail}"
+            )))
+            .bind(limit as i64),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let rows: Vec<FollowUpTaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql.to_owned()))
-            .bind(limit as i64)
+        let rows = query
             .fetch_all(&mut *connection)
             .await
             .map_err(repo_error)?;
         rows.into_iter().map(FollowUpTaskRow::into_task).collect()
     }
 
-    async fn task_count_in(&self, statuses: &[FollowUpTaskStatus]) -> Result<i64, RepositoryError> {
+    async fn task_count_in(
+        &self,
+        scope: Option<&Scope>,
+        statuses: &[FollowUpTaskStatus],
+    ) -> Result<i64, RepositoryError> {
         let list = statuses
             .iter()
             .map(|status| format!("'{}'", status.as_str()))
             .collect::<Vec<_>>()
             .join(", ");
+        let binds = scope_binds(scope);
+        let query = match binds.len() {
+            2 => sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+                "SELECT COUNT(*) FROM follow_up_tasks f WHERE f.tenant_id = ? AND f.owner_id = ? AND f.status IN ({list})"
+            )))
+            .bind(&binds[0]).bind(&binds[1]),
+            1 => sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+                "SELECT COUNT(*) FROM follow_up_tasks f WHERE f.tenant_id = ? AND f.status IN ({list})"
+            )))
+            .bind(&binds[0]),
+            _ => sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+                "SELECT COUNT(*) FROM follow_up_tasks f WHERE f.status IN ({list})"
+            ))),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-            "SELECT COUNT(*) FROM follow_up_tasks WHERE status IN ({list})"
-        )))
-        .fetch_one(&mut *connection)
-        .await
-        .map_err(repo_error)?;
-        Ok(count)
-    }
-
-    async fn draft_count_in(&self, statuses: &[&str]) -> Result<i64, RepositoryError> {
-        let list = statuses
-            .iter()
-            .map(|status| format!("'{status}'"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-            "SELECT COUNT(*) FROM generated_drafts WHERE status IN ({list})"
-        )))
-        .fetch_one(&mut *connection)
-        .await
-        .map_err(repo_error)?;
-        Ok(count)
-    }
-
-    async fn recent_messages(&self, limit: usize) -> Result<Vec<Message>, RepositoryError> {
-        let sql = concat!(
-            "SELECT id, candidate_id, conversation_id, sender_type, content, message_time,",
-            " channel, source, created_at FROM messages",
-            " ORDER BY created_at DESC LIMIT ?"
-        );
-        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let rows: Vec<MessageRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql.to_owned()))
-            .bind(limit as i64)
-            .fetch_all(&mut *connection)
-            .await
-            .map_err(repo_error)?;
-        rows.into_iter().map(MessageRow::into_message).collect()
-    }
-
-    async fn position_total(&self) -> Result<i64, RepositoryError> {
-        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM positions WHERE archived = 0")
+        let count = query
             .fetch_one(&mut *connection)
             .await
             .map_err(repo_error)?;
         Ok(count)
     }
 
-    async fn open_position_count(&self) -> Result<i64, RepositoryError> {
+    async fn draft_count_in(
+        &self,
+        scope: Option<&Scope>,
+        statuses: &[&str],
+    ) -> Result<i64, RepositoryError> {
+        let list = statuses
+            .iter()
+            .map(|status| format!("'{status}'"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let binds = scope_binds(scope);
+        let query = match binds.len() {
+            2 => sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+                "SELECT COUNT(*) FROM generated_drafts d WHERE d.tenant_id = ? AND d.owner_id = ? AND d.status IN ({list})"
+            )))
+            .bind(&binds[0]).bind(&binds[1]),
+            1 => sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+                "SELECT COUNT(*) FROM generated_drafts d WHERE d.tenant_id = ? AND d.status IN ({list})"
+            )))
+            .bind(&binds[0]),
+            _ => sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+                "SELECT COUNT(*) FROM generated_drafts d WHERE d.status IN ({list})"
+            ))),
+        };
         let mut connection = self.pool().acquire().await.map_err(repo_error)?;
-        let count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM positions WHERE archived = 0 AND status = 'Open'",
-        )
-        .fetch_one(&mut *connection)
-        .await
-        .map_err(repo_error)?;
+        let count = query
+            .fetch_one(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        Ok(count)
+    }
+
+    async fn recent_messages(
+        &self,
+        scope: Option<&Scope>,
+        limit: usize,
+    ) -> Result<Vec<Message>, RepositoryError> {
+        let binds = scope_binds(scope);
+        let columns = "SELECT m.id, m.candidate_id, m.conversation_id, m.sender_type, m.content, m.message_time, m.channel, m.source, m.created_at FROM messages m";
+        let query = match binds.len() {
+            2 => sqlx::query_as::<_, MessageRow>(sqlx::AssertSqlSafe(format!(
+                "{columns} WHERE m.tenant_id = ? AND m.owner_id = ? ORDER BY m.created_at DESC LIMIT ?"
+            )))
+            .bind(&binds[0]).bind(&binds[1]).bind(limit as i64),
+            1 => sqlx::query_as::<_, MessageRow>(sqlx::AssertSqlSafe(format!(
+                "{columns} WHERE m.tenant_id = ? ORDER BY m.created_at DESC LIMIT ?"
+            )))
+            .bind(&binds[0]).bind(limit as i64),
+            _ => sqlx::query_as::<_, MessageRow>(sqlx::AssertSqlSafe(format!(
+                "{columns} ORDER BY m.created_at DESC LIMIT ?"
+            )))
+            .bind(limit as i64),
+        };
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let rows = query
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        rows.into_iter().map(MessageRow::into_message).collect()
+    }
+
+    async fn position_total(&self, scope: Option<&Scope>) -> Result<i64, RepositoryError> {
+        let binds = scope_binds(scope);
+        let query = match binds.len() {
+            2 => sqlx::query_scalar("SELECT COUNT(*) FROM positions p WHERE p.tenant_id = ? AND p.owner_id = ? AND p.archived = 0")
+                .bind(&binds[0]).bind(&binds[1]),
+            1 => sqlx::query_scalar("SELECT COUNT(*) FROM positions p WHERE p.tenant_id = ? AND p.archived = 0")
+                .bind(&binds[0]),
+            _ => sqlx::query_scalar("SELECT COUNT(*) FROM positions p WHERE p.archived = 0"),
+        };
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let count = query
+            .fetch_one(&mut *connection)
+            .await
+            .map_err(repo_error)?;
+        Ok(count)
+    }
+
+    async fn open_position_count(&self, scope: Option<&Scope>) -> Result<i64, RepositoryError> {
+        let binds = scope_binds(scope);
+        let query = match binds.len() {
+            2 => sqlx::query_scalar("SELECT COUNT(*) FROM positions p WHERE p.tenant_id = ? AND p.owner_id = ? AND p.archived = 0 AND p.status = 'Open'")
+                .bind(&binds[0]).bind(&binds[1]),
+            1 => sqlx::query_scalar("SELECT COUNT(*) FROM positions p WHERE p.tenant_id = ? AND p.archived = 0 AND p.status = 'Open'")
+                .bind(&binds[0]),
+            _ => sqlx::query_scalar("SELECT COUNT(*) FROM positions p WHERE p.archived = 0 AND p.status = 'Open'"),
+        };
+        let mut connection = self.pool().acquire().await.map_err(repo_error)?;
+        let count = query
+            .fetch_one(&mut *connection)
+            .await
+            .map_err(repo_error)?;
         Ok(count)
     }
 }

@@ -199,7 +199,11 @@ async fn the_canonical_list_applies_cleanly_on_the_baseline() {
     let applied = apply_pending_migrations(&mut connection)
         .await
         .expect("canonical migrations apply");
-    assert_eq!(applied, vec![1], "the canonical v1 index migration ran");
+    assert_eq!(
+        applied,
+        vec![1, 2],
+        "canonical v1 index and v2 authz side table ran"
+    );
     drop(connection);
 
     let (count,): (i64,) = sqlx::query_as(
