@@ -210,3 +210,16 @@ pub async fn resolve_model_api_key(
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty()))
 }
+
+/// Is an installation-wide API key stored right now?
+///
+/// The desktop UI asks "is an AI key configured?" and must be told the truth
+/// from the credential store itself: an in-memory flag is empty after every
+/// restart, so the GUI would keep claiming the key is missing even though the
+/// vault holds it. An unreadable store degrades to "absent" (the baseline's
+/// `load_secret`), never to a 500.
+pub async fn installation_key_present(
+    secrets: &dyn SecretStore,
+) -> Result<bool, crate::ports::RepositoryError> {
+    Ok(resolve_model_api_key(secrets, "", "").await?.is_some())
+}

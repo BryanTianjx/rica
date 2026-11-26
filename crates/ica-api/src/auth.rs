@@ -265,12 +265,17 @@ pub async fn authenticate(
         return Ok(response);
     }
 
+    // A denial carries a small JSON envelope, so reading it to extract the
+    // reason code is safe. A successful response is NEVER buffered: the
+    // export endpoint returns megabytes and re-wrapping it here would
+    // truncate the body the client receives.
     let (parts, body) = response.into_parts();
-    let bytes = axum::body::to_bytes(body, 16 * 1024)
-        .await
-        .unwrap_or_default();
-    let reason = if denied {
-        serde_json::from_slice::<serde_json::Value>(&bytes)
+    let action = format!("{method} {path}");
+    if denied {
+        let bytes = axum::body::to_bytes(body, 64 * 1024)
+            .await
+            .unwrap_or_default();
+        let reason = serde_json::from_slice::<serde_json::Value>(&bytes)
             .ok()
             .and_then(|value| {
                 value["error"]["details"]["reason_code"]
@@ -284,25 +289,38 @@ pub async fn authenticate(
                     "AUTH_PERMISSION_DENIED"
                 }
                 .to_string()
-            })
-    } else {
-        "ALLOWED".to_string()
-    };
+            });
+        let decision = AuthzDecision {
+            request_id,
+            actor_id,
+            tenant_id,
+            action,
+            resource_type: "http_route".to_string(),
+            decision: "deny".to_string(),
+            reason_code: reason,
+            entrypoint: "http".to_string(),
+            scope_kind,
+            occurred_at: chrono::Utc::now(),
+        };
+        // Recording must never turn a denial into a 500.
+        let _ = state.authz_decisions().record(&decision).await;
+        return Ok(Response::from_parts(parts, axum::body::Body::from(bytes)));
+    }
+
     let decision = AuthzDecision {
         request_id,
         actor_id,
         tenant_id,
-        action: format!("{method} {path}"),
+        action,
         resource_type: "http_route".to_string(),
-        decision: if denied { "deny" } else { "allow" }.to_string(),
-        reason_code: reason,
+        decision: "allow".to_string(),
+        reason_code: "ALLOWED".to_string(),
         entrypoint: "http".to_string(),
         scope_kind,
         occurred_at: chrono::Utc::now(),
     };
-    // Recording must never turn a denial into a 500.
     let _ = state.authz_decisions().record(&decision).await;
-    Ok(Response::from_parts(parts, axum::body::Body::from(bytes)))
+    Ok(Response::from_parts(parts, body))
 }
 
 #[cfg(test)]

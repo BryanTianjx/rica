@@ -15,9 +15,6 @@ sha2 = { workspace = true }
 bcrypt = "0.15"
 jsonwebtoken = "9"
 rand = "0.8"
-# The OS credential store (W5 ai-key, project ruling): Windows Credential
-# Manager / macOS Keychain via one cross-platform seam.
-keyring = "3"
 # The outbound AI provider (W5 real DraftGenerator): OpenAI-compatible chat
 # completions over TLS; rustls keeps Linux/Windows builds off system OpenSSL.
 reqwest.workspace = true
@@ -49,6 +46,30 @@ base64.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# ── The OS credential store (W5 ai-key, project ruling) ──────────────────────
+#
+# `keyring` only uses a REAL platform backend when the platform feature is
+# enabled. Without it the crate falls back to its in-memory **mock** store on
+# Windows and macOS: every `Entry::new()` then owns a throwaway mock, so a
+# written credential is unreadable one call later. The symptom is a silent
+# "API key saved" followed by "API key not found".
+#
+# The features are therefore declared per target:
+#   * Windows  → `windows-native` (Windows Credential Manager)
+#   * macOS    → `apple-native`   (Keychain)
+#   * Linux    → no backend: the adapter uses the baseline's 0600-file fallback
+#                under `<data root>/secrets` instead (see secret_store.rs).
+# `crates/ica-infra/tests/secret_store_backend.rs` fails the build if the
+# platform backend is missing again.
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(not(any(windows, target_os = "macos")))'.dependencies]
+keyring = "3"
 
 [lints]
 workspace = true

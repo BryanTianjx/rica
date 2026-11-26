@@ -584,6 +584,27 @@ pub async fn post_with_headers(
     send(app, request).await
 }
 
+/// Issue a PUT with extra headers (the AI key write path is a PUT).
+pub async fn put_with_headers(
+    app: Router,
+    uri: &str,
+    body: &str,
+    headers: &[(&str, &str)],
+) -> TestResponse {
+    let mut builder = axum::http::Request::builder()
+        .method("PUT")
+        .uri(uri)
+        .header("accept", "application/json")
+        .header("content-type", "application/json");
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    let request = builder
+        .body(Body::from(body.to_string()))
+        .expect("build request");
+    send(app, request).await
+}
+
 /// Issue a GET with extra headers (SEC-04-B bearer identity in tests).
 pub async fn get_with_headers(app: Router, uri: &str, headers: &[(&str, &str)]) -> TestResponse {
     let mut builder = axum::http::Request::builder()

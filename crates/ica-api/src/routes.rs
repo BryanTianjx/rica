@@ -1357,9 +1357,17 @@ async fn read_settings(
         ica_application::PlatformPermission::AiSettingsManage,
     )?;
     let snapshot = state.settings_config_view().settings_snapshot();
+    // The desktop UI reads this flag as "an AI key is configured". The
+    // configured env flag alone is not the truth: the key may live in the
+    // credential store (the normal desktop case) and the process flag is
+    // empty after every restart. Ask the store, so the GUI stops reporting a
+    // missing key that is actually there.
+    let key_present = ica_application::installation_key_present(state.secrets())
+        .await
+        .unwrap_or(false);
     Ok(Json(SettingsRead {
         app_name: snapshot.app_name,
-        ai_enabled: snapshot.ai_enabled,
+        ai_enabled: snapshot.ai_enabled || key_present,
         ai_provider: snapshot.ai_provider,
         ai_model: snapshot.ai_model,
         ai_base_url: snapshot.ai_base_url,
@@ -1568,8 +1576,13 @@ async fn write_ai_key_endpoint(
     if installation {
         state.set_ai_key_present(true);
     }
+    // Report the credential store's truth, not the process flag: the flag is
+    // empty after a restart even though the vault still holds the key.
+    let key_present = ica_application::installation_key_present(state.secrets())
+        .await
+        .unwrap_or(false);
     Ok(Json(AiKeyStatus {
-        ai_enabled: state.ai_key_present(),
+        ai_enabled: key_present || state.ai_key_present(),
         key_masked: masked,
         model_id,
     }))
@@ -1594,8 +1607,11 @@ async fn clear_ai_key_endpoint(
     if installation && model_id.is_none() {
         state.set_ai_key_present(false);
     }
+    let key_present = ica_application::installation_key_present(state.secrets())
+        .await
+        .unwrap_or(false);
     Ok(Json(AiKeyStatus {
-        ai_enabled: state.ai_key_present(),
+        ai_enabled: key_present || state.ai_key_present(),
         key_masked: masked,
         model_id,
     }))

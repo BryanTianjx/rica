@@ -31,8 +31,8 @@ pub mod sync;
 pub mod validators;
 
 pub use ai_key::{
-    api_key_resolved, clear_ai_key, mask_key, resolve_model_api_key, slot_for, write_ai_key,
-    AI_KEY_SLOT, AI_KEY_SLOT_PREFIX,
+    api_key_resolved, clear_ai_key, installation_key_present, mask_key, resolve_model_api_key,
+    slot_for, write_ai_key, AI_KEY_SLOT, AI_KEY_SLOT_PREFIX,
 };
 pub use ai_registry::{
     budget_read, budget_status, estimate_cost_cents, get_ai_routing, get_ai_usage,
