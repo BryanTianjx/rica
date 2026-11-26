@@ -169,4 +169,18 @@ describe('SessionPanel — session ops', () => {
     render(<SessionPanel />);
     await waitFor(() => expect(screen.getByText(/运行时未启动/)).toBeTruthy());
   });
+
+  it('enables session creation after the runtime starts elsewhere', async () => {
+    // The panel mounted while the runtime was stopped; RuntimePanel starts it
+    // without telling this panel. The status poll must pick the change up.
+    vi.spyOn(backend.browser, 'runtimeStatus')
+      .mockResolvedValueOnce({ runtime: makeStatus({ state: 'stopped' }) })
+      .mockResolvedValue({ runtime: makeStatus({ state: 'ready' }) });
+    render(<SessionPanel />);
+    await waitFor(() => expect(screen.getByText(/运行时未启动/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('新建会话')).toBeTruthy(), {
+      timeout: 4000,
+    });
+    expect(screen.queryByText(/运行时未启动/)).toBeNull();
+  });
 });

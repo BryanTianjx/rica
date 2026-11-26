@@ -11,7 +11,7 @@
  * sidecar，dev 由 vite 代理，两端行为一致。
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { backend } from '../../services/backend';
 import { ApiError } from '../../services/backend';
 import { Badge, EmptyState, ErrorBox, Loading } from '../ui';
@@ -54,6 +54,14 @@ export function SessionPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // 运行时由「运行时」面板启动，本面板挂载时拿到的可能是启动前的 stopped
+  // 快照。未 ready 时轻量轮询，启动后立即解除「新建会话」按钮的阻塞。
+  useEffect(() => {
+    if (runtimeStatus?.state === 'ready') return;
+    const timer = window.setInterval(() => runtime.reload(), 1500);
+    return () => window.clearInterval(timer);
+  }, [runtimeStatus?.state, runtime.reload]);
 
   const runtimeReady = runtimeStatus?.state === 'ready';
   const liveSessions = (runtimeStatus?.sessions ?? []).filter(
