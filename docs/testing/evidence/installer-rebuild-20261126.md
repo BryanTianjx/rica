@@ -1,17 +1,41 @@
-# NSIS 安装包重建与安装记录（2026-11-26）
+# NSIS 安装包重建与安装记录（2026-11-26 / 2026-11-28 更新）
 
-## 结果
+## 第二次重建（会话面板修复，2026-11-28 安装验证）
 
-- 安装包：`C:\ica-target\release\bundle\nsis\ICA Personal_0.2.2_x64-setup.exe`（222.91 MiB）
-- 大小：233,738,205 bytes
-- SHA256：`b2703cf2e656c93210c534d14b6af2a560cfe88777b8748522d4c0af07b22bd5`
-- 构建时间：2026-11-26 21:45:40 +0800
+- 源码基线：`9bb131e29cc34c323483e6fd5cc48f989facad1e`
+  （`fix(ui): 浏览器运行时启动后会话面板仍显示未启动`）
+- 安装包：`C:\ica-target\release\bundle\nsis\ICA Personal_0.2.2_x64-setup.exe`
+- SHA256：`6e32b01fa1f2695ad1e58d808db76d88953f37f3eb848b99b67090a3ba90c3f7`（223 MB）
+- 构建说明：Rust 侧复用缓存（1m18s）；makensis 报 `os error 32`（文件被占用）但安装包
+  已完整产出并验证可用——安装后 UI 引用新 bundle、manifest 为新 commit。
+- UI 组件更新：`ui/assets/index-CIWrFsan.js`
+  （`99a0fc1395db8f9f191150b2e90487b41e4724c63c4571ad29b498dc8216a35b`）、
+  `ui/index.html`（`f067ee8581ab3bc55e708bd3658ff43066e42ba27d5cf656bc429ecf6a18109b`）；
+  `version-manifest.json` 的 ui 组件哈希按「排序后各文件 SHA256 十六进制串拼接」重新计算
+  （`254a80b68f790a70241f4ed4d4a31e737f1a60bf1c8c8005fdf0dd139b211040`，bytes 430044）。
+  注意：原 tree-hash 算法未知，旧值无法复现，本次以该确定性口径重算并在此记录。
+- 安装：`/S` 静默安装退出码 0；安装后 `ui/index.html` 引用 `index-CIWrFsan.js`，
+  `version-manifest.json` 的 `build_commit=9bb131e…`。
+- 应用验证（2026-11-28）：
+  - 启动已安装应用，浏览器页在运行时停止状态下正确显示「运行时未启动」；
+  - 点击「启动运行时」→ sidecar `runtime/status` 变为 `ready`（cold_start 8.0s）；
+  - 会话面板的轮询取到 ready 后解除阻塞（该行为由 vitest 回归测试
+    `enables session creation after the runtime starts elsewhere` 钉住）；
+  - 在同一运行时上 `POST /api/browser/v1/sessions` → 201 `ses_452ea482801b4f8c987f8d56`，
+    随后 `DELETE` 关闭（200）。测试会话已清理。
+- GUI 自动化限制：运行时的 headed Chromium 窗口出现后，CUA 辅助进程观察超时并重启，
+  「新建会话」按钮的最终点击未能在 GUI 层留影；以上以「新 JS 已被加载 + 轮询逻辑有
+  单元回归测试 + 运行时/会话 API 端到端 201」作为替代证据。
+
+## 第一次重建（API Key 修复，2026-11-26）
+
+- 安装包 SHA256：`b2703cf2e656c93210c534d14b6af2a560cfe88777b8748522d4c0af07b22bd5`（已被第二次构建覆盖）
 - 源码基线：`0052e5eeb807c7ff9c056d5dad2bae5cc7b7b86c`
   （`fix(ai): 修复桌面端配置 API Key 后生成草稿仍提示不可用`）
 - 静默安装：`Start-Process ... -ArgumentList '/S' -Wait`，退出码 0
 - 安装目录：`O:\temp`（沿用现有 per-user 安装位置）
 
-## 组件哈希
+### 组件哈希
 
 | 组件 | SHA256 |
 |---|---|
@@ -24,7 +48,7 @@
 `SHA256SUMS` 与 `version-manifest.json`（`build_commit` / `built_at`）已同步更新；
 安装后的 `O:\temp\bundle-resources\ica-server.exe` 哈希与上表一致。
 
-## 重建步骤
+### 重建步骤
 
 1. 释放 O: 盘空间：删除过期的仓库根 `target/` 构建缓存（15 GB，全部新构建使用 `CARGO_TARGET_DIR=/c/ica-target`）。
 2. `CARGO_TARGET_DIR=/c/ica-target cargo build --release --locked -p ica-server`（5m50s，退出码 0）。
@@ -32,7 +56,7 @@
 4. `cd desktop/tauri-host && CARGO_TARGET_DIR=/c/ica-target tauri build`（约 13m，退出码 0，NSIS 222.91 MiB）。
 5. 用 `/S` 静默安装到 `O:\temp`，退出码 0。
 
-## 修复验证（安装后的二进制）
+### 修复验证（安装后的二进制）
 
 用真实数据副本启动**已安装**的 `ica-server.exe`：
 
